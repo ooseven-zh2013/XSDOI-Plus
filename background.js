@@ -11,98 +11,17 @@
 // 各自的 IndexedDB / OPFS 不互通；统一由本 worker（扩展 origin）中转。
 // ============================================================
 
-importScripts('constants.js');
+importScripts('constants.js', 'idb.js');
 
 var AC = self.AC_REPLACER;
 var BG = self.BG_REPLACER;
 
-// ---- 通用 IndexedDB 封装（按库名隔离）----
-function createStore(dbName) {
-  var STORE = 'media';
-  var DB_VERSION = 1;
-  var dbPromise = null;
+var acStore = self.IDB_STORE.createStore('ac-replacer-media');
+var bgStore = self.IDB_STORE.createStore('bg-replacer-media');
 
-  function openDB() {
-    if (dbPromise) return dbPromise;
-    dbPromise = new Promise(function (resolve, reject) {
-      var req = indexedDB.open(dbName, DB_VERSION);
-      req.onupgradeneeded = function () {
-        var db = req.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          db.createObjectStore(STORE);
-        }
-      };
-      req.onsuccess = function () { resolve(req.result); };
-      req.onerror = function () { reject(req.error); };
-    });
-    return dbPromise;
-  }
-
-  function put(key, value) {
-    return openDB().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction(STORE, 'readwrite');
-        tx.objectStore(STORE).put(value, key);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function () { reject(tx.error); };
-      });
-    });
-  }
-
-  function get(key) {
-    return openDB().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction(STORE, 'readonly');
-        var req = tx.objectStore(STORE).get(key);
-        req.onsuccess = function () { resolve(req.result); };
-        req.onerror = function () { reject(req.error); };
-      });
-    });
-  }
-
-  function remove(key) {
-    return openDB().then(function (db) {
-      return new Promise(function (resolve, reject) {
-        var tx = db.transaction(STORE, 'readwrite');
-        tx.objectStore(STORE).delete(key);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function () { reject(tx.error); };
-      });
-    });
-  }
-
-  return { put: put, get: get, remove: remove };
-}
-
-var acStore = createStore('ac-replacer-media');
-var bgStore = createStore('bg-replacer-media');
-
-// 背景替换：根据消息里的 key 决定存视频还是音频
+// 背景替换：根据消息里的 key 决定读/清视频还是音频
 function bgKey(msg) {
   return msg && msg.key === 'audio' ? 'bg-audio' : 'bg-media';
-}
-
-// 保存校验 + 响应（AC / BG 两套共用）
-function saveMedia(store, key, msg, sendResponse) {
-  var data = msg.data;
-  if (typeof data !== 'string' || !data.length) {
-    sendResponse({ ok: false, reason: 'invalid-data' });
-    return false;
-  }
-  store.put(key, { mime: msg.mime, data: data })
-    .then(function () { sendResponse({ ok: true }); })
-    .catch(function (e) { sendResponse({ ok: false, reason: String(e && e.message || e) }); });
-  return true;
-}
-
-function loadMedia(store, key, sendResponse) {
-  store.get(key)
-    .then(function (rec) {
-      if (!rec) { sendResponse({ ok: false, reason: 'not-found' }); return; }
-      sendResponse({ ok: true, mime: rec.mime, data: rec.data });
-    })
-    .catch(function (e) { sendResponse({ ok: false, reason: String(e && e.message || e) }); });
-  return true;
 }
 
 function clearMedia(store, key, sendResponse) {
@@ -111,6 +30,71 @@ function clearMedia(store, key, sendResponse) {
     .catch(function (e) { sendResponse({ ok: false, reason: String(e && e.message || e) }); });
   return true;
 }
+
+// ==================== 大文件分片读取（Port 流式，AC / BG 共用）====================
+// AC 动画与背景替换的 store 现在都直接存 Blob（不再 base64）。content script
+// 运行在页面 origin 读不到扩展 IndexedDB，故由本 worker 读 Blob 后分片推送，
+// 每片 8MB 原始字节（base64 后约 10.7MB，远低于 64MB 消息上限）。
+
+var BG_CHUNK_BYTES = 8 * 1024 * 1024;
+
+function arrayBufferToBase64(buf) {
+  var bytes = new Uint8Array(buf);
+  var chunk = 0x8000; // 32KB，避免 String.fromCharCode.apply 栈溢出
+  var parts = [];
+  for (var i = 0; i < bytes.length; i += chunk) {
+    parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + chunk)));
+  }
+  return btoa(parts.join(''));
+}
+
+async function streamBlob(store, port, key) {
+  try {
+    var rec = await store.get(key);
+    if (!rec) {
+      port.postMessage({ type: 'error', reason: 'not-found' });
+      return;
+    }
+    var blob = rec.blob;
+    if (!blob && typeof rec.data === 'string') {
+      // 兼容旧版本存量的 base64 字符串记录（转成 Blob 再分片）
+      var binary = atob(rec.data);
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      blob = new Blob([bytes], { type: rec.mime || '' });
+    }
+    if (!blob) {
+      port.postMessage({ type: 'error', reason: 'not-found' });
+      return;
+    }
+    port.postMessage({ type: 'meta', mime: blob.type || '', size: blob.size });
+
+    for (var offset = 0; offset < blob.size; offset += BG_CHUNK_BYTES) {
+      var slice = blob.slice(offset, Math.min(offset + BG_CHUNK_BYTES, blob.size));
+      var buf = await slice.arrayBuffer();
+      port.postMessage({ type: 'chunk', data: arrayBufferToBase64(buf) });
+    }
+    port.postMessage({ type: 'done' });
+  } catch (e) {
+    port.postMessage({ type: 'error', reason: String(e && e.message || e) });
+  }
+}
+
+chrome.runtime.onConnect.addListener(function (port) {
+  if (port.name === 'bg-media-stream') {
+    port.onMessage.addListener(function (msg) {
+      if (msg && msg.type === BG.MSG.load) {
+        streamBlob(bgStore, port, bgKey(msg));
+      }
+    });
+  } else if (port.name === 'ac-media-stream') {
+    port.onMessage.addListener(function (msg) {
+      if (msg && msg.type === AC.MSG.videoLoad) {
+        streamBlob(acStore, port, 'video');
+      }
+    });
+  }
+});
 
 // ==================== 代码自动保存：OPFS ====================
 
@@ -301,14 +285,12 @@ async function clearAll() {
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   if (!msg || !msg.type) return false;
 
-  // ===== AC 动画替换：视频 =====
-  if (msg.type === AC.MSG.videoSave) return saveMedia(acStore, 'video', msg, sendResponse);
-  if (msg.type === AC.MSG.videoLoad) return loadMedia(acStore, 'video', sendResponse);
+  // ===== AC 动画替换：清除视频 =====
+  // 上传由 popup 直写 IndexedDB，读取走 onConnect 分片，故只保留 clear
   if (msg.type === AC.MSG.videoClear) return clearMedia(acStore, 'video', sendResponse);
 
-  // ===== 背景替换：视频 / 音频 =====
-  if (msg.type === BG.MSG.save) return saveMedia(bgStore, bgKey(msg), msg, sendResponse);
-  if (msg.type === BG.MSG.load) return loadMedia(bgStore, bgKey(msg), sendResponse);
+  // ===== 背景替换：清除（视频 / 音频）=====
+  // 上传由 popup 直写 IndexedDB，读取走 onConnect 分片，故只保留 clear
   if (msg.type === BG.MSG.clear) return clearMedia(bgStore, bgKey(msg), sendResponse);
 
   // ===== 代码自动保存：OPFS =====

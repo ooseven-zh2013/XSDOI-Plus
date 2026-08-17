@@ -7,6 +7,7 @@
   'use strict';
 
   var AC = globalThis.AC_REPLACER;
+  var acStore = globalThis.IDB_STORE.createStore('ac-replacer-media');
 
   var fileInput = document.getElementById('file');
   var btnPick = document.getElementById('btn-pick');
@@ -296,20 +297,6 @@
     });
   }
 
-  // ---- 把 File 转 base64 字符串（字符串在 message passing 中稳定，二进制类型会被某些 Edge/Chromium 版本丢成 Object）----
-  function fileToBase64(file) {
-    return new Promise(function (resolve, reject) {
-      var reader = new FileReader();
-      reader.onload = function () {
-        var dataUrl = reader.result;
-        var comma = dataUrl.indexOf(',');
-        resolve(comma === -1 ? dataUrl : dataUrl.slice(comma + 1));
-      };
-      reader.onerror = function () { reject(reader.error); };
-      reader.readAsDataURL(file);
-    });
-  }
-
   // ---- 选择视频（本地大文件 → IndexedDB，避免 base64 膨胀）----
   btnPickVideo.addEventListener('click', function () { fileVideo.click(); });
 
@@ -324,11 +311,8 @@
     try {
       // 先探测能否解码，浏览器解不了的（HEVC / 容器不兼容）直接拦下，避免「保存成功却播不了」
       await probeVideo(f);
-      // 转 base64 字符串再 sendMessage：字符串在 message passing 中永不丢类型，
-      // 二进制类型（ArrayBuffer/TypedArray）在某些 Edge/Chromium 版本会被丢成 Object
-      var data = await fileToBase64(f);
-      var resp = await sendMessage({ type: AC.MSG.videoSave, mime: f.type || 'video/mp4', data: data });
-      if (!resp || !resp.ok) throw new Error(resp && resp.reason || 'save-failed');
+      // 直写扩展 IndexedDB（popup 与 background 同 origin），绕开 64MB 消息上限
+      await acStore.put('video', { mime: f.type || 'video/mp4', blob: f });
       // storage 只存标记，真正数据在 IndexedDB
       await chrome.storage.local.set({ video: { __indexed: true } });
       updateVideoStatus({ __indexed: true });

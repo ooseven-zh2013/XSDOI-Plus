@@ -8,6 +8,7 @@
   'use strict';
 
   var BG = globalThis.BG_REPLACER;
+  var bgStore = globalThis.IDB_STORE.createStore('bg-replacer-media');
 
   // ---- DOM ----
   var tabs = document.querySelectorAll('.bg-tab');
@@ -244,20 +245,6 @@
     });
   }
 
-  // ---- File → base64 字符串（去 data: 前缀）----
-  function fileToBase64(file) {
-    return new Promise(function (resolve, reject) {
-      var reader = new FileReader();
-      reader.onload = function () {
-        var dataUrl = reader.result;
-        var comma = dataUrl.indexOf(',');
-        resolve(comma === -1 ? dataUrl : dataUrl.slice(comma + 1));
-      };
-      reader.onerror = function () { reject(reader.error); };
-      reader.readAsDataURL(file);
-    });
-  }
-
   // ---- 视频：上传 ----
   videoPick.addEventListener('click', function () { videoFile.click(); });
 
@@ -271,9 +258,7 @@
     }
     try {
       await probeVideo(f);
-      var data = await fileToBase64(f);
-      var resp = await sendMessage({ type: BG.MSG.save, mime: f.type || 'video/mp4', data: data });
-      if (!resp || !resp.ok) throw new Error(resp && resp.reason || 'save-failed');
+      await bgStore.put('bg-media', { mime: f.type || 'video/mp4', blob: f });
       await chrome.storage.local.set({ bgType: 'video', bgSrc: { __indexed: true } });
       videoPreview.innerHTML = '<span>本地视频已保存</span>';
       setStatus('视频背景已保存', 'success');
@@ -343,9 +328,7 @@
         return;
       }
       try {
-        var data = await fileToBase64(f);
-        var resp = await sendMessage({ type: BG.MSG.save, key: 'audio', mime: f.type || 'audio/mpeg', data: data });
-        if (!resp || !resp.ok) throw new Error(resp && resp.reason || 'save-failed');
+        await bgStore.put('bg-audio', { mime: f.type || 'audio/mpeg', blob: f });
         await chrome.storage.local.set({ bgAudio: { __indexed: true } });
         syncAudio({ __indexed: true });
         setStatus('背景音乐已保存', 'success');

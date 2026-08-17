@@ -142,6 +142,41 @@
     }
   }
 
+  // ---- base64 → Blob ----
+  function base64ToBlob(b64, type) {
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: type });
+  }
+
+  // ---- 从 background 分片读取 IndexedDB 视频，拼成 Blob ----
+  function loadIndexedVideo(cb) {
+    var port = chrome.runtime.connect({ name: 'ac-media-stream' });
+    var chunks = [];
+    var mime = 'video/mp4';
+    var done = false;
+
+    port.onMessage.addListener(function (msg) {
+      if (!msg || done) return;
+      if (msg.type === 'meta') {
+        if (msg.mime) mime = msg.mime;
+      } else if (msg.type === 'chunk') {
+        chunks.push(msg.data);
+      } else if (msg.type === 'done') {
+        done = true;
+        port.disconnect();
+        cb(base64ToBlob(chunks.join(''), mime));
+      } else if (msg.type === 'error') {
+        done = true;
+        port.disconnect();
+        cb(null);
+      }
+    });
+
+    port.postMessage({ type: AC.MSG.videoLoad });
+  }
+
   // ---- 视频模式 ----
   function showVideo() {
     if (showing) return;
@@ -182,18 +217,13 @@
     };
     video.onerror = cleanup;
 
-    // 本地大文件走 IndexedDB（background 中转），URL / data URL 直接播
+    // 本地大文件走 IndexedDB（background 分片推送），URL / data URL 直接播
     if (config.video && config.video.__indexed) {
-      chrome.runtime.sendMessage({ type: AC.MSG.videoLoad }, function (resp) {
-        if (chrome.runtime.lastError || !resp || !resp.ok) {
+      loadIndexedVideo(function (blob) {
+        if (!blob) {
           cleanup();
           return;
         }
-        // data 是 base64 字符串，解码回字节再构造 Blob（字符串传输不丢类型）
-        var binary = atob(resp.data);
-        var bytes = new Uint8Array(binary.length);
-        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        var blob = new Blob([bytes], { type: resp.mime || 'video/mp4' });
         objectUrl = URL.createObjectURL(blob);
         video.src = objectUrl;
       });

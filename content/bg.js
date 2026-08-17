@@ -74,6 +74,40 @@
       'linear-gradient(' + angle + ', ' + (from || '#0e1018') + ', ' + (to || '#2d8cf0') + ')';
   }
 
+  // ---- base64 → Blob ----
+  function base64ToBlob(b64, type) {
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: type });
+  }
+
+  // ---- 从 background 分片读取 IndexedDB 大文件（视频 / 音频）----
+  function loadIndexedMedia(key, fallbackMime, cb) {
+    var port = chrome.runtime.connect({ name: 'bg-media-stream' });
+    var chunks = [];
+    var mime = fallbackMime;
+    var done = false;
+
+    port.onMessage.addListener(function (msg) {
+      if (!msg || done) return;
+      if (msg.type === 'meta') {
+        if (msg.mime) mime = msg.mime;
+      } else if (msg.type === 'chunk') {
+        chunks.push(msg.data);
+      } else if (msg.type === 'done') {
+        done = true;
+        port.disconnect();
+        cb(base64ToBlob(chunks.join(''), mime));
+      } else if (msg.type === 'error') {
+        done = true;
+        port.disconnect();
+      }
+    });
+
+    port.postMessage({ type: BG.MSG.load, key: key });
+  }
+
   // ---- 视频 ----
   function applyVideo(l, src, fit) {
     l.innerHTML = '';
@@ -90,13 +124,8 @@
     l.appendChild(video);
 
     if (src && src.__indexed) {
-      // 本地大文件从 IndexedDB 读
-      chrome.runtime.sendMessage({ type: BG.MSG.load }, function (resp) {
-        if (chrome.runtime.lastError || !resp || !resp.ok) return;
-        var binary = atob(resp.data);
-        var bytes = new Uint8Array(binary.length);
-        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        var blob = new Blob([bytes], { type: resp.mime || 'video/mp4' });
+      // 本地大文件从 IndexedDB 分片读取
+      loadIndexedMedia('bg-media', 'video/mp4', function (blob) {
         video.src = URL.createObjectURL(blob);
       });
     } else {
@@ -151,13 +180,8 @@
     currentAudio = audio;
 
     if (src && src.__indexed) {
-      // 本地大文件从 IndexedDB 读（key='audio'）
-      chrome.runtime.sendMessage({ type: BG.MSG.load, key: 'audio' }, function (resp) {
-        if (chrome.runtime.lastError || !resp || !resp.ok) return;
-        var binary = atob(resp.data);
-        var bytes = new Uint8Array(binary.length);
-        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        var blob = new Blob([bytes], { type: resp.mime || 'audio/mpeg' });
+      // 本地大文件从 IndexedDB 分片读取（key='audio'）
+      loadIndexedMedia('bg-audio', 'audio/mpeg', function (blob) {
         audio.src = URL.createObjectURL(blob);
         tryPlay(audio);
       });
