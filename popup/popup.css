@@ -345,8 +345,19 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
 .alpha-value {
   font-variant-numeric: tabular-nums;
   font-weight: 600; color: var(--accent);
-  min-width: 34px; text-align: right;
+  width: 52px;
+  padding: 3px 8px;
+  text-align: right;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
 }
+.alpha-value::-webkit-outer-spin-button,
+.alpha-value::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.alpha-value:focus { border-color: var(--accent); }
 .save-row { margin-top: 10px; }
 .save-btn {
   width: 100%; padding: 10px 0; border: none; border-radius: 10px;

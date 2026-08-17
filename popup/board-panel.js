@@ -28,7 +28,7 @@
   function syncUI() {
     if (toggle) toggle.checked = draft.enabled;
     if (alpha) alpha.value = draft.alpha;
-    if (alphaValue) alphaValue.textContent = draft.alpha.toFixed(2);
+    if (alphaValue) alphaValue.value = draft.alpha.toFixed(2);
   }
 
   // 判断 draft 与 saved 是否有差异，据此高亮「保存」按钮
@@ -100,11 +100,31 @@
     });
   }
 
+  // 把透明度规整到 0.01（对齐滑块 step）
+  function round2(v) {
+    return Math.round(clamp(v) * 100) / 100;
+  }
+
   // ===== 透明度滑块：只改草稿与数字，不写 storage =====
   if (alpha && alphaValue) {
     alpha.addEventListener('input', function () {
       draft.alpha = clamp(alpha.value);
-      alphaValue.textContent = draft.alpha.toFixed(2);
+      alphaValue.value = draft.alpha.toFixed(2);
+      updateSaveState();
+    });
+
+    // 数字输入框：可直接输入 0~1 的数，输入过程实时改草稿，失焦/回车时规整
+    alphaValue.addEventListener('input', function () {
+      var raw = parseFloat(alphaValue.value);
+      if (isNaN(raw)) return; // 空/非法内容，等 change 规整
+      draft.alpha = clamp(raw);
+      updateSaveState();
+    });
+    alphaValue.addEventListener('change', function () {
+      var v = round2(alphaValue.value);
+      draft.alpha = v;
+      alpha.value = v;
+      alphaValue.value = v.toFixed(2);
       updateSaveState();
     });
   }
