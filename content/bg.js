@@ -74,18 +74,20 @@
       'linear-gradient(' + angle + ', ' + (from || '#0e1018') + ', ' + (to || '#2d8cf0') + ')';
   }
 
-  // ---- base64 → Blob ----
-  function base64ToBlob(b64, type) {
+  // ---- base64 → 字节数组 ----
+  function base64ToBytes(b64) {
     var binary = atob(b64);
     var bytes = new Uint8Array(binary.length);
     for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return new Blob([bytes], { type: type });
+    return bytes;
   }
 
   // ---- 从 background 分片读取 IndexedDB 大文件（视频 / 音频）----
+  // 每片单独解码成字节数组再拼接：分片边界不一定是 3 的倍数，
+  // 直接拼接 base64 字符串会让中间出现 "=" padding，导致 atob 报错。
   function loadIndexedMedia(key, fallbackMime, cb) {
     var port = chrome.runtime.connect({ name: 'bg-media-stream' });
-    var chunks = [];
+    var parts = [];
     var mime = fallbackMime;
     var done = false;
 
@@ -94,11 +96,19 @@
       if (msg.type === 'meta') {
         if (msg.mime) mime = msg.mime;
       } else if (msg.type === 'chunk') {
-        chunks.push(msg.data);
+        parts.push(base64ToBytes(msg.data));
       } else if (msg.type === 'done') {
         done = true;
         port.disconnect();
-        cb(base64ToBlob(chunks.join(''), mime));
+        var total = 0;
+        for (var i = 0; i < parts.length; i++) total += parts[i].length;
+        var merged = new Uint8Array(total);
+        var off = 0;
+        for (var j = 0; j < parts.length; j++) {
+          merged.set(parts[j], off);
+          off += parts[j].length;
+        }
+        cb(new Blob([merged], { type: mime }));
       } else if (msg.type === 'error') {
         done = true;
         port.disconnect();

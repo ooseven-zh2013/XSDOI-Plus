@@ -19,7 +19,7 @@ var BG = self.BG_REPLACER;
 var acStore = self.IDB_STORE.createStore('ac-replacer-media');
 var bgStore = self.IDB_STORE.createStore('bg-replacer-media');
 
-// 背景替换：根据消息里的 key 决定读/清视频还是音频
+// 背景替换：clear 消息里 popup 用 key='audio' 表示音频，这里映射成 IndexedDB key
 function bgKey(msg) {
   return msg && msg.key === 'audio' ? 'bg-audio' : 'bg-media';
 }
@@ -84,7 +84,8 @@ chrome.runtime.onConnect.addListener(function (port) {
   if (port.name === 'bg-media-stream') {
     port.onMessage.addListener(function (msg) {
       if (msg && msg.type === BG.MSG.load) {
-        streamBlob(bgStore, port, bgKey(msg));
+        // content script 传的是完整 IndexedDB key（'bg-media' / 'bg-audio'），直接透传
+        streamBlob(bgStore, port, msg.key || 'bg-media');
       }
     });
   } else if (port.name === 'ac-media-stream') {
