@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "XSDOI-新赛道增强",
+  "name": "XSDOI-Plus",
   "version": "2.1.1",
   "description": "新赛道 OI（xsdoi.com）一站式增强：图标替换、AC 动画替换、题目 Markdown 复制、自测结果复制、暗色模式修复、板块亚克力美化、页面背景替换、代码自动备份、文件IO复制Cpp格式",
   "permissions": ["storage", "unlimitedStorage", "clipboardWrite"],
@@ -15,7 +15,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "XSDOI-新赛道增强",
+    "default_title": "XSDOI-Plus",
     "default_popup": "popup/popup.html",
     "default_icon": {
       "128": "icons/icon128.png"
