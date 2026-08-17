@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "XSDOI-Plus",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "description": "新赛道 OI（xsdoi.com）一站式增强：图标替换、AC 动画替换、题目 Markdown 复制、自测结果复制、暗色模式修复、板块亚克力美化、页面背景替换、代码自动备份、文件IO复制Cpp格式",
   "permissions": ["storage", "unlimitedStorage", "clipboardWrite"],
   "host_permissions": ["*://xsdoi.com/*", "*://*.xsdoi.com/*"],

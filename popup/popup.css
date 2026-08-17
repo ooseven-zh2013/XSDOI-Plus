@@ -507,8 +507,21 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
   border-bottom: 1px solid var(--border-soft);
   font-size: 12px;
 }
-.as-pid { font-family: Consolas, monospace; color: var(--text); }
-.as-cnt { color: var(--text-muted); }
+.as-pid { font-family: Consolas, monospace; color: var(--text); word-break: break-all; }
+.as-cnt { color: var(--text-muted); white-space: nowrap; }
+.as-right { display: flex; align-items: center; gap: 8px; }
+.as-go {
+  padding: 3px 10px;
+  border: 1px solid var(--brand);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--brand);
+  font-size: 11px;
+  cursor: pointer;
+  transition: opacity .15s;
+  white-space: nowrap;
+}
+.as-go:hover { opacity: .8; }
 .as-sum-empty {
   padding: 10px 2px;
   font-size: 12px;

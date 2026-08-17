@@ -35,6 +35,11 @@ function asSend(msg) {
   });
 }
 
+// 题目 ID 存储时用 . 代替 /，这里还原成路径并拼出题目页 URL
+function problemUrl(problemId) {
+  return 'https://xsdoi.com/' + problemId.replace(/\./g, '/');
+}
+
 // 渲染「题目ID：备份数量」列表
 function renderBackupSummary() {
   asSend({ type: 'LIST_SUMMARY' }).then(function (resp) {
@@ -48,12 +53,26 @@ function renderBackupSummary() {
       row.className = 'as-sum-item';
       var pid = document.createElement('span');
       pid.className = 'as-pid';
-      pid.textContent = item.problemId;
+      pid.textContent = item.problemId.replace(/\./g, '/'); // 显示时 . 还原为 /
+      pid.title = problemUrl(item.problemId);
+
+      var right = document.createElement('span');
+      right.className = 'as-right';
       var cnt = document.createElement('span');
       cnt.className = 'as-cnt';
       cnt.textContent = item.count + ' 个备份';
+      var goBtn = document.createElement('button');
+      goBtn.type = 'button';
+      goBtn.className = 'as-go';
+      goBtn.textContent = '前往题目';
+      goBtn.addEventListener('click', function () {
+        chrome.tabs.create({ url: problemUrl(item.problemId) });
+      });
+
+      right.appendChild(cnt);
+      right.appendChild(goBtn);
       row.appendChild(pid);
-      row.appendChild(cnt);
+      row.appendChild(right);
       backupSummaryEl.appendChild(row);
     });
   });
