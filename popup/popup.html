@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>XSDOI-新赛道增强</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <nav class="nav">
+      <div class="nav-item active" data-view="logo">图标替换</div>
+      <div class="nav-item" data-view="ac">AC 动画</div>
+      <div class="nav-item" data-view="board">板块美化</div>
+      <div class="nav-item" data-view="bg">背景替换</div>
+      <div class="nav-item" data-view="backup">代码备份</div>
+    </nav>
+
+    <main class="main">
+      <!-- ============ 图标替换 ============ -->
+      <section class="view active" id="view-logo">
+        <h2 class="view-title">图标替换</h2>
+
+        <div class="hide-toggle">
+          <div class="info">隐藏 Logo<small>开启后页面不显示任何图片，关闭后还原</small></div>
+          <label class="switch">
+            <input type="checkbox" id="hideToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="quick-apply">
+          <img src="../assets/builtin-logo.png" alt="内置暗色图标">
+          <div class="info">内置暗色图标<small>适用于 xsdoi.com 暗色模式</small></div>
+          <button class="btn-quick" id="applyBuiltin">应用</button>
+        </div>
+
+        <div class="sub-tabs">
+          <button class="sub-tab active" data-tab="url">URL 链接</button>
+          <button class="sub-tab" data-tab="upload">上传图片</button>
+        </div>
+
+        <div class="sub-panel active" id="panel-url">
+          <label>图片 URL 地址</label>
+          <div class="url-row">
+            <input type="text" id="urlInput" placeholder="https://example.com/logo.png">
+          </div>
+          <div class="preview-area" id="preview-url"></div>
+          <div class="btn-row">
+            <button class="btn-save" id="saveUrl">保存</button>
+          </div>
+        </div>
+
+        <div class="sub-panel" id="panel-upload">
+          <div class="upload-zone" id="uploadZone">
+            <div class="icon">📁</div>
+            <p>点击选择图片 或拖拽到此处</p>
+          </div>
+          <input type="file" id="fileInput" accept="image/*">
+          <div class="preview-area" id="preview-upload"></div>
+          <div class="btn-row">
+            <button class="btn-save" id="saveUpload" disabled>保存</button>
+            <button class="btn-clear" id="clearUpload" disabled>清除</button>
+          </div>
+        </div>
+
+        <div class="status" id="status"></div>
+        <div class="current-state" id="currentState"></div>
+      </section>
+
+      <!-- ============ AC 动画 ============ -->
+      <section class="view" id="view-ac">
+        <h2 class="view-title">AC 动画替换</h2>
+        <p class="view-sub">AC 时显示你的图片 / 视频，淡入淡出各 1s</p>
+
+        <div class="block">
+          <div class="switch-row">
+            <span class="switch-label">视频模式</span>
+            <label class="switch">
+              <input type="checkbox" id="video-mode">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="tip">开启后隐藏图片和音频，改为播放视频</div>
+        </div>
+
+        <div id="media-blocks">
+          <div class="block">
+            <div class="label">自定义图片（jpg / png / gif，≤ 8MB）</div>
+            <div class="row">
+              <button class="btn primary" id="btn-pick">选择图片</button>
+              <button class="btn danger" id="btn-clear">清除</button>
+            </div>
+            <input type="file" id="file" accept="image/jpeg,image/png,image/gif" hidden>
+
+            <div class="label label-gap">或填云链接</div>
+            <div class="row url-row">
+              <input type="text" id="url" placeholder="https://example.com/x.gif">
+              <button class="btn" id="btn-apply-url">应用</button>
+            </div>
+
+            <div class="preview" id="preview">
+              <span class="placeholder">还没有图片</span>
+            </div>
+          </div>
+
+          <div class="block">
+            <div class="label">音频（mp3，可选，本地或云链接）</div>
+            <div class="row">
+              <button class="btn" id="btn-pick-audio">选择音频</button>
+              <button class="btn danger" id="btn-clear-audio">清除</button>
+            </div>
+            <input type="file" id="file-audio" accept="audio/mpeg,.mp3,audio/mp3" hidden>
+            <div class="row url-row">
+              <input type="text" id="audio-url" placeholder="https://example.com/x.mp3">
+              <button class="btn" id="btn-apply-audio-url">应用</button>
+            </div>
+            <div class="tip" id="audio-status">未设置音频</div>
+          </div>
+        </div>
+
+        <div class="block" id="video-block" style="display:none;">
+          <div class="label">视频（mp4 / webm，本地或云链接）</div>
+          <div class="row">
+            <button class="btn" id="btn-pick-video">选择视频</button>
+            <button class="btn danger" id="btn-clear-video">清除</button>
+          </div>
+          <input type="file" id="file-video" accept="video/*" hidden>
+          <div class="row url-row">
+            <input type="text" id="video-url" placeholder="https://example.com/x.mp4">
+            <button class="btn" id="btn-apply-video-url">应用</button>
+          </div>
+          <div class="tip" id="video-status">未设置视频</div>
+        </div>
+
+        <div class="block">
+          <button class="btn outline" id="btn-test">测试播放</button>
+          <div class="tip">点一下会在当前页面播放一次淡入淡出（需在 xsdoi.com 页面）</div>
+        </div>
+
+        <div class="block">
+          <div class="label">显示时长</div>
+          <div class="duration-row">
+            <input type="number" id="duration" min="0" max="60" step="0.5" value="3">
+            <span class="unit">秒（停留）</span>
+          </div>
+          <div class="tip">淡入 1s + 停留 N 秒 + 淡出 1s，改动自动保存</div>
+        </div>
+
+        <div class="toast" id="toast"></div>
+      </section>
+
+      <!-- ============ 板块美化 ============ -->
+      <section class="view" id="view-board">
+        <h2 class="view-title">板块美化</h2>
+        <p class="view-sub">亚克力毛玻璃外观，亮色/暗色自适应</p>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">背景模糊</div>
+            <div class="desc">关闭后仅去掉模糊，仍保留透明</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="board-toggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">卡片透明度</div>
+            <div class="desc">0 = 全透明，1 = 不透明</div>
+          </div>
+          <div class="alpha-ctl">
+            <input type="range" id="board-alpha" class="alpha-slider" min="0" max="1" step="0.01" value="0.55">
+            <span class="alpha-value" id="board-alpha-value">0.55</span>
+          </div>
+        </div>
+
+        <div class="save-row">
+          <button id="board-save" class="save-btn">保存并应用</button>
+        </div>
+        <p class="tip">调整后请点击「保存并应用」才会生效并持久化。</p>
+      </section>
+
+      <!-- ============ 背景替换 ============ -->
+      <section class="view" id="view-bg">
+        <h2 class="view-title">背景替换</h2>
+        <p class="view-sub">把页面背景换成图片 / 动图(gif) / 视频 / 纯色 / 渐变</p>
+
+        <div class="bg-tabs">
+          <button class="bg-tab active" data-tab="image">图片 / 音频</button>
+          <button class="bg-tab" data-tab="video">视频</button>
+          <button class="bg-tab" data-tab="gradient">渐变壁纸 / 音频</button>
+        </div>
+
+        <!-- 图片 -->
+        <div class="bg-panel active" id="bg-panel-image">
+          <div class="bg-color-block">
+            <label>纯色壁纸</label>
+            <div class="bg-row bg-color-row">
+              <input type="color" id="bg-color-picker" value="#0e1018" title="点击选色">
+              <input type="text" id="bg-color-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+            </div>
+            <div class="bg-btn-pair">
+              <button class="bg-btn primary" id="bg-color-apply">应用纯色</button>
+              <button class="bg-btn danger" id="bg-color-clear">清除</button>
+            </div>
+            <div class="bg-color-tip" id="bg-color-status">未设置</div>
+          </div>
+
+          <label class="bg-gap">图片 URL（png / jpg / gif / webp）</label>
+          <div class="bg-row">
+            <input type="text" id="bg-img-url" placeholder="https://example.com/bg.gif">
+            <button class="bg-btn" id="bg-img-apply-url">应用</button>
+          </div>
+
+          <label class="bg-gap">或上传本地图片（≤ 8MB）</label>
+          <div class="bg-btn-pair">
+            <button class="bg-btn primary" id="bg-img-pick">上传图片</button>
+            <button class="bg-btn danger" id="bg-clear">清除背景</button>
+          </div>
+          <input type="file" id="bg-img-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+
+          <label class="bg-gap">显示方式</label>
+          <div class="bg-fits">
+            <button class="bg-fit active" data-fit="cover">铺满</button>
+            <button class="bg-fit" data-fit="contain">完整显示</button>
+            <button class="bg-fit" data-fit="repeat">平铺</button>
+          </div>
+
+          <div class="bg-preview" id="bg-img-preview"><span>还没有背景</span></div>
+
+          <div class="bg-audio">
+            <label>背景音乐（可选，图片模式下循环播放）</label>
+            <div class="bg-row">
+              <input type="text" id="bg-audio-url" placeholder="https://example.com/bgm.mp3">
+              <button class="bg-btn" id="bg-audio-apply-url">应用</button>
+            </div>
+            <div class="bg-btn-pair">
+              <button class="bg-btn primary" id="bg-audio-pick">上传音频</button>
+              <button class="bg-btn danger" id="bg-audio-clear">清除</button>
+            </div>
+            <input type="file" id="bg-audio-file" accept="audio/mpeg,.mp3,audio/mp4,.m4a,audio/wav,.wav" hidden>
+            <div class="bg-audio-tip" id="bg-audio-status">未设置背景音乐</div>
+          </div>
+        </div>
+
+        <!-- 视频 -->
+        <div class="bg-panel" id="bg-panel-video">
+          <label>视频 URL（mp4 / webm）</label>
+          <div class="bg-row">
+            <input type="text" id="bg-video-url" placeholder="https://example.com/bg.mp4">
+            <button class="bg-btn" id="bg-video-apply-url">应用</button>
+          </div>
+
+          <label class="bg-gap">或上传本地视频（≤ 100MB）</label>
+          <button class="bg-btn primary" id="bg-video-pick">选择视频</button>
+          <input type="file" id="bg-video-file" accept="video/*" hidden>
+
+          <label class="bg-gap">显示方式</label>
+          <div class="bg-fits">
+            <button class="bg-fit active" data-fit="cover">铺满</button>
+            <button class="bg-fit" data-fit="contain">完整显示</button>
+          </div>
+
+          <div class="bg-preview" id="bg-video-preview"><span>还没有背景</span></div>
+        </div>
+
+        <!-- 渐变壁纸 -->
+        <div class="bg-panel" id="bg-panel-gradient">
+          <label>起始色</label>
+          <div class="bg-row bg-color-row">
+            <input type="color" id="bg-grad-from-picker" value="#0e1018" title="点击选色">
+            <input type="text" id="bg-grad-from-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+          </div>
+
+          <label class="bg-gap">结束色</label>
+          <div class="bg-row bg-color-row">
+            <input type="color" id="bg-grad-to-picker" value="#2d8cf0" title="点击选色">
+            <input type="text" id="bg-grad-to-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+          </div>
+
+          <label class="bg-gap">渐变方向</label>
+          <div class="bg-fits" id="bg-gradient-dirs">
+            <button class="bg-fit active" data-dir="left-right">左-右</button>
+            <button class="bg-fit" data-dir="top-bottom">上-下</button>
+            <button class="bg-fit" data-dir="tl-br">左上-右下</button>
+            <button class="bg-fit" data-dir="tr-bl">右上-左下</button>
+          </div>
+
+          <div class="bg-btn-pair">
+            <button class="bg-btn primary" id="bg-gradient-apply">应用渐变</button>
+            <button class="bg-btn danger" id="bg-gradient-clear">清除</button>
+          </div>
+          <div class="bg-color-tip" id="bg-gradient-status">未设置</div>
+
+          <div class="bg-audio">
+            <label>背景音乐（可选，渐变模式下循环播放）</label>
+            <div class="bg-row">
+              <input type="text" id="bg-gaudio-url" placeholder="https://example.com/bgm.mp3">
+              <button class="bg-btn" id="bg-gaudio-apply-url">应用</button>
+            </div>
+            <div class="bg-btn-pair">
+              <button class="bg-btn primary" id="bg-gaudio-pick">上传音频</button>
+              <button class="bg-btn danger" id="bg-gaudio-clear">清除</button>
+            </div>
+            <input type="file" id="bg-gaudio-file" accept="audio/mpeg,.mp3,audio/mp4,.m4a,audio/wav,.wav" hidden>
+            <div class="bg-audio-tip" id="bg-gaudio-status">未设置背景音乐</div>
+          </div>
+        </div>
+
+        <div class="status" id="bg-status"></div>
+        <div class="current-state" id="bg-current"></div>
+      </section>
+
+      <!-- ============ 代码备份 ============ -->
+      <section class="view" id="view-backup">
+        <h2 class="view-title">代码备份</h2>
+        <p class="view-sub">查看、导出、导入或清空代码自动备份</p>
+
+        <div class="as-row">
+          <button class="as-btn as-primary" id="backup-export">导出全部</button>
+          <button class="as-btn" id="backup-import">导入</button>
+        </div>
+        <div class="as-row">
+          <button class="as-btn as-danger" id="backup-clear">全部清空</button>
+        </div>
+        <div class="as-summary" id="backup-summary"></div>
+        <div class="as-status" id="backup-status"></div>
+        <input type="file" id="backup-file-input" accept=".json,application/json,text/plain" style="display:none;">
+      </section>
+
+    </main>
+  </div>
+
+  <script src="../constants.js"></script>
+  <script src="popup.js"></script>
+  <script src="logo-panel.js"></script>
+  <script src="ac-panel.js"></script>
+  <script src="board-panel.js"></script>
+  <script src="bg-panel.js"></script>
+  <script src="auto-save-panel.js"></script>
+</body>
+</html>
