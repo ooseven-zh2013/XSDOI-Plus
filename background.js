@@ -250,15 +250,19 @@ async function importAll(files) {
 }
 
 // 统计每个题目 ID 的备份数量 → [{ problemId, count }]
+// 注意：题目 ID 本身可含「-」「.」（如 problem.C10-1），不能按「-」切分；
+// 改用固定格式的时间戳（6 段日期时间）作为锚点切出题目 ID。
+var BACKUP_TS_RE = /-(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})-/;
 async function listSummary() {
   var dir = await getBackupDir();
   var counts = {};
   for await (var entry of dir.entries()) {
     var name = entry[0];
     if (entry[1].kind !== 'file') continue;
-    var idx = name.indexOf('-');
-    if (idx <= 0) continue;
-    var pid = name.slice(0, idx);
+    var m = name.match(BACKUP_TS_RE);
+    if (!m) continue; // 无法识别时间戳（非备份文件或旧格式）跳过
+    var pid = name.slice(0, m.index);
+    if (!pid) continue;
     counts[pid] = (counts[pid] || 0) + 1;
   }
   var list = Object.keys(counts).map(function (pid) {

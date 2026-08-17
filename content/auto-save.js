@@ -38,10 +38,12 @@
     return null;
   }
 
-  // 从 URL 提取题目 ID，如 /problem/C0201 -> C0201
+  // 从 URL 提取题目 ID：取 pathname（去掉首尾 /），把剩余 / 替换为 .
+  // 如 /problem/C10-1 -> problem.C10-1
   function getProblemId() {
-    var m = location.pathname.match(/\/problem\/([^/?#]+)/);
-    return m ? m[1] : null;
+    var p = location.pathname.replace(/^\/+|\/+$/g, '');
+    if (!p) return null;
+    return p.replace(/\//g, '.');
   }
 
   // 从编辑器取代码（main.js 主世界已同步到 textarea 的 value）
