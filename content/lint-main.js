@@ -65,11 +65,19 @@
       if (d.severity < 3) continue; // 忽略 warning(2) / note(1)
       var line = d.line - 1;
       if (line < 0 || line >= cmDoc.lineCount()) continue;
-      var lineLen = cmDoc.getLine(line).length;
+      var lineText = cmDoc.getLine(line);
+      var lineLen = lineText.length;
       if (lineLen === 0) continue;
       var ch = Math.max(0, Math.min(d.column - 1, lineLen - 1));
+      // godbolt 只给 line/column（错误起始位置），没有 token 长度。
+      // 向后扫描标识符 token（字母/数字/下划线），标红整个 token（如 retur）而非单个字符
+      var endCh = ch;
+      while (endCh < lineLen && /[A-Za-z0-9_]/.test(lineText.charAt(endCh))) {
+        endCh++;
+      }
+      if (endCh === ch) endCh = ch + 1; // 非标识符（如符号），至少标红 1 个字符
       var from = { line: line, ch: ch };
-      var to = { line: line, ch: ch + 1 };
+      var to = { line: line, ch: endCh };
       try {
         markers.push(cmDoc.markText(from, to, { className: ERROR_CLASS }));
       } catch (e) { /* 忽略单个标记失败 */ }
