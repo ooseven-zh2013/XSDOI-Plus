@@ -18,7 +18,7 @@
     video: null,
     videoMode: false,
     duration: 3000, // 停留毫秒
-    fade: true,     // 淡入淡出开关（false 时直接显示 / 消失）
+    fadeMs: FADE_MS, // 淡入/淡出时长（毫秒），0 表示无过渡
   };
 
   var LIMITS = {
@@ -40,9 +40,10 @@
     return Number.isFinite(n) ? n : 3000;
   }
 
-  // 媒体需要播放的最短毫秒数：停留 + 淡入淡出（2 * FADE_MS）
-  function mediaDurationNeededMs(durationMs) {
-    return Math.max(0, normalizeDuration(durationMs)) + 2 * FADE_MS;
+  // 媒体需要播放的最短毫秒数：停留 + 淡入淡出（2 * fadeMs，缺省用 FADE_MS）
+  function mediaDurationNeededMs(durationMs, fadeMs) {
+    var f = (typeof fadeMs === 'number' && isFinite(fadeMs)) ? Math.max(0, fadeMs) : FADE_MS;
+    return Math.max(0, normalizeDuration(durationMs)) + 2 * f;
   }
 
   global.AC_REPLACER = {

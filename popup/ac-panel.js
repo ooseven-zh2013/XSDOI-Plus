@@ -82,7 +82,9 @@
     }
     videoModeInput.checked = !!res.videoMode;
     applyVideoMode(!!res.videoMode);
-    fadeInput.checked = (res.fade !== false);
+    var fm0 = Number(res.fadeMs);
+    if (!isFinite(fm0) || fm0 < 0) fm0 = (res.fade === false ? 0 : AC.FADE_MS);
+    fadeInput.value = fm0 / 1000;
     durationInput.value = AC.normalizeDuration(res.duration) / 1000;
   });
 
@@ -170,7 +172,10 @@
 
   // ---- 校验音频时长并保存（需 ≥ 停留时长 + 2 秒）----
   function checkAndSaveAudio(src) {
-    var needSec = AC.mediaDurationNeededMs(parseFloat(durationInput.value) * 1000) / 1000;
+    var needSec = AC.mediaDurationNeededMs(
+      parseFloat(durationInput.value) * 1000,
+      parseFloat(fadeInput.value) * 1000
+    ) / 1000;
     var a = new Audio();
     a.preload = 'metadata';
     a.onloadedmetadata = function () {
@@ -245,12 +250,23 @@
     });
   });
 
-  // ---- 淡入淡出开关 ----
-  fadeInput.addEventListener('change', function () {
-    var on = fadeInput.checked;
-    chrome.storage.local.set({ fade: on }, function () {
-      showToast(on ? '已开启淡入淡出' : '已关闭淡入淡出');
+  // ---- 淡入淡出时长（秒，0 = 无过渡）----
+  var fadeSaveTimer = null;
+  function saveFade() {
+    var sec = parseFloat(fadeInput.value);
+    if (isNaN(sec) || sec < 0) sec = 0;
+    fadeInput.value = sec;
+    chrome.storage.local.set({ fadeMs: Math.round(sec * 1000) }, function () {
+      showToast(sec === 0 ? '已关闭淡入淡出' : '淡入淡出时长已保存');
     });
+  }
+  fadeInput.addEventListener('input', function () {
+    clearTimeout(fadeSaveTimer);
+    fadeSaveTimer = setTimeout(saveFade, 400);
+  });
+  fadeInput.addEventListener('change', function () {
+    clearTimeout(fadeSaveTimer);
+    saveFade();
   });
 
   // ---- 视频状态显示 ----

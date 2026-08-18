@@ -11,10 +11,14 @@
 
   var AC = globalThis.AC_REPLACER;
 
-  var config = { image: null, audio: null, video: null, videoMode: false, duration: 3000, fade: true };
+  var config = { image: null, audio: null, video: null, videoMode: false, duration: 3000, fadeMs: 1000 };
 
-  // 淡入淡出时长（开关关闭时为 0）
-  function fadeMs() { return config.fade ? AC.FADE_MS : 0; }
+  // 淡入/淡出时长（毫秒），0 表示无过渡
+  function fadeMs() {
+    var n = Number(config.fadeMs);
+    if (!isFinite(n) || n < 0) return 0;
+    return n;
+  }
   // 媒体需播放的毫秒数：停留 + 淡入淡出（2 * fadeMs）
   function mediaDurationNeeded(stayMs) {
     return Math.max(0, AC.normalizeDuration(stayMs)) + 2 * fadeMs();
@@ -59,8 +63,9 @@
   // ---- 创建全屏 overlay 容器 ----
   function createOverlay() {
     var overlay = document.createElement('div');
-    var initOpacity = config.fade ? '0' : '1';
-    var transition = config.fade ? 'opacity 1s ease' : 'none';
+    var f = fadeMs();
+    var initOpacity = f > 0 ? '0' : '1';
+    var transition = f > 0 ? 'opacity ' + (f / 1000) + 's ease' : 'none';
     overlay.style.cssText =
       'position:fixed;inset:0;' +
       'display:flex;align-items:center;justify-content:center;' +
@@ -72,7 +77,7 @@
 
   // ---- 触发淡入 ----
   function fadeIn(overlay) {
-    if (!config.fade) return; // 关闭淡入淡出时 overlay 初始就是 opacity:1
+    if (fadeMs() <= 0) return; // 无过渡时 overlay 初始就是 opacity:1
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         overlay.style.opacity = '1';
@@ -89,7 +94,7 @@
   }
 
   // ---- 调度淡出 + 完全淡出后停止媒体并移除 ----
-  // 时间线：淡入 1s + 停留 stay + 淡出 1s = 2*FADE_MS + stay
+  // 时间线：淡入 fadeMs + 停留 stay + 淡出 fadeMs
   function scheduleFadeOut(overlay, stay, onStopMedia) {
     var FADE = fadeMs();
     setTimeout(function () {
@@ -293,7 +298,9 @@
     config.video = res.video || null;
     config.videoMode = !!res.videoMode;
     config.duration = AC.normalizeDuration(res.duration);
-    config.fade = res.fade !== false;
+    var fm = Number(res.fadeMs);
+    if (!isFinite(fm) || fm < 0) fm = (res.fade === false ? 0 : AC.FADE_MS);
+    config.fadeMs = fm;
     start();
   });
 
@@ -305,7 +312,10 @@
     if (changes.video) config.video = changes.video.newValue || null;
     if (changes.videoMode) config.videoMode = !!changes.videoMode.newValue;
     if (changes.duration) config.duration = AC.normalizeDuration(changes.duration.newValue);
-    if (changes.fade) config.fade = changes.fade.newValue !== false;
+    if (changes.fadeMs) {
+      var fm2 = Number(changes.fadeMs.newValue);
+      config.fadeMs = (isFinite(fm2) && fm2 >= 0) ? fm2 : 0;
+    }
   });
 
   // ---- 测试播放：popup 里点「测试播放」会发这条消息过来 ----

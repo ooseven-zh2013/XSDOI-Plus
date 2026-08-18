@@ -84,14 +84,12 @@
         </div>
 
         <div class="block">
-          <div class="switch-row">
-            <span class="switch-label">淡入淡出</span>
-            <label class="switch">
-              <input type="checkbox" id="ac-fade" checked>
-              <span class="slider"></span>
-            </label>
+          <div class="label">淡入淡出时长（秒，0 = 不显示）</div>
+          <div class="duration-row">
+            <input type="number" id="ac-fade" min="0" step="0.1" value="1">
+            <span class="unit">秒</span>
           </div>
-          <div class="tip">关闭后 AC 动画直接显示 / 消失，无 1 秒过渡</div>
+          <div class="tip">淡入、淡出各占该时长；设为 0 则直接显示 / 消失</div>
         </div>
 
         <div id="media-blocks">
@@ -154,7 +152,7 @@
             <input type="number" id="duration" min="0" max="60" step="0.5" value="3">
             <span class="unit">秒（停留）</span>
           </div>
-          <div class="tip">淡入 1s + 停留 N 秒 + 淡出 1s，改动自动保存</div>
+          <div class="tip">淡入淡出时长见上方设置，改动自动保存</div>
         </div>
 
         <div class="toast" id="toast"></div>
