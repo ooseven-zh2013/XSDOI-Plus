@@ -21,6 +21,14 @@
   var STYLE_ID = 'xsdoi-font-style';
   var MAX_FONT_BYTES = 15 * 1024 * 1024; // 15MB
 
+  // 内置字体：预设里系统不自带的字体，扩展打包 woff2 用 @font-face 注册，
+  // 保证选择后一定显示（不再依赖系统是否安装）。
+  var BUILTIN_FONTS = {
+    'Fira Code': 'fonts/fira-code-400.woff2',
+    'JetBrains Mono': 'fonts/jetbrains-mono-400.woff2',
+    'Source Code Pro': 'fonts/source-code-pro-400.woff2'
+  };
+
   // ==================== 字体应用 ====================
 
   // 根据 data URL 的 MIME 推断 @font-face 的 format 提示
@@ -62,6 +70,21 @@
     chrome.storage.local.get({ editorFontType: 'default', editorFontPreset: '', editorFontCustomDataUrl: null }, function (res) {
       applyFont({ type: res.editorFontType, preset: res.editorFontPreset, customDataUrl: res.editorFontCustomDataUrl });
     });
+  }
+
+  // 注册内置字体（@font-face），src 指向扩展内置 woff2
+  function injectBuiltinFonts() {
+    if (document.getElementById('xsdoi-font-face')) return;
+    var rules = [];
+    for (var family in BUILTIN_FONTS) {
+      if (!BUILTIN_FONTS.hasOwnProperty(family)) continue;
+      var url = chrome.runtime.getURL(BUILTIN_FONTS[family]);
+      rules.push('@font-face { font-family: "' + family + '"; src: url("' + url + '") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }');
+    }
+    var style = document.createElement('style');
+    style.id = 'xsdoi-font-face';
+    style.textContent = rules.join('\n');
+    document.head.appendChild(style);
   }
 
   // ==================== 设置 UI 样式 ====================
@@ -249,6 +272,7 @@
   // ==================== 初始化 ====================
 
   injectStyles();
+  injectBuiltinFonts();
   loadAndApply();
 
   // 设置变化时实时应用
