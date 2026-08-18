@@ -1226,7 +1226,7 @@
     /* ===== 模糊（仅开关开启时）===== */
     if (enabled) {
       rules.push(
-        '.el-card, #nav, .oj-topbar, .el-tabs__nav-wrap, .el-tabs--border-card, .fix-to-bottom, .group-card, .step-card, .hero-input-wrap, .coach-hero, .cross-banner, .level-card, .el-select-dropdown, .auto-backup-dropdown, .el-dropdown-menu, .el-backtop, .uh-hero, .series-strip, .th-hero, .lv-card, .co-card, .goods-card, .shop-hero, .training-card, .hero, .pathway-inner, .ws-hero, .ws-card, .ws-how-item, .glossary-card, .help-section, .dimension-card, .rated-card, .hub-tab, .help-nav-item, .rating-adjust-card, .status-card, .help-hero, .help-toc, .tier-card, .rating-tier-card, .compact-status, .score-formula, .credit-note, .help-callout, .easter-egg, .exam-hero, .exam-card, .el-dialog, .el-message-box, .cc-card, .m-message, [data-backup-panel="1"] {',
+        '.el-card, #nav, .oj-topbar, .el-tabs__nav-wrap, .el-tabs--border-card, .fix-to-bottom, .group-card, .step-card, .hero-input-wrap, .coach-hero, .cross-banner, .level-card, .el-select-dropdown, .auto-backup-dropdown, .font-dropdown, .el-dropdown-menu, .el-backtop, .uh-hero, .series-strip, .th-hero, .lv-card, .co-card, .goods-card, .shop-hero, .training-card, .hero, .pathway-inner, .ws-hero, .ws-card, .ws-how-item, .glossary-card, .help-section, .dimension-card, .rated-card, .hub-tab, .help-nav-item, .rating-adjust-card, .status-card, .help-hero, .help-toc, .tier-card, .rating-tier-card, .compact-status, .score-formula, .credit-note, .help-callout, .easter-egg, .exam-hero, .exam-card, .el-dialog, .el-message-box, .cc-card, .m-message, [data-backup-panel="1"] {',
         '  -webkit-backdrop-filter: blur(20px) saturate(180%);',
         '  backdrop-filter: blur(20px) saturate(180%);',
         '}',
