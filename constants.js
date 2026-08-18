@@ -18,6 +18,7 @@
     video: null,
     videoMode: false,
     duration: 3000, // 停留毫秒
+    fade: true,     // 淡入淡出开关（false 时直接显示 / 消失）
   };
 
   var LIMITS = {

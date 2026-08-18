@@ -11,7 +11,14 @@
 
   var AC = globalThis.AC_REPLACER;
 
-  var config = { image: null, audio: null, video: null, videoMode: false, duration: 3000 };
+  var config = { image: null, audio: null, video: null, videoMode: false, duration: 3000, fade: true };
+
+  // 淡入淡出时长（开关关闭时为 0）
+  function fadeMs() { return config.fade ? AC.FADE_MS : 0; }
+  // 媒体需播放的毫秒数：停留 + 淡入淡出（2 * fadeMs）
+  function mediaDurationNeeded(stayMs) {
+    return Math.max(0, AC.normalizeDuration(stayMs)) + 2 * fadeMs();
+  }
   var observer = null;
   var showing = false;        // 防止同一次 AC 重复触发
   var audio = null;           // 当前播放的音频实例
@@ -36,7 +43,7 @@
       audio.volume = 1;
       audio.play().catch(function () { /* 自动播放被拦时静默忽略 */ });
       // 只播「停留 N + 淡入淡出 2s」秒，到点截断
-      audioTimer = setTimeout(stopAudio, AC.mediaDurationNeededMs(config.duration));
+      audioTimer = setTimeout(stopAudio, mediaDurationNeeded(config.duration));
     } catch (e) { /* 忽略音频错误 */ }
   }
 
@@ -52,17 +59,20 @@
   // ---- 创建全屏 overlay 容器 ----
   function createOverlay() {
     var overlay = document.createElement('div');
+    var initOpacity = config.fade ? '0' : '1';
+    var transition = config.fade ? 'opacity 1s ease' : 'none';
     overlay.style.cssText =
       'position:fixed;inset:0;' +
       'display:flex;align-items:center;justify-content:center;' +
       'pointer-events:none;z-index:100000;' +
-      'opacity:0;transition:opacity 1s ease;';
+      'opacity:' + initOpacity + ';transition:' + transition + ';';
     document.body.appendChild(overlay);
     return overlay;
   }
 
   // ---- 触发淡入 ----
   function fadeIn(overlay) {
+    if (!config.fade) return; // 关闭淡入淡出时 overlay 初始就是 opacity:1
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         overlay.style.opacity = '1';
@@ -81,7 +91,7 @@
   // ---- 调度淡出 + 完全淡出后停止媒体并移除 ----
   // 时间线：淡入 1s + 停留 stay + 淡出 1s = 2*FADE_MS + stay
   function scheduleFadeOut(overlay, stay, onStopMedia) {
-    var FADE = AC.FADE_MS;
+    var FADE = fadeMs();
     setTimeout(function () {
       overlay.style.opacity = '0'; // 淡出开始
     }, FADE + stay);
@@ -216,7 +226,7 @@
     video.onloadedmetadata = function () {
       clearTimeout(timeout);
       // 短视频循环补足周期，长视频播到点截取
-      video.loop = video.duration < AC.mediaDurationNeededMs(stay) / 1000;
+      video.loop = video.duration < mediaDurationNeeded(stay) / 1000;
       fadeIn(overlay);
       // 带声音播放（声音贯穿淡入 + 停留 + 淡出全程）；被自动播放策略拦截时回退静音，保证画面
       video.play().catch(function () {
@@ -283,6 +293,7 @@
     config.video = res.video || null;
     config.videoMode = !!res.videoMode;
     config.duration = AC.normalizeDuration(res.duration);
+    config.fade = res.fade !== false;
     start();
   });
 
@@ -294,6 +305,7 @@
     if (changes.video) config.video = changes.video.newValue || null;
     if (changes.videoMode) config.videoMode = !!changes.videoMode.newValue;
     if (changes.duration) config.duration = AC.normalizeDuration(changes.duration.newValue);
+    if (changes.fade) config.fade = changes.fade.newValue !== false;
   });
 
   // ---- 测试播放：popup 里点「测试播放」会发这条消息过来 ----

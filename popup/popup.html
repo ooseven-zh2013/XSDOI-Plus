@@ -70,7 +70,7 @@
       <!-- ============ AC 动画 ============ -->
       <section class="view" id="view-ac">
         <h2 class="view-title">AC 动画替换</h2>
-        <p class="view-sub">AC 时显示你的图片 / 视频，淡入淡出各 1s</p>
+        <p class="view-sub">AC 时显示你的图片 / 视频，默认淡入淡出各 1s</p>
 
         <div class="block">
           <div class="switch-row">
@@ -81,6 +81,17 @@
             </label>
           </div>
           <div class="tip">开启后隐藏图片和音频，改为播放视频</div>
+        </div>
+
+        <div class="block">
+          <div class="switch-row">
+            <span class="switch-label">淡入淡出</span>
+            <label class="switch">
+              <input type="checkbox" id="ac-fade" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="tip">关闭后 AC 动画直接显示 / 消失，无 1 秒过渡</div>
         </div>
 
         <div id="media-blocks">

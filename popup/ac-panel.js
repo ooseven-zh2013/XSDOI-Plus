@@ -27,6 +27,7 @@
   var audioStatus = document.getElementById('audio-status');
 
   var videoModeInput = document.getElementById('video-mode');
+  var fadeInput = document.getElementById('ac-fade');
   var mediaBlocks = document.getElementById('media-blocks');
   var videoBlock = document.getElementById('video-block');
   var fileVideo = document.getElementById('file-video');
@@ -81,6 +82,7 @@
     }
     videoModeInput.checked = !!res.videoMode;
     applyVideoMode(!!res.videoMode);
+    fadeInput.checked = (res.fade !== false);
     durationInput.value = AC.normalizeDuration(res.duration) / 1000;
   });
 
@@ -240,6 +242,14 @@
     applyVideoMode(on);
     chrome.storage.local.set({ videoMode: on }, function () {
       showToast(on ? '已开启视频模式' : '已关闭视频模式');
+    });
+  });
+
+  // ---- 淡入淡出开关 ----
+  fadeInput.addEventListener('change', function () {
+    var on = fadeInput.checked;
+    chrome.storage.local.set({ fade: on }, function () {
+      showToast(on ? '已开启淡入淡出' : '已关闭淡入淡出');
     });
   });
 
