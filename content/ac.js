@@ -193,7 +193,6 @@
 
     var overlay = createOverlay();
     var video = document.createElement('video');
-    video.muted = true;        // 关键：带声音会被浏览器自动播放策略拦截，muted 才允许自动播放
     video.playsInline = true;
     video.style.cssText =
       'max-width:60vw;max-height:80vh;width:auto;height:auto;' +
@@ -219,7 +218,11 @@
       // 短视频循环补足周期，长视频播到点截取
       video.loop = video.duration < AC.mediaDurationNeededMs(stay) / 1000;
       fadeIn(overlay);
-      video.play().catch(function () { /* 自动播放被拦时静默忽略 */ });
+      // 带声音播放（声音贯穿淡入 + 停留 + 淡出全程）；被自动播放策略拦截时回退静音，保证画面
+      video.play().catch(function () {
+        video.muted = true;
+        video.play().catch(function () { /* 仍失败则放弃 */ });
+      });
       scheduleFadeOut(overlay, stay, function () {
         try { video.pause(); } catch (e) {}
       });

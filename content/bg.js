@@ -126,12 +126,15 @@
     var video = document.createElement('video');
     video.autoplay = true;
     video.loop = true;
-    video.muted = true;      // muted 才能自动播放
+    video.muted = true;      // 先静音保证自动播放（带声音会被自动播放策略拦截）
     video.playsInline = true;
     video.style.cssText =
       'position:absolute;inset:0;width:100%;height:100%;' +
       'object-fit:' + (fit === 'contain' ? 'contain' : 'cover') + ';';
     l.appendChild(video);
+
+    // 用户首次交互后取消静音，恢复视频声音
+    unlockVideoAudio(video);
 
     if (src && src.__indexed) {
       // 本地大文件从 IndexedDB 分片读取
@@ -141,6 +144,24 @@
     } else {
       video.src = src;
     }
+  }
+
+  // ---- 视频声音解锁：静音自动播放后，等用户首次交互取消静音 ----
+  function unlockVideoAudio(video) {
+    function cleanup() {
+      document.removeEventListener('click', unlock, true);
+      document.removeEventListener('keydown', unlock, true);
+      document.removeEventListener('touchstart', unlock, true);
+    }
+    function unlock() {
+      cleanup();
+      if (video && video.parentNode) {
+        video.muted = false; // 恢复声音
+      }
+    }
+    document.addEventListener('click', unlock, true);
+    document.addEventListener('keydown', unlock, true);
+    document.addEventListener('touchstart', unlock, true);
   }
 
   // ==================== 背景音乐（仅图片模式）====================
