@@ -1062,19 +1062,20 @@
       '  line-height: 1.5 !important;',
       '}',
       /* 编辑器自动保存扩展：自动备份下拉框 auto-backup-dropdown（透明 + 白色描边，与 el-select-dropdown 一致；
-         容器已纳入统一玻璃层 + blur，此处覆盖原白底/深灰边框 + hover 去灰底；选中项蓝色文字保留） */
-      '.auto-backup-dropdown {',
+         容器已纳入统一玻璃层 + blur，此处覆盖原白底/深灰边框 + hover 去灰底；选中项蓝色文字保留）
+         编辑器字体设置：font-dropdown / font-option 同规则 */
+      '.auto-backup-dropdown, .font-dropdown {',
       '  background-color: transparent !important;',
       '  border-color: rgba(255, 255, 255, 0.5) !important;',
       '}',
-      'html.theme-dark .auto-backup-dropdown {',
+      'html.theme-dark .auto-backup-dropdown, html.theme-dark .font-dropdown {',
       '  background-color: transparent !important;',
       '  border-color: rgba(255, 255, 255, 0.12) !important;',
       '}',
-      '.auto-backup-option:hover {',
+      '.auto-backup-option:hover, .font-option:hover {',
       '  background: transparent !important;',
       '}',
-      'html.theme-dark .auto-backup-option:hover {',
+      'html.theme-dark .auto-backup-option:hover, html.theme-dark .font-option:hover {',
       '  background: transparent !important;',
       '}',
       /* 代码编辑器设置弹窗：各设置项折叠态输入框（主题/字体/Tab/自动备份下拉的 el-input__inner，显示「请选择」）
