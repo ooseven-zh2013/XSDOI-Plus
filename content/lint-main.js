@@ -1,41 +1,29 @@
 // ============================================================
-// 语法错误检测 - MAIN world content script
+// 代码语法/语义错误检测 - MAIN world content script
 //
-// 用 tree-sitter（web-tree-sitter + C++ grammar）解析 CodeMirror 里的代码，
-// 把语法错误标成红色波浪下划线。运行在页面主世界（manifest world:"MAIN"），
-// 才能拿到 CodeMirror 实例。
+// 通过 godbolt（Compiler Explorer）公开 API 用真 gcc 编译代码，
+// 把 error 标成红色波浪下划线（含宏展开后的错误、未声明标识符等）。
+// 运行在页面主世界（manifest world:"MAIN"），才能拿到 CodeMirror 实例。
+// 用页面 fetch 直连 godbolt（xsdoi 无 CSP，godbolt CORS 为 *）。
 //
-// 依赖（按 manifest 里 content_scripts 的加载顺序）：
-//   lib/web-tree-sitter.js   —— 全局 TreeSitter（Parser 类）
-//   lib/tree-sitter-wasm.js  —— 全局 __TS_RUNTIME_WASM_B64__ / __TS_CPP_WASM_B64__
+// 只做 error（severity>=3）；warning 是附属、暂不处理（godbolt API 也不返回）。
 // ============================================================
 
 (function () {
   'use strict';
 
-  var TreeSitter = globalThis.TreeSitter;
-  var RUNTIME_B64 = globalThis.__TS_RUNTIME_WASM_B64__;
-  var CPP_B64 = globalThis.__TS_CPP_WASM_B64__;
+  var API_URL = 'https://godbolt.org/api/compiler/g122/compile';
+  var OPTIONS = '-fsyntax-only -Wall -std=c++17';
+  var DEBOUNCE_MS = 800;   // 代码变更后防抖（远程编译有延迟）
+  var ERROR_CLASS = 'xsdoi-lint-error';
+  var WARNING_CLASS = 'xsdoi-lint-warning'; // 预留
 
-  var DEBOUNCE_MS = 500;          // 代码变更后防抖
-  var ERROR_CLASS = 'xsdoi-lint-error';      // 红色波浪
-  var WARNING_CLASS = 'xsdoi-lint-warning';  // 黄色波浪（预留）
-
-  var parser = null;   // tree-sitter parser
-  var cm = null;       // CodeMirror 实例
-  var cmDoc = null;    // CodeMirror Doc
-  var markers = [];    // 当前 markText 的 marker
+  var cm = null;
+  var cmDoc = null;
+  var markers = [];
   var lintTimer = null;
-  var ready = false;
+  var seq = 0;  // 请求序号，丢弃过期响应
 
-  function b64ToBytes(b64) {
-    var bin = atob(b64);
-    var bytes = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return bytes;
-  }
-
-  // 注入波浪线样式（error 红 / warning 黄），用 SVG 波浪 data URL 平铺
   function injectStyles() {
     if (document.getElementById('xsdoi-lint-style')) return;
     var style = document.createElement('style');
@@ -51,7 +39,6 @@
     document.head.appendChild(style);
   }
 
-  // 找到 CodeMirror 实例（页面挂在 .CodeMirror 元素上的 expando）
   function findCM() {
     var wrap = document.querySelector('.vue-codemirror-wrap');
     if (!wrap) return null;
@@ -62,35 +49,6 @@
     return null;
   }
 
-  // 收集语法问题：ERROR 节点（无法归约的 token）+ MISSING 节点（缺 token）
-  function collectProblems(node, out) {
-    if (node.isError || node.isMissing) {
-      out.push({
-        isError: node.isError,
-        isMissing: node.isMissing,
-        start: node.startPosition,
-        end: node.endPosition
-      });
-    }
-    for (var i = 0; i < node.childCount; i++) collectProblems(node.child(i), out);
-  }
-
-  // tree-sitter 坐标（row/column，0 起）→ CodeMirror 范围（line/ch）
-  // 零宽问题（MISSING）向右扩 1 字符，行尾则标前一个字符，保证可见
-  function toRange(p, doc) {
-    var from = { line: p.start.row, ch: p.start.column };
-    var to = { line: p.end.row, ch: p.end.column };
-    if (from.line === to.line && from.ch === to.ch) {
-      var lineLen = doc.getLine(from.line).length;
-      if (from.ch < lineLen) {
-        to.ch = from.ch + 1;
-      } else if (from.ch > 0) {
-        from.ch = from.ch - 1;
-      }
-    }
-    return { from: from, to: to };
-  }
-
   function clearMarkers() {
     for (var i = 0; i < markers.length; i++) {
       try { markers[i].clear(); } catch (e) { /* 编辑器已销毁 */ }
@@ -98,28 +56,56 @@
     markers = [];
   }
 
-  function runLint() {
-    if (!ready || !parser || !cmDoc) return;
+  // 把诊断画到编辑器（只画 error：severity>=3，红色波浪）
+  function drawDiagnostics(diags) {
     clearMarkers();
-    var code;
-    try { code = cmDoc.getValue(); } catch (e) { return; }
-    if (!code) return;
-
-    var tree;
-    try { tree = parser.parse(code); } catch (e) { return; }
-
-    var problems = [];
-    collectProblems(tree.rootNode, problems);
-
-    for (var i = 0; i < problems.length; i++) {
-      var r = toRange(problems[i], cmDoc);
-      if (r.from.line === r.to.line && r.from.ch === r.to.ch) continue;
-      // tree-sitter 的 ERROR/MISSING 都是语法错误（红波浪）；warning 通道预留
-      var cls = ERROR_CLASS;
+    if (!cmDoc) return;
+    for (var i = 0; i < diags.length; i++) {
+      var d = diags[i];
+      if (d.severity < 3) continue; // 忽略 warning(2) / note(1)
+      var line = d.line - 1;
+      if (line < 0 || line >= cmDoc.lineCount()) continue;
+      var lineLen = cmDoc.getLine(line).length;
+      if (lineLen === 0) continue;
+      var ch = Math.max(0, Math.min(d.column - 1, lineLen - 1));
+      var from = { line: line, ch: ch };
+      var to = { line: line, ch: ch + 1 };
       try {
-        markers.push(cmDoc.markText(r.from, r.to, { className: cls }));
+        markers.push(cmDoc.markText(from, to, { className: ERROR_CLASS }));
       } catch (e) { /* 忽略单个标记失败 */ }
     }
+  }
+
+  function runLint() {
+    if (!cmDoc) return;
+    var code;
+    try { code = cmDoc.getValue(); } catch (e) { return; }
+    if (!code.trim()) { clearMarkers(); return; }
+
+    var mySeq = ++seq;
+    fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ source: code, options: OPTIONS })
+    }).then(function (resp) {
+      return resp.json();
+    }).then(function (data) {
+      if (mySeq !== seq) return; // 过期响应丢弃
+      var diags = [];
+      var stderr = (data && data.stderr) || [];
+      for (var i = 0; i < stderr.length; i++) {
+        var tag = stderr[i].tag;
+        if (tag && tag.line) {
+          diags.push({
+            line: tag.line,
+            column: tag.column || 1,
+            severity: tag.severity || 3,
+            text: tag.text || ''
+          });
+        }
+      }
+      drawDiagnostics(diags);
+    }).catch(function () { /* 网络错误静默 */ });
   }
 
   function scheduleLint() {
@@ -134,6 +120,8 @@
     runLint();
   }
 
+  injectStyles();
+
   function waitForEditor(cb, tries) {
     tries = tries || 0;
     var inst = findCM();
@@ -141,27 +129,10 @@
     if (tries >= 100) return;
     setTimeout(function () { waitForEditor(cb, tries + 1); }, 100);
   }
+  waitForEditor(initLint);
 
-  async function initTreeSitter() {
-    if (!TreeSitter || !RUNTIME_B64 || !CPP_B64) return;
-    try {
-      await TreeSitter.init({ wasmBinary: b64ToBytes(RUNTIME_B64) });
-      var Lang = await TreeSitter.Language.load(b64ToBytes(CPP_B64));
-      parser = new TreeSitter();
-      parser.setLanguage(Lang);
-      ready = true;
-      waitForEditor(initLint);
-    } catch (e) {
-      console.warn('[语法检测] tree-sitter 初始化失败:', e);
-    }
-  }
-
-  injectStyles();
-  initTreeSitter();
-
-  // SPA 路由切换可能重建 CodeMirror 实例，轮询检测并重新绑定
+  // SPA 路由切换可能重建 CodeMirror 实例
   setInterval(function () {
-    if (!ready) return;
     var inst = findCM();
     if (inst && inst !== cm) initLint(inst);
   }, 500);
