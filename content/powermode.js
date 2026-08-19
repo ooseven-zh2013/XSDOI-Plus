@@ -103,6 +103,26 @@
     if (!cmInstance) return false;
     // 避免重复绑定
     cmInstance.off('change', handleCodeMirrorChange);
+
+    // 如果 .CodeMirror 没有 .CodeMirror 属性，启动重试
+    if (!cmInstance.CodeMirror) {
+      console.log('[Powermode] .CodeMirror 没有 .CodeMirror 属性，启动重试');
+      var retries = 0;
+      var maxRetries = 10;
+      var retryTimer = setInterval(function () {
+        if (cmInstance && cmInstance.CodeMirror) {
+          clearInterval(retryTimer);
+          if (config.enabled) {
+            cmInstance.on('change', handleCodeMirrorChange);
+          }
+        } else if (++retries >= maxRetries) {
+          clearInterval(retryTimer);
+          console.log('[Powermode] 重试失败，.CodeMirror 属性未出现');
+        }
+      }, 100);
+      return false;
+    }
+
     if (config.enabled) {
       cmInstance.on('change', handleCodeMirrorChange);
     }
