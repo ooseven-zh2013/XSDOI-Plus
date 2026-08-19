@@ -1390,12 +1390,15 @@
     }
   })();
 
-  // tj-test-tag 圆角兜底（用带 important 的内联 style，压过 scoped CSS 的 !important）
+  // tj-test-tag 圆角 + 边框兜底（用带 important 的内联 style，压过 scoped CSS 的 !important）
   function applyTjTestTag() {
     var els = document.querySelectorAll('.tj-test-tag');
     for (var i = 0; i < els.length; i++) {
       if (els[i].style.getPropertyValue('border-radius') !== '999px') {
         els[i].style.setProperty('border-radius', '999px', 'important');
+      }
+      if (els[i].style.getPropertyValue('border') !== '1px solid rgba(255, 255, 255, 0.5)') {
+        els[i].style.setProperty('border', '1px solid rgba(255, 255, 255, 0.5)', 'important');
       }
     }
   }
