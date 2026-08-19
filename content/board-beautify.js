@@ -18,12 +18,12 @@
     return Math.min(1, Math.max(0, a));
   }
 
-  // lv-card 阶段卡：渐变色是内联动态传入的，纯 CSS 无法逐个转半透明，
+  // lv-card 阶段卡 / lv-banner 学习路线横幅：渐变色是内联动态传入的，纯 CSS 无法逐个转半透明，
   // 用 JS 读取 rgb 色值统一转成 rgba(带透明度)。
   var LV_COLOR_RE = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)/g;
 
-  function applyLvCard(alpha) {
-    var cards = document.querySelectorAll('.lv-card');
+  function applyLvBg(alpha) {
+    var cards = document.querySelectorAll('.lv-card, .lv-banner');
     var a = alpha.toFixed(2);
     for (var i = 0; i < cards.length; i++) {
       var bg = cards[i].style.background;
@@ -34,8 +34,8 @@
     }
   }
 
-  function restoreLvCard() {
-    var cards = document.querySelectorAll('.lv-card');
+  function restoreLvBg() {
+    var cards = document.querySelectorAll('.lv-card, .lv-banner');
     for (var i = 0; i < cards.length; i++) {
       var bg = cards[i].style.background;
       if (!bg) continue;
@@ -675,6 +675,13 @@
       '  border: 1px solid rgba(255, 255, 255, 0.4) !important;',
       '  box-sizing: border-box !important;',
       '}',
+      /* 伴学页学习路线横幅 lv-banner（内联深色 slate 渐变改透明 + 亚克力边框，用 !important 覆盖内联 style；
+         内联 rgb 渐变经 applyLvBg 转 rgba，恢复原状时 revert 回 opaque） */
+      '.lv-banner {',
+      '  background: transparent !important;',
+      '  border: 1px solid rgba(255, 255, 255, 0.4) !important;',
+      '  box-sizing: border-box !important;',
+      '}',
       /* 伴学页课程卡片 co-card（半透明背景 + 亚克力边框） */
       '.co-card {',
       '  background-color: transparent !important;',
@@ -1239,10 +1246,10 @@
        （放在末尾，用 !important + 后写覆盖前面各元素的 transparent 规则；
         内层（vxe-table 内部各层、分隔线、::after、状态圆点等）保持 transparent 透出这一层） */
     rules.push(
-      '.el-card, #nav, .oj-topbar, .el-tabs__nav-wrap, .el-tabs--border-card, .description-body, .ledger-sum, .el-table, .fix-to-bottom, .group-card, .step-card, .hero-input-wrap, .coach-hero, .cross-banner, .level-card, .el-select-dropdown, .auto-backup-dropdown, .el-popover, .el-dropdown-menu, .el-backtop, .uh-hero, .series-strip, .th-hero, .lv-card, .co-card, .goods-card, .shop-hero, .training-card, .hero, .pathway-inner, .ws-hero, .ws-card, .ws-how-item, .glossary-card, .help-section, .dimension-card, .rated-card, .hub-tab, .help-nav-item, .rating-adjust-card, .help-toc, .tier-card, .rating-tier-card, .compact-status, .score-formula, .credit-note, .help-callout, .easter-egg, .exam-hero, .exam-card, .el-dialog, .el-message-box, .cc-card, .ai-banner, .m-message, .el-tag--dark.el-popover__reference, .el-input__count, .el-input__count-inner, [data-backup-panel="1"] {',
+      '.el-card, #nav, .oj-topbar, .el-tabs__nav-wrap, .el-tabs--border-card, .description-body, .ledger-sum, .el-table, .fix-to-bottom, .group-card, .step-card, .hero-input-wrap, .coach-hero, .cross-banner, .level-card, .el-select-dropdown, .auto-backup-dropdown, .el-popover, .el-dropdown-menu, .el-backtop, .uh-hero, .series-strip, .th-hero, .lv-card, .lv-banner, .co-card, .goods-card, .shop-hero, .training-card, .hero, .pathway-inner, .ws-hero, .ws-card, .ws-how-item, .glossary-card, .help-section, .dimension-card, .rated-card, .hub-tab, .help-nav-item, .rating-adjust-card, .help-toc, .tier-card, .rating-tier-card, .compact-status, .score-formula, .credit-note, .help-callout, .easter-egg, .exam-hero, .exam-card, .el-dialog, .el-message-box, .cc-card, .ai-banner, .m-message, .el-tag--dark.el-popover__reference, .el-input__count, .el-input__count-inner, [data-backup-panel="1"] {',
       '  background-color: rgba(255, 255, 255, ' + a + ') !important;',
       '}',
-      'html.theme-dark .el-card, html.theme-dark #nav, html.theme-dark .oj-topbar.oj-topbar, html.theme-dark .el-tabs__nav-wrap, html.theme-dark .el-tabs--border-card, html.theme-dark .description-body, html.theme-dark .ledger-sum, html.theme-dark .el-table, html.theme-dark .fix-to-bottom, html.theme-dark .group-card, html.theme-dark .step-card, html.theme-dark .hero-input-wrap, html.theme-dark .coach-hero, html.theme-dark .cross-banner, html.theme-dark .level-card, html.theme-dark .el-select-dropdown, html.theme-dark .auto-backup-dropdown, html.theme-dark .el-popover, html.theme-dark .el-dropdown-menu, html.theme-dark .el-backtop, html.theme-dark .uh-hero, html.theme-dark .series-strip, html.theme-dark .th-hero, html.theme-dark .lv-card, html.theme-dark .co-card, html.theme-dark .goods-card, html.theme-dark .shop-hero, html.theme-dark .training-card, html.theme-dark .hero, html.theme-dark .pathway-inner, html.theme-dark .ws-hero, html.theme-dark .ws-card, html.theme-dark .ws-how-item, html.theme-dark .glossary-card, html.theme-dark .help-section, html.theme-dark .dimension-card, html.theme-dark .rated-card, html.theme-dark .hub-tab, html.theme-dark .help-nav-item, html.theme-dark .rating-adjust-card, html.theme-dark .help-toc, html.theme-dark .tier-card, html.theme-dark .rating-tier-card, html.theme-dark .compact-status, html.theme-dark .score-formula, html.theme-dark .credit-note, html.theme-dark .help-callout, html.theme-dark .easter-egg, html.theme-dark .exam-hero, html.theme-dark .exam-card, html.theme-dark .el-dialog, html.theme-dark .el-message-box, html.theme-dark .cc-card, html.theme-dark .ai-banner, html.theme-dark .m-message, html.theme-dark .el-tag--dark.el-popover__reference, html.theme-dark .el-input__count, html.theme-dark .el-input__count-inner, html.theme-dark [data-backup-panel="1"] {',
+      'html.theme-dark .el-card, html.theme-dark #nav, html.theme-dark .oj-topbar.oj-topbar, html.theme-dark .el-tabs__nav-wrap, html.theme-dark .el-tabs--border-card, html.theme-dark .description-body, html.theme-dark .ledger-sum, html.theme-dark .el-table, html.theme-dark .fix-to-bottom, html.theme-dark .group-card, html.theme-dark .step-card, html.theme-dark .hero-input-wrap, html.theme-dark .coach-hero, html.theme-dark .cross-banner, html.theme-dark .level-card, html.theme-dark .el-select-dropdown, html.theme-dark .auto-backup-dropdown, html.theme-dark .el-popover, html.theme-dark .el-dropdown-menu, html.theme-dark .el-backtop, html.theme-dark .uh-hero, html.theme-dark .series-strip, html.theme-dark .th-hero, html.theme-dark .lv-card, html.theme-dark .lv-banner, html.theme-dark .co-card, html.theme-dark .goods-card, html.theme-dark .shop-hero, html.theme-dark .training-card, html.theme-dark .hero, html.theme-dark .pathway-inner, html.theme-dark .ws-hero, html.theme-dark .ws-card, html.theme-dark .ws-how-item, html.theme-dark .glossary-card, html.theme-dark .help-section, html.theme-dark .dimension-card, html.theme-dark .rated-card, html.theme-dark .hub-tab, html.theme-dark .help-nav-item, html.theme-dark .rating-adjust-card, html.theme-dark .help-toc, html.theme-dark .tier-card, html.theme-dark .rating-tier-card, html.theme-dark .compact-status, html.theme-dark .score-formula, html.theme-dark .credit-note, html.theme-dark .help-callout, html.theme-dark .easter-egg, html.theme-dark .exam-hero, html.theme-dark .exam-card, html.theme-dark .el-dialog, html.theme-dark .el-message-box, html.theme-dark .cc-card, html.theme-dark .ai-banner, html.theme-dark .m-message, html.theme-dark .el-tag--dark.el-popover__reference, html.theme-dark .el-input__count, html.theme-dark .el-input__count-inner, html.theme-dark [data-backup-panel="1"] {',
       '  background-color: rgba(23, 26, 36, ' + a + ') !important;',
       '}',
       /* 亮色 + 暗色：body 补品牌渐变（始终生效，让透明度有颜色可透） */
@@ -1297,7 +1304,7 @@
     /* ===== 模糊（仅开关开启时）===== */
     if (enabled) {
       rules.push(
-        '.el-card, #nav, .oj-topbar, .el-tabs__nav-wrap, .el-tabs--border-card, .ledger-sum, .el-table, .fix-to-bottom, .group-card, .step-card, .hero-input-wrap, .coach-hero, .cross-banner, .level-card, .el-select-dropdown, .auto-backup-dropdown, .font-dropdown, .el-dropdown-menu, .el-backtop, .uh-hero, .series-strip, .th-hero, .lv-card, .co-card, .goods-card, .shop-hero, .training-card, .hero, .pathway-inner, .ws-hero, .ws-card, .ws-how-item, .glossary-card, .help-section, .dimension-card, .rated-card, .hub-tab, .help-nav-item, .rating-adjust-card, .status-card, .help-hero, .help-toc, .tier-card, .rating-tier-card, .compact-status, .score-formula, .credit-note, .help-callout, .easter-egg, .exam-hero, .exam-card, .el-dialog, .el-message-box, .cc-card, .m-message, .el-tag--dark.el-popover__reference, .el-input__count, .el-input__count-inner, [data-backup-panel="1"] {',
+        '.el-card, #nav, .oj-topbar, .el-tabs__nav-wrap, .el-tabs--border-card, .ledger-sum, .el-table, .fix-to-bottom, .group-card, .step-card, .hero-input-wrap, .coach-hero, .cross-banner, .level-card, .el-select-dropdown, .auto-backup-dropdown, .font-dropdown, .el-dropdown-menu, .el-backtop, .uh-hero, .series-strip, .th-hero, .lv-card, .lv-banner, .co-card, .goods-card, .shop-hero, .training-card, .hero, .pathway-inner, .ws-hero, .ws-card, .ws-how-item, .glossary-card, .help-section, .dimension-card, .rated-card, .hub-tab, .help-nav-item, .rating-adjust-card, .status-card, .help-hero, .help-toc, .tier-card, .rating-tier-card, .compact-status, .score-formula, .credit-note, .help-callout, .easter-egg, .exam-hero, .exam-card, .el-dialog, .el-message-box, .cc-card, .m-message, .el-tag--dark.el-popover__reference, .el-input__count, .el-input__count-inner, [data-backup-panel="1"] {',
         '  -webkit-backdrop-filter: blur(20px) saturate(180%);',
         '  backdrop-filter: blur(20px) saturate(180%);',
         '}',
@@ -1329,7 +1336,7 @@
     // 完全无效果：不透明 + 无模糊 → 移除样式
     if (!state.enabled && state.alpha >= 0.999) {
       if (el) el.remove();
-      restoreLvCard();
+      restoreLvBg();
       return;
     }
 
@@ -1342,7 +1349,7 @@
       s.textContent = css;
       (document.head || document.documentElement).appendChild(s);
     }
-    applyLvCard(state.alpha);
+    applyLvBg(state.alpha);
   }
 
   function loadAndApply() {
@@ -1377,7 +1384,7 @@
     if (typeof MutationObserver === 'undefined') return;
     var observer = new MutationObserver(function () {
       if (!(state.enabled === false && state.alpha >= 0.999)) {
-        applyLvCard(state.alpha);
+        applyLvBg(state.alpha);
       }
     });
     var start = function () {
