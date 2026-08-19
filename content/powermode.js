@@ -244,32 +244,35 @@
   // 初始化
   // ==========================================
   function init() {
-    loadConfigFromStorage(function () {
-      ensureParticleLayer();
-      updateColorPalette();
-      if (bindCM()) {
-        observeEditor();
-      } else {
-        // 延迟重试（最多 10 次，每次 500ms，共 5s）
-        var retries = 0;
-        var maxRetries = 10;
-        var retryTimer = setInterval(function () {
-          if (bindCM()) {
-            observeEditor();
-            clearInterval(retryTimer);
-          } else if (++retries >= maxRetries) {
-            clearInterval(retryTimer);
-          }
-        }, 500);
+    // 等待 .vue-codemirror-wrap 出现
+    var observer = new MutationObserver(function (mutations, obs) {
+      var wrapper = document.querySelector('.vue-codemirror-wrap');
+      if (wrapper) {
+        obs.disconnect();
+        loadConfigFromStorage(function () {
+          ensureParticleLayer();
+          updateColorPalette();
+          bindCM();
+          observeEditor();
+        });
       }
     });
 
-    // 兜底检查（确保粒子层存在）
-    setInterval(function () {
-      ensureParticleLayer();
-      if (config.enabled && !cmInstance) {
+    // 监听整个文档的子节点变化
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+
+    // 兜底：5s 后如果还没找到，直接尝试一次
+    setTimeout(function () {
+      observer.disconnect();
+      loadConfigFromStorage(function () {
+        ensureParticleLayer();
+        updateColorPalette();
         bindCM();
-      }
+        observeEditor();
+      });
     }, 5000);
   }
 
