@@ -444,8 +444,9 @@
       '.el-tag--dark[style] {',
       '  border-radius: 999px !important;',
       '}',
-      /* 测试用例标签 tj-test-tag（「填充用例 N」选中态）：胶囊圆角 */
-      '.tj-test-tag {',
+      /* 测试用例标签 tj-test-tag（「填充用例 N」选中态）：胶囊圆角。
+         用 .tj-test-tag.el-tag 提高特异性，压过 .el-tag { border-radius: 6px }。 */
+      '.tj-test-tag.el-tag {',
       '  border-radius: 999px !important;',
       '}',
       /* AI 教练横幅 ai-banner：完全透明透出背景 + 毛玻璃（不保留品牌紫） */
