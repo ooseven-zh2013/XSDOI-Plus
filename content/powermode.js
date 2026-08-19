@@ -40,6 +40,7 @@
           config.colorPalette = stored.colorPalette;
         }
       }
+      console.log('[Powermode] 配置加载完成:', config);
       updateColorPalette();
       if (cb) cb();
     });
@@ -55,13 +56,24 @@
   chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.type === POWERMODE.MSG.config) {
       loadConfigFromStorage(function () {
-        if (!config.enabled && cmInstance) {
-          cmInstance.off('change', handleCodeMirrorChange);
-        } else if (config.enabled && cmInstance) {
-          cmInstance.on('change', handleCodeMirrorChange);
+        if (config.enabled) {
+          // 确保 CodeMirror 实例已绑定
+          if (!cmInstance && !bindCM()) {
+            // 如果绑定失败，启动定时重试
+            var retries = 0;
+            var maxRetries = 10;
+            var retryTimer = setInterval(function () {
+              if (bindCM()) {
+                clearInterval(retryTimer);
+              } else if (++retries >= maxRetries) {
+                clearInterval(retryTimer);
+              }
+            }, 500);
+          }
         }
+        sendResponse({ ok: true });
       });
-      sendResponse({ ok: true });
+      return true;  // 异步响应
     }
   });
 
@@ -70,9 +82,20 @@
   // ==========================================
   function getCM() {
     var wrapper = document.querySelector('.vue-codemirror-wrap');
-    if (!wrapper) return null;
+    if (!wrapper) {
+      console.log('[Powermode] 找不到 .vue-codemirror-wrap');
+      return null;
+    }
     var cmDiv = wrapper.querySelector('.CodeMirror');
-    return cmDiv ? cmDiv.CodeMirror : null;
+    if (!cmDiv) {
+      console.log('[Powermode] 找不到 .CodeMirror');
+      return null;
+    }
+    if (!cmDiv.CodeMirror) {
+      console.log('[Powermode] .CodeMirror 没有 .CodeMirror 属性');
+      return null;
+    }
+    return cmDiv.CodeMirror;
   }
 
   function bindCM() {
@@ -138,7 +161,6 @@
     comboTimer = setTimeout(function () {
       combo = 0;
       currentComboLevel = 0;
-      removeComboUI();
     }, config.comboResetMs);
 
     // 计算 combo 等级
@@ -151,8 +173,6 @@
         break;
       }
     }
-
-    updateComboUI();
 
     // combo 升级时触发额外效果
     if (currentComboLevel > oldLevel && config.shakeOnCombo) {
@@ -176,9 +196,17 @@
   // CodeMirror change 事件处理
   // ==========================================
   function handleCodeMirrorChange(instance, changeObj) {
-    if (!config.enabled) return;
-    if (changeObj.origin !== '+input') return;  // 只管真实打字
+    console.log('[Powermode] change 事件触发:', changeObj.origin);
+    if (!config.enabled) {
+      console.log('[Powermode] 配置未启用，跳过');
+      return;
+    }
+    if (changeObj.origin !== '+input') {
+      console.log('[Powermode] origin 不是 +input，跳过:', changeObj.origin);
+      return;
+    }
     var coords = instance.cursorCoords(null, 'window');
+    console.log('[Powermode] 光标坐标:', coords, '生成', config.particleCount, '个粒子');
     spawnParticles(coords.left, coords.top);
     bumpCombo();
   }
@@ -222,16 +250,26 @@
       if (bindCM()) {
         observeEditor();
       } else {
-        // 延迟 1s 再试（SPA 可能有延迟加载）
-        setTimeout(function () {
-          if (bindCM()) observeEditor();
-        }, 1000);
+        // 延迟重试（最多 10 次，每次 500ms，共 5s）
+        var retries = 0;
+        var maxRetries = 10;
+        var retryTimer = setInterval(function () {
+          if (bindCM()) {
+            observeEditor();
+            clearInterval(retryTimer);
+          } else if (++retries >= maxRetries) {
+            clearInterval(retryTimer);
+          }
+        }, 500);
       }
     });
 
     // 兜底检查（确保粒子层存在）
     setInterval(function () {
       ensureParticleLayer();
+      if (config.enabled && !cmInstance) {
+        bindCM();
+      }
     }, 5000);
   }
 
