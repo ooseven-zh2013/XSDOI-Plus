@@ -101,20 +101,46 @@
     particleCount: 6,       // 每次打字生成的粒子数
     comboResetMs: 1500,     // 连打中断时间（毫秒）
     shakeOnCombo: true,     // combo 达到阈值时是否抖动屏幕
-    comboThresholds: [10, 50, 100],  // combo 阈值，触发不同颜色/效果
-    // 亮色/暗色色板（按 combo 等级递进）
-    colorPalette: {
-      light: ['#ff6b6b', '#ffa94d', '#fcc419', '#51cf66', '#339af0', '#cc5de8'],
-      dark: ['#ff6b6b', '#ffa94d', '#fcc419', '#51cf66', '#339af0', '#cc5de8'],
-    },
+    comboThresholds: [10, 50, 100],  // combo 阈值，触发不同效果
+    colorMode: 'rainbow',   // 粒子颜色模式：'solid' 单一颜色 | 'rainbow' 彩虹随机
+    solidColor: '#339af0',  // 单一颜色模式的粒子颜色（支持 #hex / rgba()）
   };
 
   var MSG = {
     config: 'powermode-config',  // popup → content script：更新配置
   };
 
+  // ---------- 颜色工具（纯函数，content / popup 共用） ----------
+  // 支持 #rgb / #rrggbb / #rrggbbaa / rgb() / rgba()，成功返回 [r,g,b,a]，失败返回 null
+  function parseColor(str) {
+    if (typeof str !== 'string') return null;
+    var s = str.trim();
+    var m = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+    if (m) {
+      var h = m[1];
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      var a = h.length === 8 ? parseInt(h.substr(6, 2), 16) / 255 : 1;
+      return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16), a];
+    }
+    m = s.match(/^rgba?\(\s*(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})\s*(?:[,/]\s*([\d.]+%?)\s*)?\)$/i);
+    if (m) {
+      var ra = 1;
+      if (m[4] !== undefined) ra = m[4].indexOf('%') >= 0 ? parseFloat(m[4]) / 100 : parseFloat(m[4]);
+      return [+m[1], +m[2], +m[3], isNaN(ra) ? 1 : ra];
+    }
+    return null;
+  }
+
+  // [r,g,b,a] → #rrggbb（供颜色选择器回写）
+  function toHex(rgba) {
+    function h(n) { n = Math.max(0, Math.min(255, Math.round(n))); return (n < 16 ? '0' : '') + n.toString(16); }
+    return '#' + h(rgba[0]) + h(rgba[1]) + h(rgba[2]);
+  }
+
   global.POWERMODE = {
     DEFAULTS: DEFAULTS,
     MSG: MSG,
+    parseColor: parseColor,
+    toHex: toHex,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

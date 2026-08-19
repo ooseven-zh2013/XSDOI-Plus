@@ -15,7 +15,6 @@
   var textareaInstance = null;
   var particleLayer = null;
   var observer = null;
-  var colorPalette = [];
   var currentComboLevel = 0;
   var comboDisplayEl = null;
   var comboHideTimer = null;
@@ -40,20 +39,38 @@
         if (Array.isArray(stored.comboThresholds) && stored.comboThresholds.length > 0) {
           config.comboThresholds = stored.comboThresholds;
         }
-        if (stored.colorPalette && stored.colorPalette.light && stored.colorPalette.dark) {
-          config.colorPalette = stored.colorPalette;
+        if (stored.colorMode === 'solid' || stored.colorMode === 'rainbow') {
+          config.colorMode = stored.colorMode;
+        }
+        if (typeof stored.solidColor === 'string' && POWERMODE.parseColor(stored.solidColor)) {
+          config.solidColor = stored.solidColor;
         }
       }
       console.log('[Powermode] 配置加载完成:', config);
-      updateColorPalette();
       if (cb) cb();
     });
   }
 
-  function updateColorPalette() {
-    var isDark = document.documentElement.classList.contains('theme-dark') ||
-                  document.body.classList.contains('theme-dark');
-    colorPalette = config.colorPalette[isDark ? 'dark' : 'light'];
+  // 彩虹随机颜色：随机色相，高饱和中亮度
+  function randomRainbowColor() {
+    var h = Math.floor(Math.random() * 360);
+    return 'hsl(' + h + ', 90%, 60%)';
+  }
+
+  // 粒子颜色：单一颜色模式用用户色（格式非法时回退彩虹），否则彩虹随机
+  function getParticleColor() {
+    if (config.colorMode === 'solid' && POWERMODE.parseColor(config.solidColor)) {
+      return config.solidColor;
+    }
+    return randomRainbowColor();
+  }
+
+  // combo 显示强调色：单色用用户色，彩虹模式随连击数滚动色相
+  function getComboAccentColor() {
+    if (config.colorMode === 'solid' && POWERMODE.parseColor(config.solidColor)) {
+      return config.solidColor;
+    }
+    return 'hsl(' + ((combo * 24) % 360) + ', 90%, 60%)';
   }
 
   // 监听 popup 发送的配置更新
@@ -136,9 +153,8 @@
       var dist = 20 + Math.random() * 40;
       p.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
       p.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
-      // 颜色
-      var colorIdx = Math.min(currentComboLevel, colorPalette.length - 1);
-      p.style.backgroundColor = colorPalette[colorIdx];
+      // 颜色：按当前颜色模式取色
+      p.style.backgroundColor = getParticleColor();
       particleLayer.appendChild(p);
       // 600ms 后移除
       setTimeout(function () { if (p.parentNode) p.parentNode.removeChild(p); }, 600);
@@ -204,10 +220,10 @@
   function updateComboDisplay() {
     if (!comboDisplayEl) return;
     comboDisplayEl.querySelector('.xsdoi-combo-num').textContent = combo;
-    // combo 等级决定颜色
-    var colorIdx = Math.min(currentComboLevel, colorPalette.length - 1);
-    comboDisplayEl.style.borderColor = colorPalette[colorIdx];
-    comboDisplayEl.querySelector('.xsdoi-combo-num').style.color = colorPalette[colorIdx];
+    // 强调色按当前颜色模式取
+    var accent = getComboAccentColor();
+    comboDisplayEl.style.borderColor = accent;
+    comboDisplayEl.querySelector('.xsdoi-combo-num').style.color = accent;
     // combo > 0 显示，归零隐藏
     if (combo > 0) {
       comboDisplayEl.classList.add('xsdoi-combo-active');
@@ -303,7 +319,6 @@
         loadConfigFromStorage(function () {
           ensureParticleLayer();
           ensureComboDisplay();
-          updateColorPalette();
           bindTextarea();
           observeEditor();
         });
@@ -322,7 +337,6 @@
       loadConfigFromStorage(function () {
         ensureParticleLayer();
         ensureComboDisplay();
-        updateColorPalette();
         bindTextarea();
         observeEditor();
       });

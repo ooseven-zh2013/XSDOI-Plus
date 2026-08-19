@@ -400,6 +400,12 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
 #pm-save.save-btn.saved { background: #10b981; color: #fff; }
 #pm-save.save-btn.save-error { background: #e5484d; color: #fff; }
 
+/* 打字特效面板：粒子颜色设置 */
+.pm-color-block { margin-top: 12px; }
+.pm-color-block .label { font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
+.pm-color-panel { display: none; margin-top: 10px; }
+.pm-color-panel.active { display: block; }
+
 /* ============ 背景替换面板 ============ */
 .bg-tabs {
   display: flex;

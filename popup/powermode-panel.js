@@ -20,8 +20,11 @@
         if (Array.isArray(stored.comboThresholds) && stored.comboThresholds.length > 0) {
           config.comboThresholds = stored.comboThresholds;
         }
-        if (stored.colorPalette && stored.colorPalette.light && stored.colorPalette.dark) {
-          config.colorPalette = stored.colorPalette;
+        if (stored.colorMode === 'solid' || stored.colorMode === 'rainbow') {
+          config.colorMode = stored.colorMode;
+        }
+        if (typeof stored.solidColor === 'string' && POWERMODE.parseColor(stored.solidColor)) {
+          config.solidColor = stored.solidColor;
         }
       }
       cb(config);
@@ -58,6 +61,17 @@
     }, 1200);
   }
 
+  // 绑定「颜色图 + 文本框」双向同步：选色回写文本框，文本合法时回写选色器
+  function bindColorPair(pickerEl, inputEl) {
+    pickerEl.addEventListener('input', function () {
+      inputEl.value = pickerEl.value;
+    });
+    inputEl.addEventListener('input', function () {
+      var rgba = POWERMODE.parseColor(inputEl.value);
+      if (rgba) pickerEl.value = POWERMODE.toHex(rgba);
+    });
+  }
+
   function bindUI() {
     var enabledEl = document.getElementById('pm-enabled');
     var particleCountEl = document.getElementById('pm-particle-count');
@@ -66,12 +80,40 @@
     var thresholdsEl = document.getElementById('pm-combo-thresholds');
     var saveBtn = document.getElementById('pm-save');
 
+    var colorTabs = document.querySelectorAll('#pm-color-tabs .bg-tab');
+    var colorPanels = document.querySelectorAll('.pm-color-panel');
+    var solidPickerEl = document.getElementById('pm-solid-picker');
+    var solidInputEl = document.getElementById('pm-solid-input');
+    var currentColorMode = 'rainbow';
+
+    function switchColorTab(mode) {
+      currentColorMode = mode;
+      colorTabs.forEach(function (t) {
+        t.classList.toggle('active', t.getAttribute('data-pmtab') === mode);
+      });
+      colorPanels.forEach(function (p) {
+        p.classList.toggle('active', p.id === 'pm-panel-' + mode);
+      });
+    }
+
+    colorTabs.forEach(function (t) {
+      t.addEventListener('click', function () {
+        switchColorTab(t.getAttribute('data-pmtab'));
+      });
+    });
+
+    bindColorPair(solidPickerEl, solidInputEl);
+
     loadConfig(function (config) {
       enabledEl.checked = config.enabled;
       particleCountEl.value = config.particleCount;
       comboResetMsEl.value = config.comboResetMs;
       shakeOnComboEl.checked = config.shakeOnCombo;
       thresholdsEl.value = config.comboThresholds.join(',');
+      solidInputEl.value = config.solidColor;
+      var rgba = POWERMODE.parseColor(config.solidColor);
+      if (rgba) solidPickerEl.value = POWERMODE.toHex(rgba);
+      switchColorTab(config.colorMode);
     });
 
     saveBtn.addEventListener('click', function () {
@@ -88,6 +130,16 @@
         return;
       }
 
+      // 单一颜色模式：校验颜色格式（#hex / rgb() / rgba()）
+      var solidColor = null;
+      if (currentColorMode === 'solid') {
+        solidColor = solidInputEl.value.trim();
+        if (!POWERMODE.parseColor(solidColor)) {
+          flashSaveBtn(saveBtn, 'save-error', '颜色格式无效');
+          return;
+        }
+      }
+
       var thresholds = [];
       if (thresholdsStr) {
         var parts = thresholdsStr.split(',').map(function (s) { return parseInt(s.trim(), 10); });
@@ -101,7 +153,8 @@
         comboResetMs: comboResetMs,
         shakeOnCombo: shakeOnComboEl.checked,
         comboThresholds: thresholds.length > 0 ? thresholds : POWERMODE.DEFAULTS.comboThresholds,
-        colorPalette: POWERMODE.DEFAULTS.colorPalette,  // 暂不暴露颜色配置
+        colorMode: currentColorMode,
+        solidColor: solidColor || POWERMODE.DEFAULTS.solidColor,
       };
 
       saveConfig(config, function (err) {

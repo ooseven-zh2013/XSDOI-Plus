@@ -401,6 +401,26 @@
           </div>
         </div>
 
+        <div class="pm-color-block">
+          <div class="label">粒子颜色</div>
+          <div class="bg-tabs" id="pm-color-tabs">
+            <button class="bg-tab" data-pmtab="solid">单一颜色</button>
+            <button class="bg-tab active" data-pmtab="rainbow">彩虹随机</button>
+          </div>
+
+          <div class="pm-color-panel" id="pm-panel-solid">
+            <div class="bg-row bg-color-row">
+              <input type="color" id="pm-solid-picker" value="#339af0" title="点击选色">
+              <input type="text" id="pm-solid-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+            </div>
+            <p class="tip">支持颜色图、十六进制（#hex）、rgba() 三种输入方式</p>
+          </div>
+
+          <div class="pm-color-panel active" id="pm-panel-rainbow">
+            <p class="tip">每个粒子随机生成彩虹色</p>
+          </div>
+        </div>
+
         <div class="save-row">
           <button id="pm-save" class="save-btn">保存配置</button>
         </div>
