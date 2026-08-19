@@ -1390,4 +1390,14 @@
     }
   })();
 
+  // tj-test-tag 圆角兜底（用内联 style 绕过 CSS 优先级：app.css 的 .el-tag { border-radius: 6px } 怎么都压不过）
+  function applyTjTestTag() {
+    var els = document.querySelectorAll('.tj-test-tag');
+    for (var i = 0; i < els.length; i++) {
+      if (els[i].style.borderRadius !== '999px') els[i].style.borderRadius = '999px';
+    }
+  }
+  applyTjTestTag();
+  setInterval(applyTjTestTag, 1000);
+
 })();
