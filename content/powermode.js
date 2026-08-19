@@ -15,6 +15,8 @@
   var observer = null;
   var colorPalette = [];
   var currentComboLevel = 0;
+  var comboDisplayEl = null;
+  var comboHideTimer = null;
 
   // ==========================================
   // 配置加载与更新
@@ -149,6 +151,7 @@
     comboTimer = setTimeout(function () {
       combo = 0;
       currentComboLevel = 0;
+      updateComboDisplay();
     }, config.comboResetMs);
 
     // 计算 combo 等级
@@ -178,6 +181,45 @@
     setTimeout(function () {
       wrap.classList.remove('xsdoi-shake');
     }, 200);
+  }
+
+  // ==========================================
+  // Combo 显示
+  // ==========================================
+  function ensureComboDisplay() {
+    if (comboDisplayEl && document.documentElement.contains(comboDisplayEl)) return;
+    comboDisplayEl = document.getElementById('xsdoi-combo-display');
+    if (!comboDisplayEl) {
+      comboDisplayEl = document.createElement('div');
+      comboDisplayEl.id = 'xsdoi-combo-display';
+      comboDisplayEl.className = 'xsdoi-combo-display';
+      comboDisplayEl.innerHTML = '<span class="xsdoi-combo-num">0</span><span class="xsdoi-combo-label">COMBO</span>';
+      document.documentElement.appendChild(comboDisplayEl);
+    }
+  }
+
+  function updateComboDisplay() {
+    if (!comboDisplayEl) return;
+    comboDisplayEl.querySelector('.xsdoi-combo-num').textContent = combo;
+    // combo 等级决定颜色
+    var colorIdx = Math.min(currentComboLevel, colorPalette.length - 1);
+    comboDisplayEl.style.borderColor = colorPalette[colorIdx];
+    comboDisplayEl.querySelector('.xsdoi-combo-num').style.color = colorPalette[colorIdx];
+    // combo > 0 显示，归零隐藏
+    if (combo > 0) {
+      comboDisplayEl.classList.add('xsdoi-combo-active');
+      // 重触发 pop 动画
+      comboDisplayEl.classList.remove('xsdoi-combo-pop');
+      void comboDisplayEl.offsetWidth;
+      comboDisplayEl.classList.add('xsdoi-combo-pop');
+      clearTimeout(comboHideTimer);
+      comboHideTimer = setTimeout(function () {
+        if (comboDisplayEl) comboDisplayEl.classList.remove('xsdoi-combo-active');
+      }, config.comboResetMs);
+    } else {
+      clearTimeout(comboHideTimer);
+      comboDisplayEl.classList.remove('xsdoi-combo-active');
+    }
   }
 
   // ==========================================
@@ -214,6 +256,7 @@
     console.log('[Powermode] 粒子坐标:', x, y, '生成', config.particleCount, '个粒子');
     spawnParticles(x, y);
     bumpCombo();
+    updateComboDisplay();
   }
 
   // ==========================================
@@ -256,6 +299,7 @@
         obs.disconnect();
         loadConfigFromStorage(function () {
           ensureParticleLayer();
+          ensureComboDisplay();
           updateColorPalette();
           bindTextarea();
           observeEditor();
@@ -274,6 +318,7 @@
       editorObserver.disconnect();
       loadConfigFromStorage(function () {
         ensureParticleLayer();
+        ensureComboDisplay();
         updateColorPalette();
         bindTextarea();
         observeEditor();
