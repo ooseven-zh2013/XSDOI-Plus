@@ -395,6 +395,11 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
 .save-btn.saved { background: #10b981; color: #fff; }
 .save-btn.save-error { background: #e5484d; color: #fff; }
 
+/* 打字特效面板：保存按钮默认用品牌色，与其他模块一致 */
+#pm-save.save-btn { background: var(--brand); color: #fff; }
+#pm-save.save-btn.saved { background: #10b981; color: #fff; }
+#pm-save.save-btn.save-error { background: #e5484d; color: #fff; }
+
 /* ============ 背景替换面板 ============ */
 .bg-tabs {
   display: flex;

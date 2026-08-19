@@ -1,5 +1,7 @@
 // ==================== 编辑器打字特效（Powermode） ====================
-// 兼容性：CodeMirror 5，监听 .vue-codemirror-wrap 下的 textarea 输入事件
+// 兼容性：CodeMirror 5，监听 .vue-codemirror-wrap 下 CodeMirror 内部输入框的 input 事件
+// 注意：源 textarea 是 Vue 绑定的隐藏源（display:none），用户输入发生在
+// CodeMirror 自己创建的 .CodeMirror textarea 上，必须绑定它才有事件。
 
 (function () {
   'use strict';
@@ -86,9 +88,10 @@
   // Textarea 绑定
   // ==========================================
   function bindTextarea() {
-    var ta = document.querySelector('.vue-codemirror-wrap textarea');
+    // 绑定 CodeMirror 内部真实接收输入的 textarea（源 textarea 为隐藏 Vue 源，不触发 input）
+    var ta = document.querySelector('.vue-codemirror-wrap .CodeMirror textarea');
     if (!ta) {
-      console.log('[Powermode] 找不到 .vue-codemirror-wrap textarea');
+      console.log('[Powermode] 找不到 .vue-codemirror-wrap .CodeMirror textarea');
       return false;
     }
     // 避免重复绑定

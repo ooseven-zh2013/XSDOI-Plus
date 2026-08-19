@@ -31,7 +31,7 @@
   function saveConfig(config, cb) {
     chrome.storage.sync.set({ powermode: config }, function () {
       if (chrome.runtime.lastError) {
-        alert('保存失败: ' + chrome.runtime.lastError.message);
+        if (cb) cb(chrome.runtime.lastError.message);
       } else {
         // 通知 content script 更新配置
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
@@ -39,9 +39,23 @@
             chrome.tabs.sendMessage(tabs[0].id, { type: POWERMODE.MSG.config });
           }
         });
-        if (cb) cb();
+        if (cb) cb(null);
       }
     });
+  }
+
+  var flashTimer = null;
+
+  // 保存按钮反馈：与板块美化一致，按钮内联显示状态，不弹窗
+  function flashSaveBtn(saveBtn, cls, text) {
+    saveBtn.classList.remove('saved', 'save-error', 'dirty');
+    saveBtn.classList.add(cls);
+    saveBtn.textContent = text;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(function () {
+      saveBtn.classList.remove('saved', 'save-error');
+      saveBtn.textContent = '保存配置';
+    }, 1200);
   }
 
   function bindUI() {
@@ -66,11 +80,11 @@
       var thresholdsStr = thresholdsEl.value.trim();
 
       if (isNaN(particleCount) || particleCount < 1 || particleCount > 50) {
-        alert('粒子数量必须是 1-50 的整数');
+        flashSaveBtn(saveBtn, 'save-error', '粒子数量须为 1-50');
         return;
       }
       if (isNaN(comboResetMs) || comboResetMs < 500 || comboResetMs > 5000) {
-        alert('combo 重置时间必须是 500-5000 的整数（毫秒）');
+        flashSaveBtn(saveBtn, 'save-error', '重置时间须为 500-5000');
         return;
       }
 
@@ -90,8 +104,12 @@
         colorPalette: POWERMODE.DEFAULTS.colorPalette,  // 暂不暴露颜色配置
       };
 
-      saveConfig(config, function () {
-        alert('配置已保存');
+      saveConfig(config, function (err) {
+        if (err) {
+          flashSaveBtn(saveBtn, 'save-error', '保存失败，请重试');
+        } else {
+          flashSaveBtn(saveBtn, 'saved', '已保存 ✓');
+        }
       });
     });
   }
