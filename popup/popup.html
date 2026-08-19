@@ -12,6 +12,7 @@
       <div class="nav-item" data-view="ac">AC 动画</div>
       <div class="nav-item" data-view="board">板块美化</div>
       <div class="nav-item" data-view="bg">背景替换</div>
+      <div class="nav-item" data-view="powermode">打字特效</div>
       <div class="nav-item" data-view="backup">代码备份</div>
     </nav>
 
@@ -343,6 +344,69 @@
         <div class="current-state" id="bg-current"></div>
       </section>
 
+      <!-- ============ 打字特效 ============ -->
+      <section class="view" id="view-powermode">
+        <h2 class="view-title">打字特效</h2>
+        <p class="view-sub">在编辑器里打字时显示粒子动画与 combo 计数</p>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">启用特效</div>
+            <div class="desc">开启后打字时会显示粒子</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="pm-enabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">粒子数量</div>
+            <div class="desc">每次打字生成的粒子数（1-50）</div>
+          </div>
+          <div class="row">
+            <input type="number" id="pm-particle-count" min="1" max="50" step="1" value="6">
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">combo 重置时间</div>
+            <div class="desc">毫秒（500-5000），超时后 combo 归零</div>
+          </div>
+          <div class="row">
+            <input type="number" id="pm-combo-reset-ms" min="500" max="5000" step="100" value="1500">
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">combo 达到阈值时抖动屏幕</div>
+            <div class="desc">抖动编辑器区域</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="pm-shake-on-combo">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">combo 阈值（逗号分隔）</div>
+            <div class="desc">例如 10,50,100</div>
+          </div>
+          <div class="row">
+            <input type="text" id="pm-combo-thresholds" value="10,50,100">
+          </div>
+        </div>
+
+        <div class="save-row">
+          <button id="pm-save" class="save-btn">保存配置</button>
+        </div>
+        <p class="tip">调整后请点击「保存配置」才会生效并持久化。</p>
+      </section>
+
       <!-- ============ 代码备份 ============ -->
       <section class="view" id="view-backup">
         <h2 class="view-title">代码备份</h2>
@@ -370,6 +434,7 @@
   <script src="ac-panel.js"></script>
   <script src="board-panel.js"></script>
   <script src="bg-panel.js"></script>
+  <script src="powermode-panel.js"></script>
   <script src="auto-save-panel.js"></script>
 </body>
 </html>

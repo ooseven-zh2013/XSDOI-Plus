@@ -91,3 +91,30 @@
 
   global.BG_REPLACER = BG;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// ==================== 编辑器打字特效（Powermode） ====================
+(function (global) {
+  'use strict';
+
+  var DEFAULTS = {
+    enabled: false,
+    particleCount: 6,       // 每次打字生成的粒子数
+    comboResetMs: 1500,     // 连打中断时间（毫秒）
+    shakeOnCombo: true,     // combo 达到阈值时是否抖动屏幕
+    comboThresholds: [10, 50, 100],  // combo 阈值，触发不同颜色/效果
+    // 亮色/暗色色板（按 combo 等级递进）
+    colorPalette: {
+      light: ['#ff6b6b', '#ffa94d', '#fcc419', '#51cf66', '#339af0', '#cc5de8'],
+      dark: ['#ff6b6b', '#ffa94d', '#fcc419', '#51cf66', '#339af0', '#cc5de8'],
+    },
+  };
+
+  var MSG = {
+    config: 'powermode-config',  // popup → content script：更新配置
+  };
+
+  global.POWERMODE = {
+    DEFAULTS: DEFAULTS,
+    MSG: MSG,
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
