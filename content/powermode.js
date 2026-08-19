@@ -1,5 +1,5 @@
 // ==================== 编辑器打字特效（Powermode） ====================
-// 兼容性：CodeMirror 5，监听 .vue-codemirror-wrap 下的 .CodeMirror 实例
+// 兼容性：CodeMirror 5，监听 .vue-codemirror-wrap 下的 textarea 输入事件
 
 (function () {
   'use strict';
@@ -10,7 +10,7 @@
   var config = Object.assign({}, POWERMODE.DEFAULTS);
   var combo = 0;
   var comboTimer = null;
-  var cmInstance = null;
+  var textareaInstance = null;
   var particleLayer = null;
   var observer = null;
   var colorPalette = [];
@@ -57,19 +57,22 @@
     if (message.type === POWERMODE.MSG.config) {
       loadConfigFromStorage(function () {
         if (config.enabled) {
-          // 确保 CodeMirror 实例已绑定
-          if (!cmInstance && !bindCM()) {
+          // 确保 textarea 已绑定
+          if (!textareaInstance && !bindTextarea()) {
             // 如果绑定失败，启动定时重试
             var retries = 0;
             var maxRetries = 10;
             var retryTimer = setInterval(function () {
-              if (bindCM()) {
+              if (bindTextarea()) {
                 clearInterval(retryTimer);
               } else if (++retries >= maxRetries) {
                 clearInterval(retryTimer);
               }
             }, 500);
           }
+        } else {
+          // 关闭特效时解绑
+          unbindTextarea();
         }
         sendResponse({ ok: true });
       });
@@ -78,61 +81,26 @@
   });
 
   // ==========================================
-  // CodeMirror 实例获取
+  // Textarea 绑定
   // ==========================================
-  function getCM() {
-    var wrapper = document.querySelector('.vue-codemirror-wrap');
-    if (!wrapper) {
-      console.log('[Powermode] 找不到 .vue-codemirror-wrap');
-      return null;
-    }
-    var cmDiv = wrapper.querySelector('.CodeMirror');
-    if (!cmDiv) {
-      console.log('[Powermode] 找不到 .CodeMirror');
-      return null;
-    }
-    if (!cmDiv.CodeMirror) {
-      console.log('[Powermode] .CodeMirror 没有 .CodeMirror 属性');
-      return null;
-    }
-    return cmDiv.CodeMirror;
-  }
-
-  function bindCM() {
-    cmInstance = getCM();
-    if (!cmInstance) return false;
-    // 避免重复绑定
-    cmInstance.off('change', handleCodeMirrorChange);
-
-    // 如果 .CodeMirror 没有 .CodeMirror 属性，启动重试
-    if (!cmInstance.CodeMirror) {
-      console.log('[Powermode] .CodeMirror 没有 .CodeMirror 属性，启动重试');
-      var retries = 0;
-      var maxRetries = 10;
-      var retryTimer = setInterval(function () {
-        if (cmInstance && cmInstance.CodeMirror) {
-          clearInterval(retryTimer);
-          if (config.enabled) {
-            cmInstance.on('change', handleCodeMirrorChange);
-          }
-        } else if (++retries >= maxRetries) {
-          clearInterval(retryTimer);
-          console.log('[Powermode] 重试失败，.CodeMirror 属性未出现');
-        }
-      }, 100);
+  function bindTextarea() {
+    var ta = document.querySelector('.vue-codemirror-wrap textarea');
+    if (!ta) {
+      console.log('[Powermode] 找不到 .vue-codemirror-wrap textarea');
       return false;
     }
-
-    if (config.enabled) {
-      cmInstance.on('change', handleCodeMirrorChange);
-    }
+    // 避免重复绑定
+    if (ta === textareaInstance) return true;
+    textareaInstance = ta;
+    ta.addEventListener('input', handleTextareaInput);
+    console.log('[Powermode] textarea 已绑定');
     return true;
   }
 
-  function unbindCM() {
-    if (cmInstance) {
-      cmInstance.off('change', handleCodeMirrorChange);
-      cmInstance = null;
+  function unbindTextarea() {
+    if (textareaInstance) {
+      textareaInstance.removeEventListener('input', handleTextareaInput);
+      textareaInstance = null;
     }
   }
 
@@ -213,21 +181,38 @@
   }
 
   // ==========================================
-  // CodeMirror change 事件处理
+  // Textarea input 事件处理
   // ==========================================
-  function handleCodeMirrorChange(instance, changeObj) {
-    console.log('[Powermode] change 事件触发:', changeObj.origin);
+  function handleTextareaInput(e) {
+    console.log('[Powermode] input 事件触发');
     if (!config.enabled) {
       console.log('[Powermode] 配置未启用，跳过');
       return;
     }
-    if (changeObj.origin !== '+input') {
-      console.log('[Powermode] origin 不是 +input，跳过:', changeObj.origin);
+    // 过滤掉非输入类型的事件（如程序设置的 value）
+    if (e.isTrusted === false) {
+      console.log('[Powermode] 非用户输入，跳过');
       return;
     }
-    var coords = instance.cursorCoords(null, 'window');
-    console.log('[Powermode] 光标坐标:', coords, '生成', config.particleCount, '个粒子');
-    spawnParticles(coords.left, coords.top);
+    // 获取光标坐标（尝试从 CodeMirror DOM 读取）
+    var cmDiv = document.querySelector('.vue-codemirror-wrap .CodeMirror');
+    var x = 0, y = 0;
+    if (cmDiv) {
+      var cursor = cmDiv.querySelector('.CodeMirror-cursors .CodeMirror-cursor');
+      if (cursor) {
+        var rect = cursor.getBoundingClientRect();
+        x = rect.left;
+        y = rect.top;
+      }
+    }
+    if (x === 0 && y === 0) {
+      // 兜底：从 textarea 读取
+      var rect = textareaInstance.getBoundingClientRect();
+      x = rect.left;
+      y = rect.top;
+    }
+    console.log('[Powermode] 粒子坐标:', x, y, '生成', config.particleCount, '个粒子');
+    spawnParticles(x, y);
     bumpCombo();
   }
 
@@ -250,8 +235,8 @@
         return false;
       });
       if (hasCMChange) {
-        unbindCM();
-        bindCM();
+        unbindTextarea();
+        bindTextarea();
       }
     });
     observer.observe(document.body || document.documentElement, {
@@ -265,32 +250,32 @@
   // ==========================================
   function init() {
     // 等待 .vue-codemirror-wrap 出现
-    var observer = new MutationObserver(function (mutations, obs) {
+    var editorObserver = new MutationObserver(function (mutations, obs) {
       var wrapper = document.querySelector('.vue-codemirror-wrap');
       if (wrapper) {
         obs.disconnect();
         loadConfigFromStorage(function () {
           ensureParticleLayer();
           updateColorPalette();
-          bindCM();
+          bindTextarea();
           observeEditor();
         });
       }
     });
 
     // 监听整个文档的子节点变化
-    observer.observe(document.documentElement, {
+    editorObserver.observe(document.documentElement, {
       childList: true,
       subtree: true,
     });
 
     // 兜底：5s 后如果还没找到，直接尝试一次
     setTimeout(function () {
-      observer.disconnect();
+      editorObserver.disconnect();
       loadConfigFromStorage(function () {
         ensureParticleLayer();
         updateColorPalette();
-        bindCM();
+        bindTextarea();
         observeEditor();
       });
     }, 5000);
