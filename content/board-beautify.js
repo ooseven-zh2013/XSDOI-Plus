@@ -1390,9 +1390,10 @@
     }
   })();
 
-  // tj-test-tag 圆角 + 边框兜底（用带 important 的内联 style，压过 scoped CSS 的 !important）
+  // tj-test-tag 及弹窗触发器 el-tag（「填充用例」「文件 IO」等选中/触发态标签）的圆角 + 边框兜底
+  // 用带 important 的内联 style，压过 scoped CSS 的 !important
   function applyTjTestTag() {
-    var els = document.querySelectorAll('.tj-test-tag');
+    var els = document.querySelectorAll('.tj-test-tag, .el-tag--dark.el-popover__reference');
     for (var i = 0; i < els.length; i++) {
       if (els[i].style.getPropertyValue('border-radius') !== '999px') {
         els[i].style.setProperty('border-radius', '999px', 'important');
