@@ -19,6 +19,9 @@
     videoMode: false,
     duration: 3000, // 停留毫秒
     fadeMs: FADE_MS, // 淡入/淡出时长（毫秒），0 表示无过渡
+    mode: 'image', // 'image' | 'video' | 'folder'（文件夹随机播放）
+    folderFilter: 'both', // 仅 folder 模式：'image' | 'video' | 'both'
+    folderReady: false,   // 文件夹是否已设置（供面板 / testPlay 判断；实际 blob 在 IndexedDB）
   };
 
   var LIMITS = {
@@ -32,6 +35,9 @@
     videoSave: 'video-save',
     videoLoad: 'video-load',
     videoClear: 'video-clear',
+    folderManifest: 'folder-manifest', // 取文件夹文件清单（含 kind）
+    folderFile: 'folder-file',         // 按 id 拉取单个文件 blob 分片
+    folderClear: 'folder-clear',       // 清除整个文件夹
   };
 
   // 时长归一化：非法/缺失 → 默认 3000ms；合法值（含 0）原样返回

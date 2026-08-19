@@ -73,14 +73,15 @@
         <p class="view-sub">AC 时显示你的图片 / 视频，默认淡入淡出各 1s</p>
 
         <div class="block">
-          <div class="switch-row">
-            <span class="switch-label">视频模式</span>
-            <label class="switch">
-              <input type="checkbox" id="video-mode">
-              <span class="slider"></span>
-            </label>
+          <div class="label">播放模式</div>
+          <div class="row">
+            <select id="ac-mode" class="ac-select">
+              <option value="image">图片</option>
+              <option value="video">视频</option>
+              <option value="folder">文件夹（随机）</option>
+            </select>
           </div>
-          <div class="tip">开启后隐藏图片和音频，改为播放视频</div>
+          <div class="tip" id="mode-tip">选择图片或视频，或指定一个文件夹随机播放</div>
         </div>
 
         <div class="block">
@@ -139,6 +140,26 @@
             <button class="btn" id="btn-apply-video-url">应用</button>
           </div>
           <div class="tip" id="video-status">未设置视频</div>
+        </div>
+
+        <div class="block" id="folder-block" style="display:none;">
+          <div class="label">选择文件夹（图片 / 视频随机播放）</div>
+          <div class="row">
+            <button class="btn primary" id="btn-pick-folder">选择文件夹</button>
+            <button class="btn danger" id="btn-clear-folder">清除</button>
+          </div>
+          <input type="file" id="file-folder" webkitdirectory directory multiple hidden>
+
+          <div class="label label-gap">播放类型</div>
+          <div class="row">
+            <select id="folder-filter" class="ac-select">
+              <option value="both">图片 + 视频</option>
+              <option value="image">仅图片</option>
+              <option value="video">仅视频</option>
+            </select>
+          </div>
+          <div class="tip" id="folder-status">未选择文件夹</div>
+          <div class="preview" id="folder-preview"><span class="placeholder">还没有选择文件夹</span></div>
         </div>
 
         <div class="block">

@@ -26,10 +26,17 @@
   var btnApplyAudioUrl = document.getElementById('btn-apply-audio-url');
   var audioStatus = document.getElementById('audio-status');
 
-  var videoModeInput = document.getElementById('video-mode');
+  var modeSelect = document.getElementById('ac-mode');
   var fadeInput = document.getElementById('ac-fade');
   var mediaBlocks = document.getElementById('media-blocks');
   var videoBlock = document.getElementById('video-block');
+  var folderBlock = document.getElementById('folder-block');
+  var fileFolder = document.getElementById('file-folder');
+  var btnPickFolder = document.getElementById('btn-pick-folder');
+  var btnClearFolder = document.getElementById('btn-clear-folder');
+  var folderFilter = document.getElementById('folder-filter');
+  var folderStatus = document.getElementById('folder-status');
+  var folderPreview = document.getElementById('folder-preview');
   var fileVideo = document.getElementById('file-video');
   var btnPickVideo = document.getElementById('btn-pick-video');
   var btnClearVideo = document.getElementById('btn-clear-video');
@@ -80,8 +87,11 @@
         videoUrlInput.value = res.video;
       }
     }
-    videoModeInput.checked = !!res.videoMode;
-    applyVideoMode(!!res.videoMode);
+    var initMode = res.mode || (res.videoMode ? 'video' : 'image');
+    modeSelect.value = initMode;
+    applyMode(initMode);
+    folderFilter.value = res.folderFilter || 'both';
+    if (initMode === 'folder' && res.folderReady) refreshFolderPreview();
     var fm0 = Number(res.fadeMs);
     if (!isFinite(fm0) || fm0 < 0) fm0 = (res.fade === false ? 0 : AC.FADE_MS);
     fadeInput.value = fm0 / 1000;
@@ -237,16 +247,128 @@
     checkAndSaveAudio(url);
   });
 
-  // ---- 视频模式开关 ----
-  function applyVideoMode(on) {
-    videoBlock.style.display = on ? '' : 'none';
-    mediaBlocks.style.display = on ? 'none' : '';
+  // ---- 模式切换（图片 / 视频 / 文件夹）----
+  function modeLabel(mode) {
+    return mode === 'video' ? '视频' : mode === 'folder' ? '文件夹随机' : '图片';
   }
-  videoModeInput.addEventListener('change', function () {
-    var on = videoModeInput.checked;
-    applyVideoMode(on);
-    chrome.storage.local.set({ videoMode: on }, function () {
-      showToast(on ? '已开启视频模式' : '已关闭视频模式');
+  function applyMode(mode) {
+    mediaBlocks.style.display = (mode === 'image') ? '' : 'none';
+    videoBlock.style.display = (mode === 'video') ? '' : 'none';
+    folderBlock.style.display = (mode === 'folder') ? '' : 'none';
+  }
+  modeSelect.addEventListener('change', function () {
+    var mode = modeSelect.value;
+    applyMode(mode);
+    chrome.storage.local.set({ mode: mode }, function () {
+      showToast('已切换到「' + modeLabel(mode) + '」模式');
+    });
+  });
+
+  // ---- 文件夹预览 / 状态 ----
+  function renderFolderPreview(entries) {
+    if (!entries || !entries.length) {
+      folderPreview.innerHTML = '<span class="placeholder">还没有选择文件夹</span>';
+      return;
+    }
+    var html = '<div class="folder-list">';
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      var icon = e.kind === 'video' ? '🎬' : '🖼️';
+      html += '<div class="folder-item">' + icon + ' ' + escapeHtml(e.name) + '</div>';
+    }
+    html += '</div>';
+    folderPreview.innerHTML = html;
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function updateFolderStatus(entries, skipped) {
+    if (!entries || !entries.length) {
+      folderStatus.textContent = '未选择文件夹';
+      return;
+    }
+    var img = entries.filter(function (e) { return e.kind === 'image'; }).length;
+    var vid = entries.filter(function (e) { return e.kind === 'video'; }).length;
+    var msg = '已选择文件夹：' + entries.length + ' 个（图片 ' + img + ' / 视频 ' + vid + '）';
+    if (skipped) msg += '，跳过 ' + skipped + ' 个无法解码的视频';
+    folderStatus.textContent = msg;
+  }
+  function refreshFolderPreview() {
+    acStore.get('folder').then(function (rec) {
+      var entries = rec && rec.entries ? rec.entries : [];
+      renderFolderPreview(entries);
+      updateFolderStatus(entries, 0);
+    }).catch(function () {
+      folderStatus.textContent = '读取文件夹失败';
+    });
+  }
+
+  // ---- 选择文件夹（webkitdirectory 拉平所有文件）----
+  btnPickFolder.addEventListener('click', function () { fileFolder.click(); });
+
+  fileFolder.addEventListener('change', async function () {
+    var files = Array.prototype.slice.call(fileFolder.files || []);
+    if (!files.length) return;
+    var imageRe = /^image\//;
+    var videoRe = /^video\//;
+    var candidates = files.filter(function (f) {
+      return imageRe.test(f.type) || videoRe.test(f.type);
+    });
+    if (!candidates.length) {
+      showToast('文件夹里没有图片或视频');
+      fileFolder.value = '';
+      return;
+    }
+    // 先清旧数据，避免残留
+    try { await sendMessage({ type: AC.MSG.folderClear }); } catch (e) {}
+    var entries = [];
+    var skipped = 0;
+    for (var i = 0; i < candidates.length; i++) {
+      var f = candidates[i];
+      var kind = imageRe.test(f.type) ? 'image' : 'video';
+      if (kind === 'video') {
+        try { await probeVideo(f); } // 解码不了的跳过，避免「存了却放不了」
+        catch (e) { skipped++; continue; }
+      }
+      var id = String(i);
+      try {
+        await acStore.put('folder-' + id, { mime: f.type || (kind === 'image' ? 'image/png' : 'video/mp4'), blob: f });
+        entries.push({ id: id, name: f.name, kind: kind });
+      } catch (e) { skipped++; }
+    }
+    if (!entries.length) {
+      showToast('没有可用文件（视频可能编码不支持）');
+      fileFolder.value = '';
+      return;
+    }
+    try { await acStore.put('folder', { entries: entries }); } catch (e) {}
+    await chrome.storage.local.set({ folderReady: true, mode: 'folder', folderFilter: folderFilter.value });
+    modeSelect.value = 'folder';
+    applyMode('folder');
+    renderFolderPreview(entries);
+    updateFolderStatus(entries, skipped);
+    showToast('文件夹已保存（' + entries.length + ' 个文件）');
+  });
+
+  // ---- 播放类型（仅图片 / 仅视频 / 两者）----
+  folderFilter.addEventListener('change', function () {
+    chrome.storage.local.set({ folderFilter: folderFilter.value }, function () {
+      showToast('播放类型已更新');
+    });
+  });
+
+  // ---- 清除文件夹 ----
+  btnClearFolder.addEventListener('click', async function () {
+    try { await sendMessage({ type: AC.MSG.folderClear }); } catch (e) {}
+    chrome.storage.local.set({ folderReady: false }, function () {
+      fileFolder.value = '';
+      folderFilter.value = 'both';
+      chrome.storage.local.set({ folderFilter: 'both' });
+      renderFolderPreview(null);
+      updateFolderStatus(null, 0);
+      showToast('已清除文件夹');
     });
   });
 
@@ -415,10 +537,15 @@
 
   // ---- 测试播放：发消息给当前页面的 content script ----
   btnTest.addEventListener('click', function () {
-    chrome.storage.local.get({ image: null, video: null, videoMode: false }, function (res) {
-      var hasContent = (res.videoMode && res.video) || res.image;
-      if (!hasContent) {
-        showToast(res.videoMode ? '请先设置视频' : '请先选择图片');
+    chrome.storage.local.get({ mode: 'image', image: null, video: null, folderReady: false }, function (res) {
+      var mode = res.mode || 'image';
+      var ok = false;
+      var tip = '';
+      if (mode === 'video') { ok = !!res.video; tip = '请先设置视频'; }
+      else if (mode === 'folder') { ok = !!res.folderReady; tip = '请先选择文件夹'; }
+      else { ok = !!res.image; tip = '请先选择图片'; }
+      if (!ok) {
+        showToast(tip);
         return;
       }
       chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {

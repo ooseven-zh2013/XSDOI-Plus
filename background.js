@@ -31,6 +31,23 @@ function clearMedia(store, key, sendResponse) {
   return true;
 }
 
+// 文件夹模式：删除清单 + 所有 folder-<id> 分文件
+async function clearFolder(store, sendResponse) {
+  try {
+    var rec = await store.get('folder');
+    if (rec && rec.entries) {
+      for (var i = 0; i < rec.entries.length; i++) {
+        await store.remove('folder-' + rec.entries[i].id);
+      }
+    }
+    await store.remove('folder');
+    sendResponse({ ok: true });
+  } catch (e) {
+    sendResponse({ ok: false, reason: String(e && e.message || e) });
+  }
+  return true;
+}
+
 // ==================== 大文件分片读取（Port 流式，AC / BG 共用）====================
 // AC 动画与背景替换的 store 现在都直接存 Blob（不再 base64）。content script
 // 运行在页面 origin 读不到扩展 IndexedDB，故由本 worker 读 Blob 后分片推送，
@@ -80,6 +97,20 @@ async function streamBlob(store, port, key) {
   }
 }
 
+// 文件夹模式：回传清单（仅元数据，不含 blob，供 content script 过滤 + 随机）
+async function streamFolderManifest(store, port) {
+  try {
+    var rec = await store.get('folder');
+    if (!rec || !rec.entries || !rec.entries.length) {
+      port.postMessage({ type: 'empty' });
+      return;
+    }
+    port.postMessage({ type: 'manifest', entries: rec.entries });
+  } catch (e) {
+    port.postMessage({ type: 'error', reason: String(e && e.message || e) });
+  }
+}
+
 chrome.runtime.onConnect.addListener(function (port) {
   if (port.name === 'bg-media-stream') {
     port.onMessage.addListener(function (msg) {
@@ -90,8 +121,13 @@ chrome.runtime.onConnect.addListener(function (port) {
     });
   } else if (port.name === 'ac-media-stream') {
     port.onMessage.addListener(function (msg) {
-      if (msg && msg.type === AC.MSG.videoLoad) {
+      if (!msg) return;
+      if (msg.type === AC.MSG.videoLoad) {
         streamBlob(acStore, port, 'video');
+      } else if (msg.type === AC.MSG.folderManifest) {
+        streamFolderManifest(acStore, port);
+      } else if (msg.type === AC.MSG.folderFile) {
+        streamBlob(acStore, port, 'folder-' + msg.id);
       }
     });
   }
@@ -293,6 +329,9 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   // ===== AC 动画替换：清除视频 =====
   // 上传由 popup 直写 IndexedDB，读取走 onConnect 分片，故只保留 clear
   if (msg.type === AC.MSG.videoClear) return clearMedia(acStore, 'video', sendResponse);
+
+  // ===== AC 动画替换：清除文件夹（清单 + 所有分文件）=====
+  if (msg.type === AC.MSG.folderClear) return clearFolder(acStore, sendResponse);
 
   // ===== 背景替换：清除（视频 / 音频）=====
   // 上传由 popup 直写 IndexedDB，读取走 onConnect 分片，故只保留 clear

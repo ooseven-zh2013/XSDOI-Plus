@@ -11,7 +11,7 @@
 
   var AC = globalThis.AC_REPLACER;
 
-  var config = { image: null, audio: null, video: null, videoMode: false, duration: 3000, fadeMs: 1000 };
+  var config = { image: null, audio: null, video: null, videoMode: false, duration: 3000, fadeMs: 1000, mode: 'image', folderFilter: 'both', folderReady: false };
 
   // 淡入/淡出时长（毫秒），0 表示无过渡
   function fadeMs() {
@@ -28,6 +28,7 @@
   var audio = null;           // 当前播放的音频实例
   var audioTimer = null;      // 音频截断定时器
   var blockedFirework = null; // 被屏蔽的原烟花 canvas，动画结束后清理
+  var folderBusy = false;     // 文件夹异步加载锁，避免重复拉取
 
   // ---- 判断一个元素是不是原烟花的 canvas ----
   // 特征：全屏 fixed 定位 + 极高 z-index。站点可能微调具体数值，
@@ -109,22 +110,16 @@
     }, 2 * FADE + stay);
   }
 
-  // ---- 图片 + 音频模式 ----
-  function showCustomImage() {
+  // ---- 图片 + 音频模式核心：给定 src 播放图片 ----
+  // onStop：媒体结束（淡出完成）时的额外清理（如 revoke blob URL）
+  function playImage(src, onStop) {
     if (showing) return;
-
-    // 视频模式且配了视频 → 走视频
-    if (config.videoMode && config.video) {
-      showVideo();
-      return;
-    }
-
-    if (!config.image) return;
+    if (!src) return;
     showing = true;
 
     var overlay = createOverlay();
     var img = document.createElement('img');
-    img.src = config.image;
+    img.src = src;
     img.draggable = false;
     img.style.cssText =
       'max-width:60vw;max-height:80vh;width:auto;height:auto;' +
@@ -133,7 +128,6 @@
 
     var stay = AC.normalizeDuration(config.duration);
 
-    // 加载超时兜底：图片既不 onload 也不 onerror 时，避免 showing 永久卡 true
     var cleanup = function () {
       clearTimeout(timeout);
       overlay.remove();
@@ -142,19 +136,27 @@
     };
     var timeout = setTimeout(cleanup, AC.LIMITS.loadTimeoutMs);
 
-    var start = function () {
+    var startFn = function () {
       clearTimeout(timeout);
       fadeIn(overlay);
-      playAudio(); // 淡入开始就播
-      scheduleFadeOut(overlay, stay, stopAudio);
+      playAudio();
+      scheduleFadeOut(overlay, stay, function () { stopAudio(); if (onStop) onStop(); });
     };
 
     if (img.complete && img.naturalWidth > 0) {
-      start(); // 已加载（data URL / 缓存），直接淡入
+      startFn();
     } else {
-      img.onload = start; // 远程图加载完再淡入
+      img.onload = startFn;
       img.onerror = cleanup;
     }
+  }
+
+  // 当前模式入口：根据 config.mode 分发到图片 / 视频 / 文件夹
+  function showCurrent() {
+    if (showing) return;
+    if (config.mode === 'video') { showVideo(); return; }
+    if (config.mode === 'folder') { showFolder(); return; }
+    if (config.image) { playImage(config.image); return; }
   }
 
   // ---- base64 → 字节数组 ----
@@ -259,9 +261,131 @@
     }
   }
 
+  // ---- 文件夹模式：给定 Blob 直接播放视频（与单视频模式共用渲染逻辑）----
+  function playVideoBlob(blob, onStop) {
+    if (showing) return;
+    showing = true;
+
+    var overlay = createOverlay();
+    var video = document.createElement('video');
+    video.playsInline = true;
+    video.style.cssText =
+      'max-width:60vw;max-height:80vh;width:auto;height:auto;' +
+      'object-fit:contain;';
+    overlay.appendChild(video);
+
+    var stay = AC.normalizeDuration(config.duration);
+    var objectUrl = URL.createObjectURL(blob);
+
+    var cleanup = function () {
+      clearTimeout(timeout);
+      try { video.pause(); } catch (e) {}
+      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+      overlay.remove();
+      showing = false;
+      removeBlockedFirework();
+      if (onStop) onStop();
+    };
+    var timeout = setTimeout(cleanup, AC.LIMITS.loadTimeoutMs);
+
+    video.onloadedmetadata = function () {
+      clearTimeout(timeout);
+      video.loop = video.duration < mediaDurationNeeded(stay) / 1000;
+      fadeIn(overlay);
+      video.play().catch(function () {
+        video.muted = true;
+        video.play().catch(function () { /* 仍失败则放弃 */ });
+      });
+      scheduleFadeOut(overlay, stay, function () {
+        try { video.pause(); } catch (e) {}
+      });
+    };
+    video.onerror = cleanup;
+
+    video.src = objectUrl;
+  }
+
+  // ---- 从 background 拉取文件夹清单（仅元数据，不含 blob）----
+  function loadFolderManifest(cb) {
+    var port = chrome.runtime.connect({ name: 'ac-media-stream' });
+    var done = false;
+    port.onMessage.addListener(function (msg) {
+      if (!msg || done) return;
+      if (msg.type === 'manifest' || msg.type === 'empty' || msg.type === 'error') {
+        done = true;
+        port.disconnect();
+        cb((msg.type === 'manifest' && msg.entries) ? msg.entries : []);
+      }
+    });
+    port.postMessage({ type: AC.MSG.folderManifest });
+  }
+
+  // ---- 从 background 分片读取文件夹单个文件 Blob ----
+  function loadFolderFile(id, cb) {
+    var port = chrome.runtime.connect({ name: 'ac-media-stream' });
+    var parts = [];
+    var mime = '';
+    var done = false;
+    port.onMessage.addListener(function (msg) {
+      if (!msg || done) return;
+      if (msg.type === 'meta') {
+        if (msg.mime) mime = msg.mime;
+      } else if (msg.type === 'chunk') {
+        parts.push(base64ToBytes(msg.data));
+      } else if (msg.type === 'done') {
+        done = true;
+        port.disconnect();
+        var total = 0;
+        for (var i = 0; i < parts.length; i++) total += parts[i].length;
+        var merged = new Uint8Array(total);
+        var off = 0;
+        for (var j = 0; j < parts.length; j++) {
+          merged.set(parts[j], off);
+          off += parts[j].length;
+        }
+        cb(new Blob([merged], { type: mime }));
+      } else if (msg.type === 'error') {
+        done = true;
+        port.disconnect();
+        cb(null);
+      }
+    });
+    port.postMessage({ type: AC.MSG.folderFile, id: id });
+  }
+
+  // ---- 文件夹模式：随机挑一个文件播放 ----
+  function showFolder() {
+    if (showing || folderBusy) return;
+    folderBusy = true;
+    if (!config.folderReady) { folderBusy = false; return; }
+    loadFolderManifest(function (entries) {
+      if (!entries || !entries.length) { folderBusy = false; return; }
+      var allow = config.folderFilter || 'both';
+      var pool = entries.filter(function (e) {
+        if (allow === 'image') return e.kind === 'image';
+        if (allow === 'video') return e.kind === 'video';
+        return true; // both
+      });
+      if (!pool.length) { folderBusy = false; return; }
+      var pick = pool[Math.floor(Math.random() * pool.length)];
+      loadFolderFile(pick.id, function (blob) {
+        folderBusy = false; // 释放锁，真正的 showing 交给 playImage / playVideoBlob
+        if (!blob) return;
+        if (pick.kind === 'video') {
+          playVideoBlob(blob, null);
+        } else {
+          var url = URL.createObjectURL(blob);
+          playImage(url, function () { URL.revokeObjectURL(url); });
+        }
+      });
+    });
+  }
+
   // ---- 当前有没有可显示的内容 ----
   function hasContent() {
-    return (config.videoMode && config.video) || !!config.image;
+    if (config.mode === 'video') return !!config.video;
+    if (config.mode === 'folder') return !!config.folderReady;
+    return !!config.image;
   }
 
   // ---- 启动监听 ----
@@ -280,7 +404,7 @@
             if (hasContent()) {
               node.style.display = 'none'; // 屏蔽原烟花
               blockedFirework = node;      // 记录，动画结束后清理
-              showCustomImage();           // 显示自定义内容
+              showCurrent();               // 显示自定义内容
             }
             // 没配内容时不动原烟花，保留默认动画
             return;
@@ -296,7 +420,9 @@
     config.image = res.image || null;
     config.audio = res.audio || null;
     config.video = res.video || null;
-    config.videoMode = !!res.videoMode;
+    config.mode = res.mode || (res.videoMode ? 'video' : 'image'); // 兼容旧版 videoMode
+    config.folderFilter = res.folderFilter || 'both';
+    config.folderReady = !!res.folderReady;
     config.duration = AC.normalizeDuration(res.duration);
     var fm = Number(res.fadeMs);
     if (!isFinite(fm) || fm < 0) fm = (res.fade === false ? 0 : AC.FADE_MS);
@@ -311,6 +437,9 @@
     if (changes.audio) config.audio = changes.audio.newValue || null;
     if (changes.video) config.video = changes.video.newValue || null;
     if (changes.videoMode) config.videoMode = !!changes.videoMode.newValue;
+    if (changes.mode) config.mode = changes.mode.newValue || 'image';
+    if (changes.folderFilter) config.folderFilter = changes.folderFilter.newValue || 'both';
+    if (changes.folderReady) config.folderReady = !!changes.folderReady.newValue;
     if (changes.duration) config.duration = AC.normalizeDuration(changes.duration.newValue);
     if (changes.fadeMs) {
       var fm2 = Number(changes.fadeMs.newValue);
@@ -326,7 +455,7 @@
         return;
       }
       showing = false; // 强制重置，确保测试一定能播
-      showCustomImage();
+      showCurrent();
       sendResponse({ ok: true });
     }
   });
