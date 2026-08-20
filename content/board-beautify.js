@@ -1191,8 +1191,10 @@
       '  border-color: rgba(255, 255, 255, 0.12) !important;',
       '}',
       /* 题目详情页「你已经解决了该问题」提示 el-alert：缩小成紧凑标签（像 Accepted 状态标签，
-         不撑满整列、去掉 28px 大图标和大内边距，避免在自测抽屉里挤压/遮挡按钮组） */
-      '.el-alert--success.is-dark {',
+         不撑满整列、去掉 28px 大图标和大内边距，避免在自测抽屉里挤压/遮挡按钮组）。
+         排除内联 display:none 的隐藏 alert：否则 display:inline-flex!important 会把
+         设置页「更新密码/更新邮箱」等默认隐藏的成功提示也强制显示出来（多出对号） */
+      '.el-alert--success.is-dark:not([style*="display: none"]):not([style*="display:none"]) {',
       '  display: inline-flex !important;',
       '  width: auto !important;',
       '  max-width: 100% !important;',
