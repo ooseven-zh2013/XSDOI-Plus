@@ -10,6 +10,8 @@
       if (items[storageKey]) {
         var stored = items[storageKey];
         if (typeof stored.enabled === 'boolean') config.enabled = stored.enabled;
+        if (typeof stored.particlesEnabled === 'boolean') config.particlesEnabled = stored.particlesEnabled;
+        if (typeof stored.comboEnabled === 'boolean') config.comboEnabled = stored.comboEnabled;
         if (typeof stored.particleCount === 'number' && stored.particleCount > 0 && stored.particleCount <= 50) {
           config.particleCount = stored.particleCount;
         }
@@ -74,6 +76,8 @@
 
   function bindUI() {
     var enabledEl = document.getElementById('pm-enabled');
+    var particlesEl = document.getElementById('pm-particles');
+    var comboEl = document.getElementById('pm-combo');
     var particleCountEl = document.getElementById('pm-particle-count');
     var comboResetMsEl = document.getElementById('pm-combo-reset-ms');
     var shakeOnComboEl = document.getElementById('pm-shake-on-combo');
@@ -102,10 +106,22 @@
       });
     });
 
+    enabledEl.addEventListener('change', syncSubEnabled);
+
     bindColorPair(solidPickerEl, solidInputEl);
+
+    // 总开关关闭时置灰子开关（保留勾选状态，重新打开总开关后恢复）
+    function syncSubEnabled() {
+      var disabled = !enabledEl.checked;
+      particlesEl.disabled = disabled;
+      comboEl.disabled = disabled;
+    }
 
     loadConfig(function (config) {
       enabledEl.checked = config.enabled;
+      particlesEl.checked = config.particlesEnabled;
+      comboEl.checked = config.comboEnabled;
+      syncSubEnabled();
       particleCountEl.value = config.particleCount;
       comboResetMsEl.value = config.comboResetMs;
       shakeOnComboEl.checked = config.shakeOnCombo;
@@ -149,6 +165,8 @@
 
       var config = {
         enabled: enabledEl.checked,
+        particlesEnabled: particlesEl.checked,
+        comboEnabled: comboEl.checked,
         particleCount: particleCount,
         comboResetMs: comboResetMs,
         shakeOnCombo: shakeOnComboEl.checked,

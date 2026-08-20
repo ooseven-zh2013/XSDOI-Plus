@@ -352,10 +352,32 @@
         <div class="board-row">
           <div class="board-label">
             <div class="name">启用特效</div>
-            <div class="desc">开启后打字时会显示粒子</div>
+            <div class="desc">总开关，关闭后粒子与 combo 全部失效</div>
           </div>
           <label class="switch">
             <input type="checkbox" id="pm-enabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">粒子动画</div>
+            <div class="desc">打字时从光标处撒粒子</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="pm-particles">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">combo 计数</div>
+            <div class="desc">右上角显示连击数，达到阈值抖动屏幕</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="pm-combo">
             <span class="slider"></span>
           </label>
         </div>

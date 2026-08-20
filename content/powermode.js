@@ -27,6 +27,12 @@
       if (items.powermode) {
         var stored = items.powermode;
         config.enabled = typeof stored.enabled === 'boolean' ? stored.enabled : config.enabled;
+        if (typeof stored.particlesEnabled === 'boolean') {
+          config.particlesEnabled = stored.particlesEnabled;
+        }
+        if (typeof stored.comboEnabled === 'boolean') {
+          config.comboEnabled = stored.comboEnabled;
+        }
         if (typeof stored.particleCount === 'number' && stored.particleCount > 0 && stored.particleCount <= 50) {
           config.particleCount = stored.particleCount;
         }
@@ -77,6 +83,8 @@
   chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.type === POWERMODE.MSG.config) {
       loadConfigFromStorage(function () {
+        // 按独立开关调整 combo 显示
+        applyComboVisibility();
         if (config.enabled) {
           // 确保 textarea 已绑定
           if (!textareaInstance && !bindTextarea()) {
@@ -158,6 +166,19 @@
       particleLayer.appendChild(p);
       // 600ms 后移除
       setTimeout(function () { if (p.parentNode) p.parentNode.removeChild(p); }, 600);
+    }
+  }
+
+  // combo 开关被关闭（或总开关关闭）时：重置计数并隐藏显示
+  function applyComboVisibility() {
+    if (config.enabled && config.comboEnabled) {
+      ensureComboDisplay();
+    } else {
+      combo = 0;
+      currentComboLevel = 0;
+      if (comboDisplayEl) {
+        comboDisplayEl.classList.remove('xsdoi-combo-active');
+      }
     }
   }
 
@@ -272,10 +293,17 @@
       x = rect.left;
       y = rect.top;
     }
-    console.log('[Powermode] 粒子坐标:', x, y, '生成', config.particleCount, '个粒子');
-    spawnParticles(x, y);
-    bumpCombo();
-    updateComboDisplay();
+    console.log('[Powermode] 粒子坐标:', x, y);
+    // 独立开关：粒子动画
+    if (config.particlesEnabled) {
+      console.log('[Powermode] 生成', config.particleCount, '个粒子');
+      spawnParticles(x, y);
+    }
+    // 独立开关：combo 计数
+    if (config.comboEnabled) {
+      bumpCombo();
+      updateComboDisplay();
+    }
   }
 
   // ==========================================
@@ -318,7 +346,7 @@
         obs.disconnect();
         loadConfigFromStorage(function () {
           ensureParticleLayer();
-          ensureComboDisplay();
+          applyComboVisibility();
           bindTextarea();
           observeEditor();
         });
@@ -336,7 +364,7 @@
       editorObserver.disconnect();
       loadConfigFromStorage(function () {
         ensureParticleLayer();
-        ensureComboDisplay();
+        applyComboVisibility();
         bindTextarea();
         observeEditor();
       });

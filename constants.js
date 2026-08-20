@@ -97,7 +97,9 @@
   'use strict';
 
   var DEFAULTS = {
-    enabled: false,
+    enabled: false,         // 总开关：关闭后粒子和 combo 全部失效
+    particlesEnabled: true, // 粒子动画独立开关（enabled 为 true 时生效）
+    comboEnabled: true,     // combo 计数独立开关（enabled 为 true 时生效）
     particleCount: 6,       // 每次打字生成的粒子数
     comboResetMs: 1500,     // 连打中断时间（毫秒）
     shakeOnCombo: true,     // combo 达到阈值时是否抖动屏幕
