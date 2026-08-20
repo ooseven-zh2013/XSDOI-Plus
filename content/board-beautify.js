@@ -751,6 +751,11 @@
       '  background: transparent !important;',
       '  border: 1px solid rgba(255, 255, 255, 0.12) !important;',
       '}',
+      /* 编辑器设置弹窗：去掉「设置」标题与设置项之间的分隔细线（border-bottom 1px var(--c-f3f3f6)）。
+         独立去线规则，不进统一玻璃层；setting-item 无边框无需处理 */
+      '.setting-title {',
+      '  border-bottom: none !important;',
+      '}',
       /* 伴学页课程卡片 co-card（半透明背景 + 亚克力边框） */
       '.co-card {',
       '  background-color: transparent !important;',
