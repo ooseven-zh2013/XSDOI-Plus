@@ -741,6 +741,16 @@
       '  border-right-color: rgba(255, 255, 255, 0.4) !important;',
       '  border-left-color: rgba(255, 255, 255, 0.4) !important;',
       '}',
+      /* 数据导航翻页按钮 dataNavPrev/dataNavNext（图标按钮，同 el-pagination 翻页按钮处理：
+         透明底 + 亚克力白边，亮色 0.5 / 暗色 0.12） */
+      '.dataNavPrev, .dataNavNext {',
+      '  background: transparent !important;',
+      '  border: 1px solid rgba(255, 255, 255, 0.5) !important;',
+      '}',
+      'html.theme-dark .dataNavPrev, html.theme-dark .dataNavNext {',
+      '  background: transparent !important;',
+      '  border: 1px solid rgba(255, 255, 255, 0.12) !important;',
+      '}',
       /* 伴学页课程卡片 co-card（半透明背景 + 亚克力边框） */
       '.co-card {',
       '  background-color: transparent !important;',
