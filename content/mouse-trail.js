@@ -80,6 +80,15 @@
     return m;
   }
 
+  // 两个色相的线性插值（处理 360→0 环绕），用于带状插值时保持彩虹平滑
+  function lerpHue(a, b, f) {
+    var d = b - a;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    var m = a + d * f;
+    return ((m % 360) + 360) % 360;
+  }
+
   // 监听 popup 发送的配置更新
   chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.type === MOUSE_TRAIL.MSG.config) {
@@ -295,10 +304,33 @@
     var now = performance.now();
 
     if (config.mode === 'ribbon') {
-      // 带状：每次 mousemove 都采样，保证丝带连续光滑。
-      // 生成间隔（intervalMs）仅用于圆点模式控制密度，带状不应用。
+      // 带状：每次 mousemove 采样。鼠标移动越快、相邻采样点越远；
+      // 若直接用「逐段圆头描边」，远距两点会变成「圆头+细线」的串珠/球状，而非连续丝带。
+      // 因此在两点之间按线宽插值补点，保证任意相邻点距离 ≤ 线宽，圆头始终重叠 → 连续光滑丝带。
       hue = (hue + 5) % 360;
-      points.push({ x: e.clientX, y: e.clientY, t: now, hue: hue });
+      var x = e.clientX, y = e.clientY, t = now;
+      var last = points[points.length - 1];
+      if (last) {
+        var dx = x - last.x, dy = y - last.y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var step = Math.max(1, config.size * 0.3); // 子步长 ≤ 最窄线宽，圆头必重叠无缝
+        var n = Math.ceil(dist / step);
+        if (n > 1) {
+          for (var s = 1; s <= n; s++) {
+            var f = s / n;
+            points.push({
+              x: last.x + dx * f,
+              y: last.y + dy * f,
+              t: t,
+              hue: lerpHue(last.hue, hue, f),
+            });
+          }
+        } else {
+          points.push({ x: x, y: y, t: t, hue: hue });
+        }
+      } else {
+        points.push({ x: x, y: y, t: t, hue: hue });
+      }
       startRibbonLoop();
       return;
     }
