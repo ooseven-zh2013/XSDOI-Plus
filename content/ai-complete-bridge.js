@@ -51,6 +51,7 @@
   // ---------- 流式请求 ----------
 
   function fail(reason) {
+    console.warn('[AI补全] bridge 拒绝请求: ' + reason);
     window.dispatchEvent(new CustomEvent('xsdoi-ai-error', { detail: { reason: reason } }));
   }
 
@@ -61,6 +62,7 @@
 
     var myPort = chrome.runtime.connect({ name: AC.MSG.stream });
     port = myPort;
+    console.log('[AI补全] bridge 已连接后台，model=' + cfg.model + ' hasKey=' + (!!cfg.apiKey));
 
     myPort.onMessage.addListener(function (m) {
       if (!m) return;
@@ -121,5 +123,8 @@
 
   // ---------- 初始化 ----------
 
-  loadConfig(function () { broadcastConfig(); });
+  loadConfig(function () {
+    console.log('[AI补全] bridge 初始化 enabled=' + cfg.enabled + ' hasKey=' + (!!cfg.apiKey) + ' model=' + cfg.model);
+    broadcastConfig();
+  });
 })();

@@ -56,6 +56,7 @@
     if (typeof c.debounceMs === 'number') cfg.debounceMs = c.debounceMs;
     if (typeof c.maxLines === 'number') cfg.maxLines = c.maxLines;
     if (typeof c.maxPrefixChars === 'number') cfg.maxPrefixChars = c.maxPrefixChars;
+    console.log('[AI补全] 配置已应用 enabled=' + cfg.enabled + ' debounce=' + cfg.debounceMs + ' maxLines=' + cfg.maxLines);
   }
 
   // ==================== 触发 ====================
@@ -78,6 +79,7 @@
     }
     anchor = { line: cursor.line, ch: cursor.ch };
     busy = true;
+    console.log('[AI补全] 请求补全 前缀长度=' + prefix.length + ' 光标=' + anchor.line + ':' + anchor.ch);
     emit('xsdoi-ai-request', { type: 'start', prefix: prefix });
   }
 
@@ -175,17 +177,21 @@
       var parts = text.split('\n');
       renderGhost(parts.slice(0, cfg.maxLines).join('\n'));
       busy = false;
+      console.log('[AI补全] 超行数截断 ' + cfg.maxLines + ' 行');
       emit('xsdoi-ai-request', { type: 'cancel' });
       return;
     }
+    console.log('[AI补全] delta +' + text.length + ' 字符 累计=' + text.length);
     renderGhost(text);
   }
 
   function onDone() {
+    console.log('[AI补全] 流结束');
     busy = false;
   }
 
   function onError(e) {
+    console.warn('[AI补全] 错误: ' + (e.detail && e.detail.reason ? e.detail.reason : '未知'));
     if (busy) cancelGhost();
     busy = false;
   }
@@ -229,6 +235,7 @@
     cm.on('change', onChange);
     cm.on('keydown', onKeyDown);
     cm.on('cursorActivity', onCursorActivity);
+    console.log('[AI补全] CodeMirror 已绑定');
   }
 
   window.addEventListener('xsdoi-ai-config', function (e) { applyConfig(e.detail); });

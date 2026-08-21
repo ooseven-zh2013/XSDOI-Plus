@@ -324,6 +324,7 @@ async function streamAICompletion(port, msg) {
   var controller = new AbortController();
   var timer = setTimeout(function () { controller.abort(); }, AI_TIMEOUT_MS);
   try {
+    console.log('[AI补全] background 请求智谱 model=' + (msg.model || AIC.DEFAULTS.model));
     var resp = await fetch(AIC.DEFAULTS.baseUrl + '/chat/completions', {
       method: 'POST',
       headers: {
@@ -371,6 +372,7 @@ async function streamAICompletion(port, msg) {
     port.postMessage({ type: 'done' });
   } catch (e) {
     var reason = (e && e.name === 'AbortError') ? '请求超时（30s）' : String(e && e.message || e);
+    console.warn('[AI补全] background 流失败: ' + reason);
     port.postMessage({ type: 'error', reason: reason });
   } finally {
     clearTimeout(timer);
