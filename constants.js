@@ -205,31 +205,3 @@
     IMG_MAX_BYTES: IMG_MAX_BYTES,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
-
-// ==================== AI 代码补全 ====================
-// 引擎跑在 MAIN world（拿 CodeMirror 实例），无 chrome API，
-// 经 CustomEvent 桥接 isolated world（bridge）走 runtime 通信。
-(function (global) {
-  'use strict';
-
-  var DEFAULTS = {
-    enabled: false,          // 总开关
-    provider: 'zhipu',       // 服务商：'zhipu'（智谱，预留扩展位）
-    apiKey: '',              // API Key（存 storage.local，不进 sync）
-    model: 'glm-4-flash',    // 模型名（智谱 glm-4-flash 永久免费）
-    debounceMs: 500,         // 停止打字后触发延迟（毫秒）
-    maxLines: 20,            // 建议最大行数，超出自动截断
-    maxPrefixChars: 2000,    // 传给模型的上下文前缀上限
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4', // 智谱预设
-  };
-
-  var MSG = {
-    stream: 'ai-complete-stream', // Port 名：background SSE 流式中转
-    test: 'ai-complete-test',     // 消息：popup 测试连接
-  };
-
-  global.AI_COMPLETE = {
-    DEFAULTS: DEFAULTS,
-    MSG: MSG,
-  };
-})(typeof globalThis !== 'undefined' ? globalThis : this);

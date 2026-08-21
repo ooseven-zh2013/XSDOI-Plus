@@ -606,13 +606,3 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
 }
 .as-status.ok { color: var(--green); }
 .as-status.err { color: var(--red); }
-
-/* AI 补全面板 */
-.ai-save-row { display: flex; gap: 8px; }
-.ai-save-row .save-btn { flex: 1; }
-#ai-save.save-btn { background: var(--brand); color: #fff; }
-#ai-save.save-btn.saved { background: #10b981; color: #fff; }
-.ai-test-btn { background: transparent !important; color: var(--brand) !important; border: 1px solid var(--brand); }
-.ai-test-btn:hover { background: var(--brand) !important; color: #fff !important; }
-.ai-test-btn:disabled { opacity: .6; cursor: not-allowed; }
-.ai-static { font-size: 13px; color: var(--text); }

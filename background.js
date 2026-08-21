@@ -15,7 +15,6 @@ importScripts('constants.js', 'idb.js');
 
 var AC = self.AC_REPLACER;
 var BG = self.BG_REPLACER;
-var AIC = self.AI_COMPLETE;
 
 var acStore = self.IDB_STORE.createStore('ac-replacer-media');
 var bgStore = self.IDB_STORE.createStore('bg-replacer-media');
@@ -129,12 +128,6 @@ chrome.runtime.onConnect.addListener(function (port) {
         streamFolderManifest(acStore, port);
       } else if (msg.type === AC.MSG.folderFile) {
         streamBlob(acStore, port, 'folder-' + msg.id);
-      }
-    });
-  } else if (port.name === AIC.MSG.stream) {
-    port.onMessage.addListener(function (msg) {
-      if (msg && msg.type === 'start') {
-        streamAICompletion(port, msg);
       }
     });
   }
@@ -311,123 +304,10 @@ async function clearAll() {
   return names.length;
 }
 
-// ==================== AI 代码补全：智谱 SSE 流式中转 ====================
-// content script（MAIN world）拿不到 chrome API，隔离世界 bridge 也没有页面
-// fetch 的 CORS 优势（智谱不允许 xsdoi.com 跨域），故统一由本 worker fetch：
-// 扩展 origin + host_permissions 声明 open.bigmodel.cn，无 CORS 限制。
-// 解析 SSE 的 data: 行后经 Port 逐块推回，内容 script 边收边渲染 ghost text。
-
-var AI_TIMEOUT_MS = 30000; // 单次补全请求超时 30s
-
-// 发起一次流式补全：msg = { apiKey, model, messages }
-async function streamAICompletion(port, msg) {
-  var controller = new AbortController();
-  var timer = setTimeout(function () { controller.abort(); }, AI_TIMEOUT_MS);
-  try {
-    console.log('[AI补全] background 请求智谱 model=' + (msg.model || AIC.DEFAULTS.model));
-    var resp = await fetch(AIC.DEFAULTS.baseUrl + '/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + (msg.apiKey || ''),
-      },
-      body: JSON.stringify({
-        model: msg.model || AIC.DEFAULTS.model,
-        messages: msg.messages || [],
-        stream: true,
-        temperature: 0.2,
-      }),
-      signal: controller.signal,
-    });
-    if (!resp.ok) {
-      var errText = '';
-      try { errText = (await resp.text()).slice(0, 200); } catch (e) {}
-      port.postMessage({ type: 'error', reason: 'HTTP ' + resp.status + (errText ? ' ' + errText : '') });
-      return;
-    }
-    var reader = resp.body.getReader();
-    var decoder = new TextDecoder('utf-8');
-    var buf = '';
-    while (true) {
-      var r = await reader.read();
-      if (r.done) break;
-      buf += decoder.decode(r.value, { stream: true });
-      var lines = buf.split('\n');
-      buf = lines.pop();
-      for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].trim();
-        if (line.indexOf('data:') !== 0) continue;
-        var payload = line.slice(5).trim();
-        if (payload === '[DONE]') { port.postMessage({ type: 'done' }); return; }
-        try {
-          var json = JSON.parse(payload);
-          var choice = json.choices && json.choices[0];
-          if (choice && choice.delta && choice.delta.content) {
-            port.postMessage({ type: 'delta', text: choice.delta.content });
-          }
-          if (choice && choice.finish_reason) { port.postMessage({ type: 'done' }); return; }
-        } catch (e) { /* 忽略坏行 */ }
-      }
-    }
-    port.postMessage({ type: 'done' });
-  } catch (e) {
-    var reason = (e && e.name === 'AbortError') ? '请求超时（30s）' : String(e && e.message || e);
-    console.warn('[AI补全] background 流失败: ' + reason);
-    port.postMessage({ type: 'error', reason: reason });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-// 测试连接：非流式发一条最小请求，验证 key / 模型是否可用
-async function testAICompletion(msg) {
-  var controller = new AbortController();
-  var timer = setTimeout(function () { controller.abort(); }, 15000);
-  try {
-    var resp = await fetch(AIC.DEFAULTS.baseUrl + '/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + (msg.apiKey || ''),
-      },
-      body: JSON.stringify({
-        model: msg.model || AIC.DEFAULTS.model,
-        messages: [{ role: 'user', content: 'ping' }],
-        stream: false,
-        max_tokens: 5,
-      }),
-      signal: controller.signal,
-    });
-    if (resp.ok) {
-      var data = {};
-      try { data = await resp.json(); } catch (e) {}
-      var m = data.model || msg.model || AIC.DEFAULTS.model;
-      return { ok: true, model: m };
-    }
-    var errText = '';
-    try { errText = (await resp.text()).slice(0, 300); } catch (e) {}
-    return { ok: false, reason: 'HTTP ' + resp.status + (errText ? ' ' + errText : '') };
-  } catch (e) {
-    var reason = (e && e.name === 'AbortError') ? '请求超时（15s）' : String(e && e.message || e);
-    return { ok: false, reason: reason };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 // ==================== 消息分发 ====================
 
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   if (!msg || !msg.type) return false;
-
-  // ===== AI 补全：测试连接（popup）=====
-  if (msg.type === AIC.MSG.test) {
-    testAICompletion(msg).then(
-      function (r) { sendResponse(r); },
-      function (e) { sendResponse({ ok: false, reason: String(e && e.message || e) }); }
-    );
-    return true;
-  }
 
   // ===== AC 动画替换：清除视频 =====
   // 上传由 popup 直写 IndexedDB，读取走 onConnect 分片，故只保留 clear
