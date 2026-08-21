@@ -53,13 +53,6 @@
     return '';
   }
 
-  // 把代码写回编辑器（写入 textarea，main.js 会同步回 CodeMirror）
-  function setCode(code) {
-    var ta = document.querySelector('.vue-codemirror-wrap textarea');
-    if (ta) ta.value = code;
-    lastAutoBackupCode = code; // autoFill 写入不算代码变更，避免误触发自动备份
-  }
-
   function pad(n) {
     return String(n).padStart(2, '0');
   }
@@ -87,35 +80,6 @@
       } else {
         console.log('[自动保存] 已保存: ' + filename);
       }
-    });
-  }
-
-  // 等待编辑器就绪后执行回调（最多约 10 秒）
-  function waitForEditor(cb, tries) {
-    tries = tries || 0;
-    var ta = document.querySelector('.vue-codemirror-wrap textarea');
-    if (ta) {
-      cb();
-      return;
-    }
-    if (tries >= 100) return;
-    setTimeout(function () { waitForEditor(cb, tries + 1); }, 100);
-  }
-
-  // 自动恢复该题目最新的备份
-  function autoFill() {
-    var pid = getProblemId();
-    if (!pid) return;
-    waitForEditor(function () {
-      chrome.runtime.sendMessage({ type: 'FIND_LATEST_BACKUP', problemId: pid }, function (resp) {
-        if (chrome.runtime.lastError) {
-          console.warn('[自动保存] 自动填充通信失败:', chrome.runtime.lastError.message);
-          return;
-        }
-        if (resp && resp.ok && resp.content) {
-          setCode(resp.content);
-        }
-      });
     });
   }
 
@@ -689,20 +653,11 @@
   // 注入亮色/暗色适配样式
   injectStyles();
 
-  // 页面加载时自动填充
-  autoFill();
-
-  // 每 500ms：确保备份按钮/备份历史 tab 已注入 + 检测题目 ID 变化（SPA 路由切换）
-  var lastPid = getProblemId();
+  // 每 500ms：确保备份按钮/备份历史 tab 已注入 + 检测代码变更触发自动备份
   setInterval(function () {
     injectBackupBtn();
     injectBackupHistoryTab();
     injectAutoBackupSetting();
     checkAutoBackup();
-    var pid = getProblemId();
-    if (pid !== lastPid) {
-      lastPid = pid;
-      if (pid) autoFill();
-    }
   }, 500);
 })();

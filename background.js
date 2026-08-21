@@ -152,23 +152,6 @@ async function saveToOpfs(code, filename) {
   await w.close();
 }
 
-// 找某个题目 ID 最新的备份（文件名「题目ID-时间戳-原因.cpp.backup」，时间戳补零后字典序即时间序）
-async function findLatestBackup(problemId) {
-  var dir = await getBackupDir();
-  var prefix = problemId + '-';
-  var latest = null;
-  for await (var entry of dir.entries()) {
-    var name = entry[0];
-    if (entry[1].kind === 'file' && name.indexOf(prefix) === 0) {
-      if (latest === null || name > latest) latest = name;
-    }
-  }
-  if (latest === null) return null;
-  var file = await dir.getFileHandle(latest);
-  var f = await file.getFile();
-  return { filename: latest, content: await f.text() };
-}
-
 // 解析文件名「题目ID-YYYY-MM-DD-HH-mm-ss-原因.cpp.backup」→ { time, reason }
 function parseFilename(name, problemId) {
   var body = name.slice(problemId.length + 1); // 「YYYY-MM-DD-HH-mm-ss-原因.cpp.backup」
@@ -342,21 +325,6 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     if (!msg.code || !msg.filename) return false;
     saveToOpfs(msg.code, msg.filename).then(
       function () { sendResponse({ ok: true }); },
-      function (err) { sendResponse({ ok: false, error: String(err) }); }
-    );
-    return true;
-  }
-
-  if (msg.type === 'FIND_LATEST_BACKUP') {
-    if (!msg.problemId) return false;
-    findLatestBackup(msg.problemId).then(
-      function (result) {
-        sendResponse({
-          ok: true,
-          filename: result ? result.filename : null,
-          content: result ? result.content : null
-        });
-      },
       function (err) { sendResponse({ ok: false, error: String(err) }); }
     );
     return true;

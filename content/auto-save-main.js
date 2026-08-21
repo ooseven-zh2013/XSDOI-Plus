@@ -32,7 +32,7 @@
       // 新的编辑器实例：重置同步状态
       lastCm = cm;
       lastSynced = null;
-      // 首次同步时，若 textarea 已被外部写入（如 autoFill 回填备份），以 textarea 为准
+      // 首次同步时，若 textarea 已被外部写入，以 textarea 为准
       if (ta.value && ta.value !== cm.getValue()) {
         cm.setValue(ta.value);
         lastSynced = ta.value;
