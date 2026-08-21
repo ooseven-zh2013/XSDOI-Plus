@@ -14,6 +14,7 @@
         if (typeof s.solidColor === 'string' && POWERMODE.parseColor(s.solidColor)) config.solidColor = s.solidColor;
         if (typeof s.particleCount === 'number' && s.particleCount >= 1 && s.particleCount <= 50) config.particleCount = s.particleCount;
         if (typeof s.particleSize === 'number' && s.particleSize >= 2 && s.particleSize <= 30) config.particleSize = s.particleSize;
+        if (typeof s.imageSize === 'number' && s.imageSize >= 2 && s.imageSize <= 200) config.imageSize = s.imageSize;
         if (typeof s.spread === 'number' && s.spread >= 20 && s.spread <= 200) config.spread = s.spread;
         if (typeof s.lifeMs === 'number' && s.lifeMs >= 200 && s.lifeMs <= 2000) config.lifeMs = s.lifeMs;
       }
@@ -107,6 +108,7 @@
     var sizeNameEl = document.getElementById('cfx-size-name');
     var sizeDescEl = document.getElementById('cfx-size-desc');
     var currentType = 'particles';
+    var currentConfig = null; // 已加载的完整配置，用于切换类型时回填各自尺寸
 
     function switchTypeTab(mode) {
       currentType = mode;
@@ -115,11 +117,17 @@
       });
       colorBlockEl.style.display = (mode === 'particles') ? '' : 'none';
       imageBlockEl.style.display = (mode === 'image') ? '' : 'none';
+      // 图片模式用独立的 imageSize（上限 200），粒子模式用 particleSize（上限 30），复用同一个输入框
+      var sizeVal = (mode === 'image')
+        ? (currentConfig ? currentConfig.imageSize : CLICK_FX.DEFAULTS.imageSize)
+        : (currentConfig ? currentConfig.particleSize : CLICK_FX.DEFAULTS.particleSize);
+      particleSizeEl.max = (mode === 'image') ? 200 : 30;
+      particleSizeEl.value = sizeVal;
       if (mode === 'image') {
         countNameEl.textContent = '图片数量';
         countDescEl.textContent = '每次点击爆发几张图片（1-50）';
         sizeNameEl.textContent = '图片大小';
-        sizeDescEl.textContent = '每张图片的边长像素（2-30）';
+        sizeDescEl.textContent = '每张图片的边长像素（2-200）';
       } else {
         countNameEl.textContent = '粒子数量';
         countDescEl.textContent = '每次点击爆发的粒子数（1-50）';
@@ -195,16 +203,16 @@
     bindColorPair(solidPickerEl, solidInputEl);
 
     loadConfig(function (config) {
+      currentConfig = config;
       enabledEl.checked = config.enabled;
       particleCountEl.value = config.particleCount;
-      particleSizeEl.value = config.particleSize;
       spreadEl.value = config.spread;
       lifeEl.value = config.lifeMs;
       solidInputEl.value = config.solidColor;
       var rgba = POWERMODE.parseColor(config.solidColor);
       if (rgba) solidPickerEl.value = POWERMODE.toHex(rgba);
       switchColorTab(config.colorMode);
-      switchTypeTab(config.effectType);
+      switchTypeTab(config.effectType); // 内部按当前类型回填 particleSize / imageSize
     });
 
     saveBtn.addEventListener('click', function () {
@@ -212,13 +220,16 @@
       var particleSize = parseInt(particleSizeEl.value, 10);
       var spread = parseInt(spreadEl.value, 10);
       var lifeMs = parseInt(lifeEl.value, 10);
+      // 图片模式尺寸上限 200，粒子模式上限 30
+      var sizeMax = (currentType === 'image') ? 200 : 30;
+      var sizeErr = (currentType === 'image') ? '图片大小须为 2-200' : '粒子大小须为 2-30';
 
       if (isNaN(particleCount) || particleCount < 1 || particleCount > 50) {
         flashSaveBtn(saveBtn, 'save-error', '粒子数量须为 1-50');
         return;
       }
-      if (isNaN(particleSize) || particleSize < 2 || particleSize > 30) {
-        flashSaveBtn(saveBtn, 'save-error', '粒子大小须为 2-30');
+      if (isNaN(particleSize) || particleSize < 2 || particleSize > sizeMax) {
+        flashSaveBtn(saveBtn, 'save-error', sizeErr);
         return;
       }
       if (isNaN(spread) || spread < 20 || spread > 200) {
@@ -260,7 +271,11 @@
           colorMode: currentColorMode,
           solidColor: solidColor || CLICK_FX.DEFAULTS.solidColor,
           particleCount: particleCount,
-          particleSize: particleSize,
+          // 当前类型对应的尺寸写入对应字段，另一种类型沿用上次保存的值，互不影响
+          particleSize: (currentType === 'particles') ? particleSize
+            : (currentConfig ? currentConfig.particleSize : CLICK_FX.DEFAULTS.particleSize),
+          imageSize: (currentType === 'image') ? particleSize
+            : (currentConfig ? currentConfig.imageSize : CLICK_FX.DEFAULTS.imageSize),
           spread: spread,
           lifeMs: lifeMs,
         };
@@ -269,6 +284,7 @@
           if (err) {
             flashSaveBtn(saveBtn, 'save-error', '保存失败，请重试');
           } else {
+            currentConfig = config; // 同步内存，避免切换类型后回显并覆盖刚改的值
             flashSaveBtn(saveBtn, 'saved', '已保存 ✓');
           }
         });

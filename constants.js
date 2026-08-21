@@ -183,7 +183,8 @@
     colorMode: 'rainbow',   // 粒子颜色模式：'solid' 单一颜色 | 'rainbow' 彩虹随机
     solidColor: '#339af0',  // 单一颜色模式的粒子颜色（支持 #hex / rgba()）
     particleCount: 12,      // 每次点击爆发的粒子/图片数（1-50）
-    particleSize: 8,        // 粒子直径 / 图片边长（px），2-30
+    particleSize: 8,        // 粒子直径（px），2-30
+    imageSize: 60,          // 图片边长（px），2-200（图片模式单独放宽，不共用粒子上限）
     spread: 70,             // 扩散半径（px），20-200
     lifeMs: 600,            // 每个粒子/图片的存活/淡出时长（ms），200-2000
   };

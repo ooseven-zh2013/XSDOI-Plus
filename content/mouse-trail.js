@@ -203,18 +203,31 @@
     rafId = requestAnimationFrame(ribbonFrame);
   }
 
-  // 连续丝带渲染：把尾迹做成「四边形带（quad ribbon）」。
-  // 相邻采样点之间填一个梯形（左缘→右缘→右缘→左缘），梯形之间共享边、严丝合缝拼成一条丝带，
-  // 不像逐段 stroke() 那样在转角处露出平头矩形缺口，也不会出现圆头珍珠感。
-  // 颜色 / 透明度按梯形中点平滑过渡，头部补圆头。
+  // 连续丝带渲染：逐段以「粗描边 + 圆头」绘制（胶囊链）。
+  // 相邻段在采样点处的圆头相互重叠，丝带在任意拐角都严丝合缝——不会像「梯形拼接」那样
+  // 在曲线外缘留下亚像素缝隙（暗色页面下缝隙透出背景就成黑边）。
+  // 颜色 / 透明度按段的中点平滑过渡，尾端随 alpha 收窄自然变细。
+  function ribbonStrokeColor(p0, p1, alpha) {
+    if (config.colorMode === 'solid' && POWERMODE.parseColor(config.solidColor)) {
+      return solidWithAlpha(config.solidColor, alpha);
+    }
+    var mh = midHue(p0.hue, p1.hue); // 环形中点，处理 360→0 环绕
+    return 'hsla(' + mh + ', 90%, 60%, ' + alpha + ')';
+  }
+
+  function ribbonFillColor(p) {
+    if (config.colorMode === 'solid' && POWERMODE.parseColor(config.solidColor)) {
+      return solidWithAlpha(config.solidColor, p._alpha);
+    }
+    return 'hsla(' + p.hue + ', 90%, 60%, ' + p._alpha + ')';
+  }
+
   function drawRibbon(now) {
     var n = points.length;
     if (n < 1) return;
     var w2base = config.size / 2;
-    var left = [];
-    var right = [];
 
-    // 预计算每个采样点的透明度、宽度（尾端收窄成尖）、左右法向偏移
+    // 预计算每个采样点的透明度、半宽（尾端收窄成尖）
     for (var i = 0; i < n; i++) {
       var p = points[i];
       var age = now - p.t;
@@ -222,55 +235,35 @@
       if (alpha < 0) alpha = 0;
       if (alpha > 1) alpha = 1;
       p._alpha = alpha;
-      var w = w2base * (0.35 + 0.65 * alpha); // 尾端收窄，形成自然尖尾
-      p._w = w;
-
-      // 切线（中心差分，端点用单侧差分）
-      var ax, ay;
-      if (i === 0) { ax = points[1].x - p.x; ay = points[1].y - p.y; }
-      else if (i === n - 1) { ax = p.x - points[i - 1].x; ay = p.y - points[i - 1].y; }
-      else { ax = points[i + 1].x - points[i - 1].x; ay = points[i + 1].y - points[i - 1].y; }
-      var len = Math.hypot(ax, ay) || 1;
-      var nx = -ay / len, ny = ax / len; // 法向（垂直于切线）
-      left.push({ x: p.x + nx * w, y: p.y + ny * w });
-      right.push({ x: p.x - nx * w, y: p.y - ny * w });
+      p._w = w2base * (0.35 + 0.65 * alpha); // 半宽，尾端收窄
     }
 
-    // 逐段填梯形，相邻梯形共享边 → 连续丝带
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // 仅一个采样点（鼠标几乎不动）：直接画圆头
+    if (n === 1) {
+      var only = points[0];
+      if (only._alpha > 0) {
+        ctx.fillStyle = ribbonFillColor(only);
+        ctx.beginPath();
+        ctx.arc(only.x, only.y, only._w, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+
+    // 逐段描边：每段宽度 = 两端半宽之和（即全宽），圆头在采样点重叠 → 无缝丝带
     for (var i = 1; i < n; i++) {
       var p0 = points[i - 1], p1 = points[i];
       var midA = (p0._alpha + p1._alpha) / 2;
       if (midA <= 0) continue;
-      var color;
-      if (config.colorMode === 'solid' && POWERMODE.parseColor(config.solidColor)) {
-        color = solidWithAlpha(config.solidColor, midA);
-      } else {
-        var mh = midHue(p0.hue, p1.hue); // 环形中点，处理 360→0 环绕
-        color = 'hsla(' + mh + ', 90%, 60%, ' + midA + ')';
-      }
-      ctx.fillStyle = color;
+      ctx.strokeStyle = ribbonStrokeColor(p0, p1, midA);
+      ctx.lineWidth = p0._w + p1._w; // 全宽 = 平均半宽 × 2
       ctx.beginPath();
-      ctx.moveTo(left[i - 1].x, left[i - 1].y);
-      ctx.lineTo(left[i].x, left[i].y);
-      ctx.lineTo(right[i].x, right[i].y);
-      ctx.lineTo(right[i - 1].x, right[i - 1].y);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // 头部（光标处）补圆头，避免平头切边突兀
-    var head = points[n - 1];
-    if (head._alpha > 0) {
-      var hc;
-      if (config.colorMode === 'solid' && POWERMODE.parseColor(config.solidColor)) {
-        hc = solidWithAlpha(config.solidColor, head._alpha);
-      } else {
-        hc = 'hsla(' + head.hue + ', 90%, 60%, ' + head._alpha + ')';
-      }
-      ctx.fillStyle = hc;
-      ctx.beginPath();
-      ctx.arc(head.x, head.y, head._w, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
     }
   }
 

@@ -22,6 +22,7 @@
         if (typeof s.solidColor === 'string' && POWERMODE.parseColor(s.solidColor)) config.solidColor = s.solidColor;
         if (typeof s.particleCount === 'number' && s.particleCount >= 1 && s.particleCount <= 50) config.particleCount = s.particleCount;
         if (typeof s.particleSize === 'number' && s.particleSize >= 2 && s.particleSize <= 30) config.particleSize = s.particleSize;
+        if (typeof s.imageSize === 'number' && s.imageSize >= 2 && s.imageSize <= 200) config.imageSize = s.imageSize;
         if (typeof s.spread === 'number' && s.spread >= 20 && s.spread <= 200) config.spread = s.spread;
         if (typeof s.lifeMs === 'number' && s.lifeMs >= 200 && s.lifeMs <= 2000) config.lifeMs = s.lifeMs;
       }
@@ -117,8 +118,8 @@
       img.src = imageBase64;
       img.style.left = x + 'px';
       img.style.top = y + 'px';
-      img.style.width = config.particleSize + 'px';
-      img.style.height = config.particleSize + 'px';
+      img.style.width = config.imageSize + 'px';
+      img.style.height = config.imageSize + 'px';
       var angle = Math.random() * Math.PI * 2;
       var dist = config.spread * (0.4 + Math.random() * 0.6);
       var rot = (Math.random() * 2 - 1) * 120; // 旋转 ±120°
