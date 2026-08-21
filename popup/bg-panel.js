@@ -68,12 +68,19 @@
   }
 
   // ---- tab 切换 ----
+  // 点亮指定子 tab（图片/视频/渐变），与点击逻辑一致
+  function activateTab(name) {
+    tabs.forEach(function (t) { t.classList.remove('active'); });
+    panels.forEach(function (p) { p.classList.remove('active'); });
+    var tab = document.querySelector('#view-bg .bg-tab[data-tab="' + name + '"]');
+    if (tab) tab.classList.add('active');
+    var panel = document.getElementById('bg-panel-' + name);
+    if (panel) panel.classList.add('active');
+  }
+
   tabs.forEach(function (tab) {
     tab.addEventListener('click', function () {
-      tabs.forEach(function (t) { t.classList.remove('active'); });
-      panels.forEach(function (p) { p.classList.remove('active'); });
-      tab.classList.add('active');
-      document.getElementById('bg-panel-' + tab.dataset.tab).classList.add('active');
+      activateTab(tab.dataset.tab);
     });
   });
 
@@ -535,6 +542,12 @@
 
       var type = res.bgType;
       var src = res.bgSrc;
+
+      // 按已保存的 bgType 恢复对应子 tab（纯色/图片都归在"图片"tab 内）
+      var activeTab = (type === 'video') ? 'video'
+        : (type === 'gradient') ? 'gradient'
+        : 'image';
+      activateTab(activeTab);
 
       if (type === 'color') {
         colorStatus.textContent = res.bgColor ? '纯色：' + res.bgColor : '未设置';

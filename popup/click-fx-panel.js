@@ -11,6 +11,7 @@
         var s = items[storageKey];
         if (typeof s.enabled === 'boolean') config.enabled = s.enabled;
         if (s.colorMode === 'solid' || s.colorMode === 'rainbow') config.colorMode = s.colorMode;
+        if (s.effectType === 'particles' || s.effectType === 'image') config.effectType = s.effectType;
         if (typeof s.solidColor === 'string' && POWERMODE.parseColor(s.solidColor)) config.solidColor = s.solidColor;
         if (typeof s.particleCount === 'number' && s.particleCount >= 1 && s.particleCount <= 50) config.particleCount = s.particleCount;
         if (typeof s.particleSize === 'number' && s.particleSize >= 2 && s.particleSize <= 30) config.particleSize = s.particleSize;
