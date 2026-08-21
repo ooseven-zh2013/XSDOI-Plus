@@ -7,6 +7,7 @@
   var config = Object.assign({}, CLICK_FX.DEFAULTS);
   var layer = null;
   var MAX_ACTIVE = 600; // 活跃粒子上限，超出清最旧，防卡顿
+  var imageBase64 = ''; // 自定义图片（base64 dataURL），从 storage.local 读取
 
   // ==========================================
   // 配置加载与更新
@@ -16,6 +17,7 @@
       if (items.clickeffect) {
         var s = items.clickeffect;
         if (typeof s.enabled === 'boolean') config.enabled = s.enabled;
+        if (s.effectType === 'particles' || s.effectType === 'image') config.effectType = s.effectType;
         if (s.colorMode === 'solid' || s.colorMode === 'rainbow') config.colorMode = s.colorMode;
         if (typeof s.solidColor === 'string' && POWERMODE.parseColor(s.solidColor)) config.solidColor = s.solidColor;
         if (typeof s.particleCount === 'number' && s.particleCount >= 1 && s.particleCount <= 50) config.particleCount = s.particleCount;
@@ -23,7 +25,11 @@
         if (typeof s.spread === 'number' && s.spread >= 20 && s.spread <= 200) config.spread = s.spread;
         if (typeof s.lifeMs === 'number' && s.lifeMs >= 200 && s.lifeMs <= 2000) config.lifeMs = s.lifeMs;
       }
-      if (cb) cb();
+      // 自定义图片单独存 storage.local（体积大，不进 sync）
+      chrome.storage.local.get([CLICK_FX.IMG_KEY], function (localItems) {
+        imageBase64 = (localItems && localItems[CLICK_FX.IMG_KEY]) || '';
+        if (cb) cb();
+      });
     });
   }
 
@@ -95,6 +101,40 @@
     }
   }
 
+  // 爆发自定义图片：每次点击生成若干张用户图片，从光标处向外飞散并淡出
+  // 图片模式若未设置图片，则回退为粒子，避免点了没反应
+  function spawnImages(x, y) {
+    if (!layer || !config.enabled) return;
+    if (!imageBase64) { spawnParticles(x, y); return; }
+    if (layer.childElementCount >= MAX_ACTIVE) {
+      var oldest = layer.firstElementChild;
+      if (oldest) layer.removeChild(oldest);
+    }
+    var n = config.particleCount;
+    for (var i = 0; i < n; i++) {
+      var img = document.createElement('img');
+      img.className = 'xsdoi-clickfx-particle xsdoi-clickfx-image';
+      img.src = imageBase64;
+      img.style.left = x + 'px';
+      img.style.top = y + 'px';
+      img.style.width = config.particleSize + 'px';
+      img.style.height = config.particleSize + 'px';
+      var angle = Math.random() * Math.PI * 2;
+      var dist = config.spread * (0.4 + Math.random() * 0.6);
+      var rot = (Math.random() * 2 - 1) * 120; // 旋转 ±120°
+      img.style.setProperty('--dx', Math.cos(angle) * dist + 'px');
+      img.style.setProperty('--dy', Math.sin(angle) * dist + 'px');
+      img.style.setProperty('--rot', rot + 'deg');
+      img.style.setProperty('--life', config.lifeMs + 'ms');
+      layer.appendChild(img);
+      (function (node) {
+        node.addEventListener('animationend', function () {
+          if (node.parentNode) node.parentNode.removeChild(node);
+        });
+      })(img);
+    }
+  }
+
   // ==========================================
   // 鼠标按下事件
   // ==========================================
@@ -103,7 +143,8 @@
     if (e.button !== 0) return; // 仅左键触发，避免右键菜单也冒粒子
     var x = e.clientX, y = e.clientY;
     if (typeof x !== 'number' || typeof y !== 'number') return;
-    spawnParticles(x, y);
+    if (config.effectType === 'image') spawnImages(x, y);
+    else spawnParticles(x, y);
   }
 
   // ==========================================

@@ -93,6 +93,85 @@
       });
     });
 
+    // 特效类型切换：圆球粒子 / 自定义图片，互相切换显示对应面板
+    var typeTabs = document.querySelectorAll('#cfx-type-tabs .bg-tab');
+    var colorBlockEl = document.getElementById('cfx-color-block');
+    var imageBlockEl = document.getElementById('cfx-image-block');
+    var imageFileEl = document.getElementById('cfx-image-file');
+    var imageClearEl = document.getElementById('cfx-image-clear');
+    var imagePreviewEl = document.getElementById('cfx-image-preview');
+    var currentType = 'particles';
+
+    function switchTypeTab(mode) {
+      currentType = mode;
+      typeTabs.forEach(function (t) {
+        t.classList.toggle('active', t.getAttribute('data-cfxtype') === mode);
+      });
+      colorBlockEl.style.display = (mode === 'particles') ? '' : 'none';
+      imageBlockEl.style.display = (mode === 'image') ? '' : 'none';
+    }
+
+    typeTabs.forEach(function (t) {
+      t.addEventListener('click', function () {
+        switchTypeTab(t.getAttribute('data-cfxtype'));
+      });
+    });
+
+    // 读取已存的自定义图片并预览
+    chrome.storage.local.get([CLICK_FX.IMG_KEY], function (localItems) {
+      var b64 = localItems && localItems[CLICK_FX.IMG_KEY];
+      if (b64) {
+        imagePreviewEl.src = b64;
+        imagePreviewEl.style.display = 'block';
+      }
+    });
+
+    // 上传图片：校验体积后存 storage.local，并立即让 content script 重载
+    imageFileEl.addEventListener('change', function () {
+      var file = imageFileEl.files && imageFileEl.files[0];
+      if (!file) return;
+      if (file.size > CLICK_FX.IMG_MAX_BYTES) {
+        flashSaveBtn(saveBtn, 'save-error', '图片超过 2MB');
+        imageFileEl.value = '';
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var dataUrl = reader.result;
+        chrome.storage.local.set({ [CLICK_FX.IMG_KEY]: dataUrl }, function () {
+          if (chrome.runtime.lastError) {
+            flashSaveBtn(saveBtn, 'save-error', '图片保存失败');
+            return;
+          }
+          imagePreviewEl.src = dataUrl;
+          imagePreviewEl.style.display = 'block';
+          chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if (tabs[0] && tabs[0].id) {
+              chrome.tabs.sendMessage(tabs[0].id, { type: CLICK_FX.MSG.config });
+            }
+          });
+        });
+      };
+      reader.onerror = function () {
+        flashSaveBtn(saveBtn, 'save-error', '图片读取失败');
+      };
+      reader.readAsDataURL(file);
+      imageFileEl.value = '';
+    });
+
+    // 清除图片
+    imageClearEl.addEventListener('click', function () {
+      chrome.storage.local.remove([CLICK_FX.IMG_KEY], function () {
+        imagePreviewEl.src = '';
+        imagePreviewEl.style.display = 'none';
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+          if (tabs[0] && tabs[0].id) {
+            chrome.tabs.sendMessage(tabs[0].id, { type: CLICK_FX.MSG.config });
+          }
+        });
+      });
+    });
+
     bindColorPair(solidPickerEl, solidInputEl);
 
     loadConfig(function (config) {
@@ -105,6 +184,7 @@
       var rgba = POWERMODE.parseColor(config.solidColor);
       if (rgba) solidPickerEl.value = POWERMODE.toHex(rgba);
       switchColorTab(config.colorMode);
+      switchTypeTab(config.effectType);
     });
 
     saveBtn.addEventListener('click', function () {
@@ -140,23 +220,39 @@
         }
       }
 
-      var config = {
-        enabled: enabledEl.checked,
-        colorMode: currentColorMode,
-        solidColor: solidColor || CLICK_FX.DEFAULTS.solidColor,
-        particleCount: particleCount,
-        particleSize: particleSize,
-        spread: spread,
-        lifeMs: lifeMs,
-      };
+      // 图片模式：必须先上传图片，否则点了没反应
+      if (currentType === 'image') {
+        chrome.storage.local.get([CLICK_FX.IMG_KEY], function (localItems) {
+          if (!(localItems && localItems[CLICK_FX.IMG_KEY])) {
+            flashSaveBtn(saveBtn, 'save-error', '请先上传图片');
+            return;
+          }
+          commitConfig();
+        });
+        return;
+      }
+      commitConfig();
 
-      saveConfig(config, function (err) {
-        if (err) {
-          flashSaveBtn(saveBtn, 'save-error', '保存失败，请重试');
-        } else {
-          flashSaveBtn(saveBtn, 'saved', '已保存 ✓');
-        }
-      });
+      function commitConfig() {
+        var config = {
+          enabled: enabledEl.checked,
+          effectType: currentType,
+          colorMode: currentColorMode,
+          solidColor: solidColor || CLICK_FX.DEFAULTS.solidColor,
+          particleCount: particleCount,
+          particleSize: particleSize,
+          spread: spread,
+          lifeMs: lifeMs,
+        };
+
+        saveConfig(config, function (err) {
+          if (err) {
+            flashSaveBtn(saveBtn, 'save-error', '保存失败，请重试');
+          } else {
+            flashSaveBtn(saveBtn, 'saved', '已保存 ✓');
+          }
+        });
+      }
     });
   }
 

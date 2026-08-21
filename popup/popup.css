@@ -410,6 +410,18 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
 #cfx-save.save-btn.saved { background: #10b981; color: #fff; }
 #cfx-save.save-btn.save-error { background: #e5484d; color: #fff; }
 
+/* 点击特效：自定义图片预览 */
+.cfx-img-preview {
+  display: block;
+  max-width: 100%;
+  max-height: 120px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  object-fit: contain;
+}
+#cfx-image-file { color: var(--text); }
+
 /* 打字特效面板：粒子颜色设置 */
 .pm-color-block { margin-top: 12px; }
 .pm-color-block .label { font-size: 13px; color: var(--text-2); margin-bottom: 6px; }

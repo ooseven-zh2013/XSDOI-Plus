@@ -179,20 +179,28 @@
 
   var DEFAULTS = {
     enabled: false,         // 总开关：关闭后点击不再产生粒子
+    effectType: 'particles',// 爆发类型：'particles' 圆球粒子 | 'image' 自定义图片
     colorMode: 'rainbow',   // 粒子颜色模式：'solid' 单一颜色 | 'rainbow' 彩虹随机
     solidColor: '#339af0',  // 单一颜色模式的粒子颜色（支持 #hex / rgba()）
-    particleCount: 12,      // 每次点击爆发的粒子数（1-50）
-    particleSize: 8,        // 粒子直径（px），2-30
-    spread: 70,             // 粒子扩散半径（px），20-200
-    lifeMs: 600,            // 每个粒子的存活/淡出时长（ms），200-2000
+    particleCount: 12,      // 每次点击爆发的粒子/图片数（1-50）
+    particleSize: 8,        // 粒子直径 / 图片边长（px），2-30
+    spread: 70,             // 扩散半径（px），20-200
+    lifeMs: 600,            // 每个粒子/图片的存活/淡出时长（ms），200-2000
   };
 
   var MSG = {
     config: 'clickfx-config',  // popup → content script：更新配置
   };
 
+  // 自定义图片以 base64 存于 chrome.storage.local（图片较大，不进 storage.sync）
+  var IMG_KEY = 'clickeffect_image';
+  // 上传图片体积上限（bytes），超出提醒用户，避免撑爆 storage.local 配额
+  var IMG_MAX_BYTES = 2 * 1024 * 1024;
+
   global.CLICK_FX = {
     DEFAULTS: DEFAULTS,
     MSG: MSG,
+    IMG_KEY: IMG_KEY,
+    IMG_MAX_BYTES: IMG_MAX_BYTES,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

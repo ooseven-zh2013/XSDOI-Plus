@@ -550,6 +550,17 @@
 
         <div class="board-row">
           <div class="board-label">
+            <div class="name">特效类型</div>
+            <div class="desc">点击爆发的内容：圆球粒子 或 自定义图片</div>
+          </div>
+          <div class="bg-tabs" id="cfx-type-tabs">
+            <button class="bg-tab active" data-cfxtype="particles">圆球粒子</button>
+            <button class="bg-tab" data-cfxtype="image">自定义图片</button>
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
             <div class="name">粒子数量</div>
             <div class="desc">每次点击爆发的粒子数（1-50）</div>
           </div>
@@ -588,7 +599,7 @@
           </div>
         </div>
 
-        <div class="pm-color-block">
+        <div class="pm-color-block" id="cfx-color-block">
           <div class="label">粒子颜色</div>
           <div class="bg-tabs" id="cfx-color-tabs">
             <button class="bg-tab" data-cfxtab="solid">单一颜色</button>
@@ -606,6 +617,16 @@
           <div class="pm-color-panel active" id="cfx-panel-rainbow">
             <p class="tip">每个粒子随机生成彩虹色</p>
           </div>
+        </div>
+
+        <div class="pm-color-block" id="cfx-image-block" style="display:none;">
+          <div class="label">自定义图片</div>
+          <div class="bg-row bg-color-row">
+            <input type="file" id="cfx-image-file" accept="image/*">
+            <button class="as-btn" id="cfx-image-clear" type="button">清除图片</button>
+          </div>
+          <img id="cfx-image-preview" class="cfx-img-preview" alt="图片预览" style="display:none;">
+          <p class="tip">图片以 base64 存于本地，上限 2MB；弹出数量 / 大小 / 扩散 / 存活沿用上方设置。</p>
         </div>
 
         <div class="save-row">

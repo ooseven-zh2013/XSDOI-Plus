@@ -14,9 +14,26 @@
   will-change: transform, opacity;
 }
 
+/* 图片模式：去掉圆形裁切，用独立的飞散+旋转+淡出动画 */
+.xsdoi-clickfx-image {
+  border-radius: 0;
+  background-color: transparent;
+  object-fit: contain;
+  animation-name: xsdoi-clickfx-img-fly;
+  pointer-events: none;
+  user-select: none;
+}
+
 @keyframes xsdoi-clickfx-fly {
   to {
     transform: translate(var(--dx), var(--dy)) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes xsdoi-clickfx-img-fly {
+  to {
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot, 0deg));
     opacity: 0;
   }
 }
