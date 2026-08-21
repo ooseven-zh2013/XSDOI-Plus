@@ -561,8 +561,8 @@
 
         <div class="board-row">
           <div class="board-label">
-            <div class="name">粒子数量</div>
-            <div class="desc">每次点击爆发的粒子数（1-50）</div>
+            <div class="name" id="cfx-count-name">粒子数量</div>
+            <div class="desc" id="cfx-count-desc">每次点击爆发的粒子数（1-50）</div>
           </div>
           <div class="row">
             <input type="number" id="cfx-particle-count" min="1" max="50" step="1" value="12">
@@ -571,8 +571,8 @@
 
         <div class="board-row">
           <div class="board-label">
-            <div class="name">粒子大小</div>
-            <div class="desc">直径像素（2-30）</div>
+            <div class="name" id="cfx-size-name">粒子大小</div>
+            <div class="desc" id="cfx-size-desc">直径像素（2-30）</div>
           </div>
           <div class="row">
             <input type="number" id="cfx-particle-size" min="2" max="30" step="1" value="8">
@@ -582,7 +582,7 @@
         <div class="board-row">
           <div class="board-label">
             <div class="name">扩散范围</div>
-            <div class="desc">粒子向外飞散的最大半径（像素，20-200）</div>
+            <div class="desc">向外飞散的最大半径（像素，20-200）</div>
           </div>
           <div class="row">
             <input type="number" id="cfx-spread" min="20" max="200" step="1" value="70">
@@ -592,7 +592,7 @@
         <div class="board-row">
           <div class="board-label">
             <div class="name">存活时长</div>
-            <div class="desc">每个粒子淡出耗时（毫秒，200-2000）</div>
+            <div class="desc">淡出耗时（毫秒，200-2000）</div>
           </div>
           <div class="row">
             <input type="number" id="cfx-life" min="200" max="2000" step="50" value="600">
@@ -621,12 +621,13 @@
 
         <div class="pm-color-block" id="cfx-image-block" style="display:none;">
           <div class="label">自定义图片</div>
-          <div class="bg-row bg-color-row">
-            <input type="file" id="cfx-image-file" accept="image/*">
-            <button class="as-btn" id="cfx-image-clear" type="button">清除图片</button>
+          <div class="bg-btn-pair">
+            <button class="bg-btn primary" id="cfx-image-pick">选择图片</button>
+            <button class="bg-btn" id="cfx-image-clear">清除图片</button>
           </div>
+          <input type="file" id="cfx-image-file" accept="image/*" hidden>
           <img id="cfx-image-preview" class="cfx-img-preview" alt="图片预览" style="display:none;">
-          <p class="tip">图片以 base64 存于本地，上限 2MB；弹出数量 / 大小 / 扩散 / 存活沿用上方设置。</p>
+          <p class="tip">图片以 base64 存于本地，上限 2MB；图片数量 / 大小 / 扩散 / 存活沿用上方设置。</p>
         </div>
 
         <div class="save-row">

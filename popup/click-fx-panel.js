@@ -98,8 +98,14 @@
     var colorBlockEl = document.getElementById('cfx-color-block');
     var imageBlockEl = document.getElementById('cfx-image-block');
     var imageFileEl = document.getElementById('cfx-image-file');
+    var imagePickEl = document.getElementById('cfx-image-pick');
     var imageClearEl = document.getElementById('cfx-image-clear');
     var imagePreviewEl = document.getElementById('cfx-image-preview');
+    // 数量 / 大小标签在不同特效类型下显示不同的文案
+    var countNameEl = document.getElementById('cfx-count-name');
+    var countDescEl = document.getElementById('cfx-count-desc');
+    var sizeNameEl = document.getElementById('cfx-size-name');
+    var sizeDescEl = document.getElementById('cfx-size-desc');
     var currentType = 'particles';
 
     function switchTypeTab(mode) {
@@ -109,6 +115,17 @@
       });
       colorBlockEl.style.display = (mode === 'particles') ? '' : 'none';
       imageBlockEl.style.display = (mode === 'image') ? '' : 'none';
+      if (mode === 'image') {
+        countNameEl.textContent = '图片数量';
+        countDescEl.textContent = '每次点击爆发几张图片（1-50）';
+        sizeNameEl.textContent = '图片大小';
+        sizeDescEl.textContent = '每张图片的边长像素（2-30）';
+      } else {
+        countNameEl.textContent = '粒子数量';
+        countDescEl.textContent = '每次点击爆发的粒子数（1-50）';
+        sizeNameEl.textContent = '粒子大小';
+        sizeDescEl.textContent = '直径像素（2-30）';
+      }
     }
 
     typeTabs.forEach(function (t) {
@@ -125,6 +142,9 @@
         imagePreviewEl.style.display = 'block';
       }
     });
+
+    // 选择图片按钮：触发隐藏的 file input（与背景/AC 模块一致，用样式化按钮而非原生 input）
+    imagePickEl.addEventListener('click', function () { imageFileEl.click(); });
 
     // 上传图片：校验体积后存 storage.local，并立即让 content script 重载
     imageFileEl.addEventListener('change', function () {

@@ -420,7 +420,6 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
   border: 1px solid var(--border);
   object-fit: contain;
 }
-#cfx-image-file { color: var(--text); }
 
 /* 打字特效面板：粒子颜色设置 */
 .pm-color-block { margin-top: 12px; }
