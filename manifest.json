@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "XSDOI-Plus",
-  "version": "4.0.1",
+  "version": "4.0.2",
   "description": "新赛道 OI（xsdoi.com）一站式增强：图标替换、AC 动画替换（图片/视频/文件夹随机播放）、题目 Markdown 复制、自测结果复制、暗色模式修复、板块亚克力美化、页面背景替换、代码自动备份、代码语法检测、编辑器字体、文件IO复制Cpp格式、编辑器打字特效（Powermode）、鼠标尾迹（圆点/带状）、鼠标点击特效（粒子/图片）、AI 代码补全（智谱 GLM，Tab 接受建议）",
   "permissions": ["storage", "unlimitedStorage", "clipboardWrite"],
   "host_permissions": ["*://xsdoi.com/*", "*://*.xsdoi.com/*", "https://open.bigmodel.cn/*"],

@@ -20,7 +20,24 @@
   'use strict';
 
   var AC = globalThis.AI_COMPLETE;
-  if (!AC) return; // constants.js 未加载，静默退出
+  console.log('[AI补全] MAIN 引擎加载 AI_COMPLETE=' + (AC ? 'OK' : 'UNDEFINED') + ' window.AI_COMPLETE=' + typeof window.AI_COMPLETE);
+  if (!AC) {
+    // 防御：constants.js 在 MAIN world 未挂载时使用内置默认配置，保证引擎可用
+    AC = {
+      DEFAULTS: {
+        enabled: false,
+        provider: 'zhipu',
+        apiKey: '',
+        model: 'glm-4-flash',
+        debounceMs: 500,
+        maxLines: 20,
+        maxPrefixChars: 2000,
+        baseUrl: 'https://open.bigmodel.cn/api/paas/v4'
+      },
+      MSG: { stream: 'ai-complete-stream', test: 'ai-complete-test' }
+    };
+    console.warn('[AI补全] 使用内置默认配置（不依赖 constants.js）');
+  }
 
   var cfg = Object.assign({}, AC.DEFAULTS);
   var cm = null;
