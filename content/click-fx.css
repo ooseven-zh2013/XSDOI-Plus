@@ -1,0 +1,22 @@
+/* ============ 鼠标点击特效 ============ */
+#xsdoi-clickfx-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99997;
+}
+
+.xsdoi-clickfx-particle {
+  position: absolute;
+  border-radius: 50%;
+  background-color: #ff6b6b;
+  animation: xsdoi-clickfx-fly var(--life, 0.6s) ease-out forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes xsdoi-clickfx-fly {
+  to {
+    transform: translate(var(--dx), var(--dy)) scale(0);
+    opacity: 0;
+  }
+}

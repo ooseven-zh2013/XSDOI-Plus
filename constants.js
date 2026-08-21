@@ -171,3 +171,28 @@
     MSG: MSG,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// ==================== 鼠标点击特效 ====================
+// 颜色工具（parseColor / toHex）直接复用 POWERMODE 上的实现
+(function (global) {
+  'use strict';
+
+  var DEFAULTS = {
+    enabled: false,         // 总开关：关闭后点击不再产生粒子
+    colorMode: 'rainbow',   // 粒子颜色模式：'solid' 单一颜色 | 'rainbow' 彩虹随机
+    solidColor: '#339af0',  // 单一颜色模式的粒子颜色（支持 #hex / rgba()）
+    particleCount: 12,      // 每次点击爆发的粒子数（1-50）
+    particleSize: 8,        // 粒子直径（px），2-30
+    spread: 70,             // 粒子扩散半径（px），20-200
+    lifeMs: 600,            // 每个粒子的存活/淡出时长（ms），200-2000
+  };
+
+  var MSG = {
+    config: 'clickfx-config',  // popup → content script：更新配置
+  };
+
+  global.CLICK_FX = {
+    DEFAULTS: DEFAULTS,
+    MSG: MSG,
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);

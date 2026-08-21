@@ -14,6 +14,7 @@
       <div class="nav-item" data-view="bg">背景替换</div>
       <div class="nav-item" data-view="powermode">打字特效</div>
       <div class="nav-item" data-view="mousetrail">鼠标尾迹</div>
+      <div class="nav-item" data-view="clickfx">点击特效</div>
       <div class="nav-item" data-view="backup">代码备份</div>
     </nav>
 
@@ -531,6 +532,88 @@
         <p class="tip">调整后请点击「保存配置」才会生效并持久化。</p>
       </section>
 
+      <!-- ============ 点击特效 ============ -->
+      <section class="view" id="view-clickfx">
+        <h2 class="view-title">点击特效</h2>
+        <p class="view-sub">鼠标左键点击时爆发粒子效果（类似打字）</p>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">启用特效</div>
+            <div class="desc">总开关，关闭后点击不再产生粒子</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="cfx-enabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">粒子数量</div>
+            <div class="desc">每次点击爆发的粒子数（1-50）</div>
+          </div>
+          <div class="row">
+            <input type="number" id="cfx-particle-count" min="1" max="50" step="1" value="12">
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">粒子大小</div>
+            <div class="desc">直径像素（2-30）</div>
+          </div>
+          <div class="row">
+            <input type="number" id="cfx-particle-size" min="2" max="30" step="1" value="8">
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">扩散范围</div>
+            <div class="desc">粒子向外飞散的最大半径（像素，20-200）</div>
+          </div>
+          <div class="row">
+            <input type="number" id="cfx-spread" min="20" max="200" step="1" value="70">
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">存活时长</div>
+            <div class="desc">每个粒子淡出耗时（毫秒，200-2000）</div>
+          </div>
+          <div class="row">
+            <input type="number" id="cfx-life" min="200" max="2000" step="50" value="600">
+          </div>
+        </div>
+
+        <div class="pm-color-block">
+          <div class="label">粒子颜色</div>
+          <div class="bg-tabs" id="cfx-color-tabs">
+            <button class="bg-tab" data-cfxtab="solid">单一颜色</button>
+            <button class="bg-tab active" data-cfxtab="rainbow">彩虹随机</button>
+          </div>
+
+          <div class="pm-color-panel" id="cfx-panel-solid">
+            <div class="bg-row bg-color-row">
+              <input type="color" id="cfx-solid-picker" value="#339af0" title="点击选色">
+              <input type="text" id="cfx-solid-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+            </div>
+            <p class="tip">支持颜色图、十六进制（#hex）、rgba() 三种输入方式</p>
+          </div>
+
+          <div class="pm-color-panel active" id="cfx-panel-rainbow">
+            <p class="tip">每个粒子随机生成彩虹色</p>
+          </div>
+        </div>
+
+        <div class="save-row">
+          <button id="cfx-save" class="save-btn">保存配置</button>
+        </div>
+        <p class="tip">调整后请点击「保存配置」才会生效并持久化。</p>
+      </section>
+
       <!-- ============ 代码备份 ============ -->
       <section class="view" id="view-backup">
         <h2 class="view-title">代码备份</h2>
@@ -560,6 +643,7 @@
   <script src="bg-panel.js"></script>
   <script src="powermode-panel.js"></script>
   <script src="mouse-trail-panel.js"></script>
+  <script src="click-fx-panel.js"></script>
   <script src="auto-save-panel.js"></script>
 </body>
 </html>
