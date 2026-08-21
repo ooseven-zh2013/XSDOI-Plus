@@ -15,6 +15,7 @@
       <div class="nav-item" data-view="powermode">打字特效</div>
       <div class="nav-item" data-view="mousetrail">鼠标尾迹</div>
       <div class="nav-item" data-view="clickfx">点击特效</div>
+      <div class="nav-item" data-view="aicomplete">AI 补全</div>
       <div class="nav-item" data-view="backup">代码备份</div>
     </nav>
 
@@ -636,6 +637,80 @@
         <p class="tip">调整后请点击「保存配置」才会生效并持久化。</p>
       </section>
 
+      <!-- ============ AI 补全 ============ -->
+      <section class="view" id="view-aicomplete">
+        <h2 class="view-title">AI 补全</h2>
+        <p class="view-sub">编辑器内联建议（ghost text），Tab 接受 · Esc 取消 · 继续输入自动消失</p>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">启用补全</div>
+            <div class="desc">总开关，关闭后不再请求 AI</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="ai-enabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">服务商</div>
+            <div class="desc">MVP 固定智谱（glm-4-flash 永久免费）</div>
+          </div>
+          <div class="row">
+            <span class="ai-static">智谱 GLM（zhipu）</span>
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">API Key</div>
+            <div class="desc">bigmodel.cn 注册获取，仅存本地浏览器</div>
+          </div>
+          <div class="row">
+            <input type="password" id="ai-key" placeholder="sk-..." autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">模型</div>
+            <div class="desc">glm-4-flash 免费，可换 glm-4.7-flash 等</div>
+          </div>
+          <div class="row">
+            <input type="text" id="ai-model" value="glm-4-flash" spellcheck="false">
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">触发延迟</div>
+            <div class="desc">停止打字后多久出建议（毫秒，100-5000）</div>
+          </div>
+          <div class="row">
+            <input type="number" id="ai-debounce" min="100" max="5000" step="50" value="500">
+          </div>
+        </div>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">建议最大行数</div>
+            <div class="desc">超过自动截断（1-100）</div>
+          </div>
+          <div class="row">
+            <input type="number" id="ai-maxlines" min="1" max="100" step="1" value="20">
+          </div>
+        </div>
+
+        <div class="save-row ai-save-row">
+          <button id="ai-save" class="save-btn">保存配置</button>
+          <button id="ai-test" class="save-btn ai-test-btn">测试连接</button>
+        </div>
+        <p class="tip" id="ai-status"></p>
+        <p class="tip">保存后刷新 xsdoi.com 页面即可生效（Load unpacked 需先在扩展页重载扩展）。</p>
+      </section>
+
       <!-- ============ 代码备份 ============ -->
       <section class="view" id="view-backup">
         <h2 class="view-title">代码备份</h2>
@@ -666,6 +741,7 @@
   <script src="powermode-panel.js"></script>
   <script src="mouse-trail-panel.js"></script>
   <script src="click-fx-panel.js"></script>
+  <script src="ai-panel.js"></script>
   <script src="auto-save-panel.js"></script>
 </body>
 </html>
