@@ -84,17 +84,20 @@
   chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.type === MOUSE_TRAIL.MSG.config) {
       loadConfigFromStorage(function () {
-        ensureElements();
-        if (config.enabled && config.mode === 'ribbon') {
-          clearDots();
-          startRibbonLoop();
-        } else {
-          stopRibbonLoop();
-          clearDots();
-        }
+        applyMode();
         sendResponse({ ok: true });
       });
       return true;  // 异步响应
+    }
+  });
+
+  // 兜底：storage 变化时（无论 popup 的 sendMessage 是否成功抵达 content script）
+  // 都重新加载并应用，避免「带状已显示但球状粒子残留」这类偶发竞态/消息丢失。
+  chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area === 'sync' && changes.mousetrail) {
+      loadConfigFromStorage(function () {
+        applyMode();
+      });
     }
   });
 
@@ -186,6 +189,23 @@
       while (layer.firstChild) layer.removeChild(layer.firstChild);
     }
     activeDots = [];
+  }
+
+  // 按当前 config 应用模式。
+  // 关键修复：带状模式不仅清空、还把圆点层 display:none，确保任何情况下（含切换竞态、
+  // 旧圆点动画、sendMessage 丢失）球状粒子都绝不可见——只靠 removeChild 不够稳。
+  function applyMode() {
+    ensureElements();
+    if (config.enabled && config.mode === 'ribbon') {
+      layer.style.display = 'none';
+      clearDots();
+      canvas.style.display = '';
+      startRibbonLoop();
+    } else {
+      layer.style.display = '';
+      stopRibbonLoop();
+      clearDots();
+    }
   }
 
   function ribbonFrame() {
@@ -297,7 +317,7 @@
       window.addEventListener('resize', resizeCanvas);
       // passive 避免阻塞滚动/交互
       document.addEventListener('mousemove', onMouseMove, { passive: true });
-      if (config.enabled && config.mode === 'ribbon') startRibbonLoop();
+      applyMode();
       console.log('[MouseTrail] 已初始化');
     });
   }
