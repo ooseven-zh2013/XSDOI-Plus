@@ -11,8 +11,10 @@
   var bgStore = globalThis.IDB_STORE.createStore('bg-replacer-media');
 
   // ---- DOM ----
-  var tabs = document.querySelectorAll('.bg-tab');
-  var panels = document.querySelectorAll('.bg-panel');
+  // 注意：.bg-tab / .bg-panel 是背景/打字/鼠标尾迹面板共用的类名，
+  // 必须限定在背景视图 #view-bg 内，否则会给其它面板的 tab 误挂监听并清空其选中态。
+  var tabs = document.querySelectorAll('#view-bg .bg-tab');
+  var panels = document.querySelectorAll('#view-bg .bg-panel');
 
   var imgUrl = document.getElementById('bg-img-url');
   var imgApply = document.getElementById('bg-img-apply-url');

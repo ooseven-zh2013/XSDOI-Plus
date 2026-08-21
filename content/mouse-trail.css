@@ -1,0 +1,35 @@
+/* 鼠标尾迹层与尾迹点 */
+#xsdoi-trail-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99998;
+}
+
+/* 带状尾迹画布（圆点模式不显示） */
+#xsdoi-trail-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99998;
+}
+
+.xsdoi-trail-dot {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(1);
+  will-change: transform, opacity;
+  animation: xsdoi-trail-fade var(--life, 600ms) ease-out forwards;
+}
+
+@keyframes xsdoi-trail-fade {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+}

@@ -146,3 +146,28 @@
     toHex: toHex,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// ==================== 鼠标尾迹 ====================
+// 颜色工具（parseColor / toHex）直接复用 POWERMODE 上的实现
+(function (global) {
+  'use strict';
+
+  var DEFAULTS = {
+    enabled: false,         // 总开关：关闭后光标不再产生拖尾
+    mode: 'dots',           // 尾迹形态：'dots' 离散圆点 | 'ribbon' 连续彩色带
+    colorMode: 'rainbow',   // 尾迹颜色模式：'solid' 单一颜色 | 'rainbow' 彩虹渐变
+    solidColor: '#339af0',  // 单一颜色模式的尾迹颜色（支持 #hex / rgba()）
+    size: 10,               // 圆点直径 / 带状线宽（px），2-40
+    lifeMs: 600,            // 尾迹存活/淡出时长（ms），200-3000
+    intervalMs: 16,         // 最小采样间隔（ms），控制密度，8-200
+  };
+
+  var MSG = {
+    config: 'mousetrail-config',  // popup → content script：更新配置
+  };
+
+  global.MOUSE_TRAIL = {
+    DEFAULTS: DEFAULTS,
+    MSG: MSG,
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);

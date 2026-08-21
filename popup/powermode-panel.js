@@ -85,7 +85,7 @@
     var saveBtn = document.getElementById('pm-save');
 
     var colorTabs = document.querySelectorAll('#pm-color-tabs .bg-tab');
-    var colorPanels = document.querySelectorAll('.pm-color-panel');
+    var colorPanels = document.querySelectorAll('#view-powermode .pm-color-panel');
     var solidPickerEl = document.getElementById('pm-solid-picker');
     var solidInputEl = document.getElementById('pm-solid-input');
     var currentColorMode = 'rainbow';
