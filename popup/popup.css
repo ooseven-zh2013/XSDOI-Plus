@@ -410,6 +410,11 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
 #cfx-save.save-btn.saved { background: #10b981; color: #fff; }
 #cfx-save.save-btn.save-error { background: #e5484d; color: #fff; }
 
+/* 网页桌宠面板：保存按钮默认用品牌色，与其他模块一致 */
+#pet-save.save-btn { background: var(--brand); color: #fff; }
+#pet-save.save-btn.saved { background: #10b981; color: #fff; }
+#pet-save.save-btn.save-error { background: #e5484d; color: #fff; }
+
 /* 点击特效：自定义图片预览 */
 .cfx-img-preview {
   display: block;
@@ -608,29 +613,6 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
 .as-status.err { color: var(--red); }
 
 /* ============ 网页桌宠面板 ============ */
-.pet-preview {
-  width: 72px;
-  height: 72px;
-  margin-top: 10px;
-  border-radius: 50%;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(127, 127, 127, 0.1);
-  border: 1px dashed var(--border, #c0c4cc);
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
-  box-sizing: border-box;
-}
-.pet-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
 .pet-cropper {
   position: relative;
   width: 170px;

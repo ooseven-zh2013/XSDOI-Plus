@@ -326,6 +326,43 @@
 
   // ==================== submission 页字体入口 ====================
 
+  // 下拉默认 absolute 相对 pre 定位；pre 带 overflow 时可能被裁剪，
+  // 展示前切成 fixed 按按钮位置摆放，收起时还原
+  function positionDropdownFixed(dropdown, btn) {
+    var r = btn.getBoundingClientRect();
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = (r.bottom + 6) + 'px';
+    dropdown.style.right = (window.innerWidth - r.right) + 'px';
+    dropdown.style.left = 'auto';
+    dropdown.style.zIndex = '2147483000';
+  }
+
+  function resetDropdownPosition(dropdown) {
+    dropdown.style.position = '';
+    dropdown.style.top = '';
+    dropdown.style.right = '';
+    dropdown.style.left = '';
+  }
+
+  // 按钮文字显示当前生效字体，用户一眼能看到自己选了什么
+  function updateFontBtnText(btn) {
+    chrome.storage.local.get({ editorFontType: 'default', editorFontPreset: '', editorFontCustomName: '' }, function (res) {
+      var label = '默认';
+      if (res.editorFontType === 'preset') {
+        var found = null;
+        for (var i = 0; i < PRESETS.length; i++) {
+          if (PRESETS[i].value === res.editorFontPreset) { found = PRESETS[i]; break; }
+        }
+        label = found ? found.name : res.editorFontPreset;
+      } else if (res.editorFontType === 'custom') {
+        label = res.editorFontCustomName ? '自定义（' + res.editorFontCustomName + '）' : '自定义字体';
+      }
+      var span = btn.querySelector('span');
+      if (span) span.textContent = label;
+      btn.title = '当前字体：' + label + '（点击更改）';
+    });
+  }
+
   // 给单个 submission 代码块注入「字体」按钮（放在 COPY 按钮旁），点击弹出字体下拉
   function attachFontEntry(pre) {
     if (pre.querySelector('[data-font-entry="1"]')) return; // 已注入
@@ -336,15 +373,21 @@
     btn.setAttribute('data-font-entry', '1');
     btn.title = '更改代码字体';
     btn.setAttribute('aria-label', '更改代码字体');
-    btn.innerHTML = '<i class="fa fa-font" aria-hidden="true"></i><span>字体</span>';
+    btn.innerHTML = '<i class="fa fa-font" aria-hidden="true"></i><span>默认</span>';
 
     var dropdown = createFontDropdown(function () {
-      // submission 入口无显示文本，选中态由 refreshDropdownSelection 统一维护
+      updateFontBtnText(btn); // 选择后立即刷新按钮文字
     });
 
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
-      dropdown.style.display = (dropdown.style.display === 'none') ? 'block' : 'none';
+      if (dropdown.style.display === 'none') {
+        positionDropdownFixed(dropdown, btn);
+        dropdown.style.display = 'block';
+      } else {
+        dropdown.style.display = 'none';
+        resetDropdownPosition(dropdown);
+      }
     });
 
     // 点击下拉内部不收起（选项自身会收起）
@@ -354,11 +397,15 @@
 
     // 点击外部收起下拉
     document.addEventListener('click', function (e) {
-      if (!pre.contains(e.target)) dropdown.style.display = 'none';
+      if (!pre.contains(e.target)) {
+        dropdown.style.display = 'none';
+        resetDropdownPosition(dropdown);
+      }
     });
 
     pre.appendChild(dropdown);
     pre.appendChild(btn);
+    updateFontBtnText(btn);
   }
 
   function injectSubmissionFontEntry() {
@@ -374,11 +421,13 @@
   injectBuiltinFonts();
   loadAndApply();
 
-  // 设置变化时实时应用
+  // 设置变化时实时应用，并刷新 submission 按钮上显示的当前字体
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
     if (changes.editorFontType || changes.editorFontPreset || changes.editorFontCustomDataUrl) {
       loadAndApply();
+      var btns = document.querySelectorAll('.xsdoi-font-btn[data-font-entry="1"]');
+      for (var i = 0; i < btns.length; i++) updateFontBtnText(btns[i]);
     }
   });
 

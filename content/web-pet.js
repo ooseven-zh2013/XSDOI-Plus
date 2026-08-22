@@ -121,13 +121,30 @@
       body.innerHTML = '<img class="xsdoi-pet-img" src="' + customImg + '" alt="">';
       var img = body.querySelector('.xsdoi-pet-img');
       if (img) {
-        // 图片显示为容器宽 × scale 的方形（object-fit:cover 保持原比例），
-        // 让裁剪中心 (cx, cy) 对齐容器中心
-        var s = PET_SIZE * crop.scale;
-        img.style.width = s + 'px';
-        img.style.height = s + 'px';
-        img.style.left = (PET_SIZE / 2 - crop.cx * s) + 'px';
-        img.style.top = (PET_SIZE / 2 - crop.cy * s) + 'px';
+        // 裁剪器里「圆直径 = 容器宽 / scale」，对应到宠物上即
+        // 「裁剪区域放大后宽度 = 容器宽 × scale」；高度按原图宽高比换算
+        // （h = w / ratio），两边与裁剪器视觉一一对应。当裁剪圆靠近图片
+        // 边缘、放大后图片盖不满圆球时，按比例整体放大做兜底，保证任何
+        // 裁剪位置圆球都被图片完全覆盖、不露出背景色
+        var layout = function () {
+          var ratio = (img.naturalWidth > 0 && img.naturalHeight > 0)
+            ? img.naturalWidth / img.naturalHeight : 1;
+          var w = PET_SIZE * crop.scale; // 裁剪区域放大后的宽度（= 圆直径的 scale 倍）
+          var h = w / ratio;
+          var k = 1;
+          if (crop.cx > 0) k = Math.max(k, PET_SIZE / (2 * crop.cx * w));
+          if (crop.cy > 0) k = Math.max(k, PET_SIZE / (2 * crop.cy * h));
+          if (1 - crop.cx > 0) k = Math.max(k, PET_SIZE / (2 * (1 - crop.cx) * w));
+          if (1 - crop.cy > 0) k = Math.max(k, PET_SIZE / (2 * (1 - crop.cy) * h));
+          w *= k;
+          h *= k;
+          img.style.width = w + 'px';
+          img.style.height = h + 'px';
+          img.style.left = (PET_SIZE / 2 - crop.cx * w) + 'px';
+          img.style.top = (PET_SIZE / 2 - crop.cy * h) + 'px';
+        };
+        if (img.complete && img.naturalWidth > 0) layout();
+        else img.addEventListener('load', layout);
       }
     } else {
       body.innerHTML = SVG_FACE;

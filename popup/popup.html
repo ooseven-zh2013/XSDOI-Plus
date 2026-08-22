@@ -660,7 +660,6 @@
             <button class="bg-btn" id="pet-img-clear">清除图片</button>
           </div>
           <input type="file" id="pet-img-file" accept="image/*" hidden>
-          <div class="pet-preview" id="pet-preview"><span>未设置<br>显示默认表情球</span></div>
           <div class="label label-gap">圆形裁剪</div>
           <div class="pet-cropper" id="pet-cropper" style="display:none;">
             <img id="pet-crop-img" alt="裁剪预览">
@@ -671,6 +670,11 @@
           </div>
           <p class="tip">拖动圆调整裁剪位置，拖右下角小点缩放圆的大小（未设置图片时不显示）</p>
         </div>
+
+        <div class="save-row">
+          <button id="pet-save" class="save-btn">保存配置</button>
+        </div>
+        <p class="tip">开关与裁剪调整好后，点击「保存配置」立即生效并持久化；选择 / 清除图片则立即生效。</p>
       </section>
 
       <!-- ============ 代码备份 ============ -->
