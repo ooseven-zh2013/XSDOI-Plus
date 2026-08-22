@@ -47,8 +47,10 @@
     '#' + CONTAINER_ID + '.xsdoi-pet-dragging .xsdoi-pet-body{cursor:grabbing;}',
     '#' + CONTAINER_ID + ' .xsdoi-pet-img{position:absolute;left:0;top:0;object-fit:cover;display:block;pointer-events:none;max-width:none;max-height:none;border:none;margin:0;padding:0;background:none;box-shadow:none;border-radius:0;filter:none;transform:none;transition:none;animation:none;opacity:1;visibility:visible;z-index:0;}',
     '#' + CONTAINER_ID + ' .xsdoi-pet-body svg{display:block;width:100%;height:100%;}',
-    '#' + CONTAINER_ID + '.xsdoi-pet-walking .xsdoi-pet-body{animation:xsdoiPetWalk .5s ease-in-out infinite alternate;}',
-    '@keyframes xsdoiPetWalk{from{transform:translateY(0);}to{transform:translateY(-4px);}}',
+    '#' + CONTAINER_ID + '.xsdoi-pet-walking .xsdoi-pet-body{animation:xsdoiPetWalk .45s ease-in-out infinite;}',
+    '@keyframes xsdoiPetWalk{0%,100%{transform:translateY(0);}40%{transform:translateY(-6px);}70%{transform:translateY(-1px);}}',
+    '#' + CONTAINER_ID + '.xsdoi-pet-jumping .xsdoi-pet-body{animation:xsdoiPetJump .5s ease;}',
+    '@keyframes xsdoiPetJump{0%{transform:translateY(0) scale(1);}30%{transform:translateY(-22px) scale(1.06,.94);}55%{transform:translateY(0) scale(.94,1.06);}70%{transform:translateY(-5px) scale(1);}100%{transform:translateY(0) scale(1);}}',
     '#' + CONTAINER_ID + '.xsdoi-pet-idle .xsdoi-pet-body svg{animation:xsdoiPetBreathe 2.6s ease-in-out infinite;}',
     '@keyframes xsdoiPetBreathe{0%,100%{transform:scale(1);}50%{transform:scale(1.04);}}',
     '#' + CONTAINER_ID + ' .xsdoi-pet-eye{transform-box:fill-box;transform-origin:center;animation:xsdoiPetBlink 3.6s infinite;}',
@@ -73,6 +75,7 @@
 
   var targetX = 0, targetY = 0;
   var waitUntil = 0;
+  var nextJumpAt = 0;  // 下次随机跳跃时间戳
   var raf = 0;
   var customImg = null; // 自定义图片 dataURL（storage.local webPetImg）
   // 圆形裁剪参数：scale = 放大倍数（圆直径 = 容器/scale），cx/cy = 裁剪中心（图片坐标 0-1）
@@ -157,15 +160,30 @@
     chrome.storage.sync.set({ webPet: { x: pos.x, y: pos.y } });
   }
 
-  // ---------- 随机散步 ----------
+  // ---------- 随机散步（贴底走动） ----------
+  // 底部地面线：宠物始终回到页面底部左右走动，不再满窗口乱飞
+  function groundY() {
+    return vh - PET_SIZE - MARGIN;
+  }
+
   function pickTarget() {
     var x1 = MARGIN;
     var x2 = vw - PET_SIZE - MARGIN;
-    var y1 = Math.max(MARGIN, vh * 0.55);
-    var y2 = vh - PET_SIZE - MARGIN;
     targetX = x1 + Math.random() * (x2 - x1);
-    targetY = y1 + Math.random() * (y2 - y1);
+    targetY = groundY();
     pet.classList.toggle('xsdoi-pet-left', targetX < px);
+  }
+
+  // 走路过程中随机跳跃（蹦一下），不影响前进
+  function maybeJump(now) {
+    if (now < nextJumpAt) return;
+    pet.classList.remove('xsdoi-pet-jumping');
+    void pet.offsetWidth; // 重启动画
+    pet.classList.add('xsdoi-pet-jumping');
+    nextJumpAt = now + 1500 + Math.random() * 2000;
+    setTimeout(function () {
+      pet.classList.remove('xsdoi-pet-jumping');
+    }, 500);
   }
 
   function step() {
@@ -176,6 +194,7 @@
     var dy = targetY - py;
     var dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 3) {
+      // 到达目标：休息 1.5~4s 再走
       pet.classList.remove('xsdoi-pet-walking');
       pet.classList.add('xsdoi-pet-idle');
       waitUntil = now + 1500 + Math.random() * 2500;
@@ -187,6 +206,7 @@
     py += dy / dist * s;
     pet.classList.add('xsdoi-pet-walking');
     pet.classList.remove('xsdoi-pet-idle');
+    maybeJump(now);
     applyPos();
   }
 
@@ -271,6 +291,7 @@
           customImg = loc[IMG_KEY];
         }
         renderFace();
+        nextJumpAt = Date.now() + 1000;
         pickTarget();
         loop();
       });
