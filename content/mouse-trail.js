@@ -359,4 +359,11 @@
   } else {
     init();
   }
+  // 暴露轨迹数据供桌宠碰撞检测（globalThis 在各 content script 间可见）
+  window.__xsdoiTrail = {
+    get dots() { return activeDots; },      // 圆点模式：活跃 DOM 元素数组
+    get points() { return points; },         // 带状模式：采样点数组 [{x,y,t,hue,_alpha,_w}]
+    get config() { return config; },         // 当前配置
+    get mode() { return config.mode; },      // 'dots' | 'ribbon'
+  };
 })();

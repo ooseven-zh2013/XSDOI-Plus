@@ -92,6 +92,12 @@
   // 抛物线运动中的瞬时速度（updateParabola 内部使用，需先声明）
   var pxFly = 0, pyFly = 0, vxFly = 0, vyFly = 0;
 
+  // 轨迹碰撞物理
+  var COLLISION_RADIUS = PET_SIZE / 2 + 8; // 碰撞半径（宠物半径 + 余量）
+  var BOUNCE_DAMPING = 0.7;              // 反弹阻尼
+  var SLIDE_FRICTION = 0.95;             // 滑行摩擦力
+  var SLIDE_THRESHOLD = 0.7;             // 方向对齐阈值（cos角）
+
   // 规范化裁剪参数（兼容旧值/非法值）
   function normalizeCrop(v) {
     if (v && typeof v === 'object' && typeof v.scale === 'number') {
@@ -341,6 +347,8 @@
     // 边界处理
     clampToViewport();
     applyPos();
+    // 检查轨迹碰撞
+    checkTrailCollision();
     // 检查是否落地
     var ground = groundY();
     if (py >= ground) {
@@ -360,6 +368,136 @@
       return true;
     }
     return false;
+  }
+
+  // ============================================
+  // 轨迹碰撞检测与响应
+  // ============================================
+  // 获取宠物中心坐标
+  function petCenter() {
+    return { x: px + PET_SIZE / 2, y: py + PET_SIZE / 2 };
+  }
+
+  // 圆点模式：检测与活跃圆点的碰撞
+  function checkDotCollision() {
+    var dots = window.__xsdoiTrail && window.__xsdoiTrail.dots || [];
+    var c = petCenter();
+    for (var i = 0; i < dots.length; i++) {
+      var dot = dots[i];
+      if (!dot || !dot.style || dot.style.display === 'none') continue;
+      var dotX = parseFloat(dot.style.left) + PET_SIZE / 2;
+      var dotY = parseFloat(dot.style.top) + PET_SIZE / 2;
+      var dotRadius = parseInt(dot.style.width) / 2 || 8;
+      var dx = c.x - dotX;
+      var dy = c.y - dotY;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < COLLISION_RADIUS + dotRadius) {
+        // 碰撞！计算反弹方向
+        var nx = dx / dist;
+        var ny = dy / dist;
+        // 弹出宠物到碰撞位置外
+        px = c.x - PET_SIZE / 2 - nx * (COLLISION_RADIUS + dotRadius + 2);
+        py = c.y - PET_SIZE / 2 - ny * (COLLISION_RADIUS + dotRadius + 2);
+        clampToViewport();
+        applyPos();
+        // 反弹速度：沿法线方向，保留切线分量
+        var vDot = vxFly * nx + vyFly * ny;
+        vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING;
+        vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING;
+        // 确保至少有一些速度（避免完全静止）
+        var speed = Math.sqrt(vxFly * vxFly + vyFly * vyFly);
+        if (speed < 0.5) {
+          vxFly = nx * 2;
+          vyFly = ny * 2;
+        }
+        pet.classList.add('xsdoi-pet-bounce');
+        setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 带状模式：检测与轨迹线的碰撞（线段-圆碰撞）
+  function checkRibbonCollision() {
+    var pts = window.__xsdoiTrail && window.__xsdoiTrail.points || [];
+    if (pts.length < 2) return false;
+    var c = petCenter();
+    var minDist = Infinity;
+    var closestPoint = null;
+    var trailDir = null;
+
+    // 找到最近的轨迹段
+    for (var i = 1; i < pts.length; i++) {
+      var p0 = pts[i - 1];
+      var p1 = pts[i];
+      if (!p0._alpha || !p1._alpha || p0._alpha < 0.1 || p1._alpha < 0.1) continue;
+      // 点到线段的距离
+      var dx = p1.x - p0.x;
+      var dy = p1.y - p0.y;
+      var lenSq = dx * dx + dy * dy;
+      var t = lenSq > 0 ? Math.max(0, Math.min(1, ((c.x - p0.x) * dx + (c.y - p0.y) * dy) / lenSq)) : 0;
+      var projX = p0.x + dx * t;
+      var projY = p0.y + dy * t;
+      var dist = Math.sqrt((c.x - projX) * (c.x - projX) + (c.y - projY) * (c.y - projY));
+      if (dist < minDist) {
+        minDist = dist;
+        closestPoint = { x: projX, y: projY };
+        trailDir = { x: dx, y: dy };
+      }
+    }
+
+    if (!closestPoint || minDist > COLLISION_RADIUS) return false;
+
+    // 碰撞！计算响应
+    var nx = (c.x - closestPoint.x) / minDist || 0;
+    var ny = (c.y - closestPoint.y) / minDist || 1;
+
+    // 推送宠物到碰撞位置外
+    px = c.x - PET_SIZE / 2 - nx * (COLLISION_RADIUS + 2);
+    py = c.y - PET_SIZE / 2 - ny * (COLLISION_RADIUS + 2);
+    clampToViewport();
+    applyPos();
+
+    // 检测宠物速度方向与轨迹方向的夹角
+    var trailLen = Math.sqrt(trailDir.x * trailDir.x + trailDir.y * trailDir.y);
+    if (trailLen > 0) {
+      var trailNx = trailDir.x / trailLen;
+      var trailNy = trailDir.y / trailLen;
+      var speed = Math.sqrt(vxFly * vxFly + vyFly * vyFly);
+      var dotProduct = vxFly * trailNx + vyFly * trailNy;
+
+      if (speed > 0 && dotProduct / speed > SLIDE_THRESHOLD) {
+        // 方向接近 → 滑行：速度沿轨迹方向，保留切线分量
+        var slideSpeed = Math.abs(dotProduct) * 0.8;
+        vxFly = trailNx * slideSpeed;
+        vyFly = trailNy * slideSpeed;
+      } else {
+        // 方向不接近 → 反弹：沿法线反弹
+        var vDot = vxFly * nx + vyFly * ny;
+        vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING;
+        vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING;
+      }
+    } else {
+      // 轨迹点静止，反弹
+      vxFly = nx * 2;
+      vyFly = ny * 2;
+    }
+
+    pet.classList.add('xsdoi-pet-bounce');
+    setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
+    return true;
+  }
+
+  // 主碰撞检测入口
+  function checkTrailCollision() {
+    if (!window.__xsdoiTrail) return;
+    var mode = window.__xsdoiTrail.mode;
+    if (mode === 'dots') {
+      checkDotCollision();
+    } else if (mode === 'ribbon') {
+      checkRibbonCollision();
+    }
   }
 
   // 松手时靠近屏幕边缘则吸附贴边
