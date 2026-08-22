@@ -86,8 +86,8 @@
   // 抛物线飞行状态
   var flying = false;
   var flyVx = 0, flyVy = 0;  // 飞行初速度（px/frame）
-  var G = 0.18;              // 重力加速度（px/frame²，~60fps）
-  var MIN_JUMP_VY = -9;      // 最小跳跃初速（向上为负）
+  var G = 0.15;              // 重力加速度（px/frame²，~60fps，降低让跳跃更轻盈）
+  var MIN_JUMP_VY = -15;     // 地面跳跃初速（向上为负）
   // 拖拽轨迹采样，用于估算松手速度
   var dragSamples = [];
   // 抛物线运动中的瞬时速度（updateParabola 内部使用，需先声明）
@@ -96,8 +96,8 @@
   // 轨迹碰撞参数
   var COLLISION_RADIUS = PET_SIZE / 2 + 4; // 宠物碰撞半径（减小避免穿模）
   var BOUNCE_DAMPING = 0.9;              // 反弹阻尼系数（更高=更弹）
-  var BOUNCE_FORCE = 1.8;                // 反弹力倍增（让宠物弹得更高）
-  var MAX_BOUNCE_VY = -14;               // 最大向上反弹速度（提高跳跃上限）
+  var BOUNCE_FORCE = 2.2;                // 反弹力倍增
+  var MAX_BOUNCE_VY = -18;               // 最大向上反弹速度
   var SLIDE_FRICTION = 0.96;             // 滑行摩擦衰减
   var SLIDE_THRESHOLD = 0.7;             // 速度方向与轨迹方向夹角的 cos 阈值（>0.7 视为同向）
   var COLLISION_COOLDOWN = 6;            // 碰撞冷却帧数（避免反弹瞬移）
@@ -244,9 +244,9 @@
     if (canJump) {
       canJump = false;
       startParabolicFall();
-      // 重置为向上初速（从地面跳起）
-      vxFly = flyVx;
-      vyFly = Math.max(MIN_JUMP_VY, flyVy);
+      // 落地后重置为向上的跳跃初速（忽略飞行中的向下速度）
+      vxFly = (Math.random() - 0.5) * 4;
+      vyFly = MIN_JUMP_VY;
       return;
     }
     var dx = targetX - px;
