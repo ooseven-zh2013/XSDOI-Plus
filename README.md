@@ -71,11 +71,11 @@ XSDOI-Plus/
 
 1. 更新版本号（按上方规则改 `manifest.json` 的 `version`）
 2. **同步更新本 README**：功能列表与本次变更对齐（新增功能加行、改动功能更新说明），并更新版本号示例
-3. 提交：`git add -A && git commit -m "v{新版本号}" -m "{变更摘要}"`
+3. 提交：`git add -A && git commit -m "V{新版本号}" -m "{变更摘要}"`
 4. 推送：`git push`（SSH remote）
 5. 打包：用 PEM 密钥重新打包为 `XSDOI-Plus.crx`（保持扩展 ID 不变）
 
-> 约定：每次改完 `manifest.json` 的 `version` 后自动执行第 3–5 步（commit + push + 打包），无需等待确认；GitHub release tag 由发布者手动创建。
+> 约定：每次改完 `manifest.json` 的 `version` 后自动执行第 3–5 步（commit + push + 打包），无需等待确认；GitHub release tag 由发布者手动创建，tag 与标题统一用大写 `V{版本号}`（如 `V3.2.7`）。
 
 ### 打包 crx
 
