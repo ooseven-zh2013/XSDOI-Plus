@@ -153,21 +153,12 @@
 
   // ---------- 注入 ----------
 
-  var injectWarned = false;
-
   function inject() {
     if (document.getElementById(BTN_ID)) return;
     // 「运行自测」tab（#tab-2）的父级 el-tabs__nav，把按钮追加到它末尾
     var tab = document.querySelector(SELECTORS.tab);
     var nav = tab ? tab.parentElement : null;
-    if (!nav) {
-      // 抽屉未打开时目标不存在属正常，仅首次提示一次，便于排查选择器是否失效
-      if (!injectWarned) {
-        injectWarned = true;
-        console.warn(LOG_PREFIX + '未找到目标节点 ' + SELECTORS.tab + '，等待页面渲染');
-      }
-      return;
-    }
+    if (!nav) return; // 抽屉未打开时静默跳过，MutationObserver 会兜底
     nav.appendChild(createBtn());
   }
 
