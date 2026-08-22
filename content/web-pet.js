@@ -97,6 +97,8 @@
   var BOUNCE_DAMPING = 0.75;              // 反弹阻尼系数
   var SLIDE_FRICTION = 0.96;             // 滑行摩擦衰减
   var SLIDE_THRESHOLD = 0.7;              // 速度方向与轨迹方向夹角的 cos 阈值（>0.7 视为同向）
+  var COLLISION_COOLDOWN = 6;             // 碰撞冷却帧数（避免反弹瞬移）
+  var collisionCooldown = 0;              // 当前冷却计时器
 
   // 规范化裁剪参数（兼容旧值/非法值）
   function normalizeCrop(v) {
@@ -224,6 +226,8 @@
     if (dragging) return;
     var now = Date.now();
     if (now < waitUntil) return;
+    // 递减碰撞冷却
+    if (collisionCooldown > 0) collisionCooldown--;
     // 如果在抛物线飞行中，先处理物理模拟
     if (flying) {
       if (updateParabola()) return; // 已落地，等待下一帧进入散步逻辑
@@ -380,6 +384,7 @@
 
   // 圆点模式：检测与活跃圆点的碰撞
   function checkDotCollision() {
+    if (collisionCooldown > 0) return; // 冷却中跳过
     var dots = window.__xsdoiTrail && window.__xsdoiTrail.dots || [];
     var c = petCenter();
     for (var i = 0; i < dots.length; i++) {
@@ -412,6 +417,8 @@
         }
         pet.classList.add('xsdoi-pet-bounce');
         setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
+        // 启动冷却
+        collisionCooldown = COLLISION_COOLDOWN;
         return true;
       }
     }
@@ -420,6 +427,7 @@
 
   // 带状模式：检测与轨迹线的碰撞（线段-圆碰撞）
   function checkRibbonCollision() {
+    if (collisionCooldown > 0) return; // 冷却中跳过
     var pts = window.__xsdoiTrail && window.__xsdoiTrail.points || [];
     if (pts.length < 2) return false;
     var c = petCenter();
@@ -486,6 +494,8 @@
 
     pet.classList.add('xsdoi-pet-bounce');
     setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
+    // 启动冷却
+    collisionCooldown = COLLISION_COOLDOWN;
     return true;
   }
 
