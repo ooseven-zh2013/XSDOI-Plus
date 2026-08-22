@@ -95,11 +95,9 @@
 
   // 轨迹碰撞参数
   var COLLISION_RADIUS = PET_SIZE / 2 + 4; // 宠物碰撞半径（减小避免穿模）
-  var BOUNCE_DAMPING = 0.9;              // 反弹阻尼系数（更高=更弹）
-  var BOUNCE_FORCE = 2.2;                // 反弹力倍增
+  var BOUNCE_DAMPING = 0.9;              // 反弹阻尼系数
+  var BOUNCE_FORCE = 1.3;                // 反弹力倍增（30% 能量增益，过高会放大水平速度）
   var MAX_BOUNCE_VY = -18;               // 最大向上反弹速度
-  var SLIDE_FRICTION = 0.96;             // 滑行摩擦衰减
-  var SLIDE_THRESHOLD = 0.7;             // 速度方向与轨迹方向夹角的 cos 阈值（>0.7 视为同向）
   var COLLISION_COOLDOWN = 6;            // 碰撞冷却帧数（避免反弹瞬移）
   var collisionCooldown = 0;             // 当前冷却计时器
   var canJump = false;                   // 是否允许跳跃（碰撞时触发）
@@ -451,7 +449,6 @@
     var c = petCenter();
     var minDist = Infinity;
     var closestPoint = null;
-    var trailDir = null;
 
     // 找到最近的轨迹段
     for (var i = 1; i < pts.length; i++) {
@@ -469,7 +466,6 @@
       if (dist < minDist) {
         minDist = dist;
         closestPoint = { x: projX, y: projY };
-        trailDir = { x: dx, y: dy };
       }
     }
 
@@ -486,30 +482,10 @@
     clampToViewport();
     applyPos();
 
-    // 检测宠物速度方向与轨迹方向的夹角
-    var trailLen = Math.sqrt(trailDir.x * trailDir.x + trailDir.y * trailDir.y);
-    if (trailLen > 0) {
-      var trailNx = trailDir.x / trailLen;
-      var trailNy = trailDir.y / trailLen;
-      var speed = Math.sqrt(vxFly * vxFly + vyFly * vyFly);
-      var dotProduct = vxFly * trailNx + vyFly * trailNy;
-
-      if (speed > 0 && dotProduct / speed > SLIDE_THRESHOLD) {
-        // 方向接近 → 滑行：速度沿轨迹方向
-        var slideSpeed = Math.abs(dotProduct) * 0.8;
-        vxFly = trailNx * slideSpeed;
-        vyFly = trailNy * slideSpeed;
-      } else {
-        // 方向不接近 → 反弹：沿法线反弹，加大力度
-        var vDotN = vxFly * nx + vyFly * ny;
-        vxFly = (vxFly - 2 * vDotN * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
-        vyFly = (vyFly - 2 * vDotN * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
-      }
-    } else {
-      // 轨迹点静止，反弹
-      vxFly = nx * 3;
-      vyFly = ny * 3;
-    }
+    // 统一法线反弹：无论角度如何，始终沿碰撞法线方向反弹
+    var vDotN = vxFly * nx + vyFly * ny;
+    vxFly = (vxFly - 2 * vDotN * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
+    vyFly = (vyFly - 2 * vDotN * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
 
     // 限制最大向上速度（防止飞到顶部）
     vyFly = Math.max(MAX_BOUNCE_VY, vyFly);
