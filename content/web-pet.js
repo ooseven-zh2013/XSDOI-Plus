@@ -321,8 +321,10 @@
       }
     }
     // 向左甩 → 正向 vx；向上甩 → vy 为负（屏幕坐标 y 向下为正）
-    flyVy = -Math.abs(flyVy) * 0.8; // 向上初速度
-    // 水平速度限制
+    // 根据实际拖拽方向决定初速，不强制向上
+    flyVy = flyVy * 0.6; // 阻尼：保留原方向，衰减到 60%
+    // 幅度限制：防止小幅拖动产生过大的初速
+    flyVy = Math.max(-8, Math.min(8, flyVy));
     flyVx = Math.max(-4, Math.min(4, flyVx));
     vxFly = flyVx;
     vyFly = flyVy;
