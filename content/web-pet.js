@@ -89,6 +89,8 @@
   var G = 0.18;              // 重力加速度（px/frame²，~60fps）
   // 拖拽轨迹采样，用于估算松手速度
   var dragSamples = [];
+  // 抛物线运动中的瞬时速度（updateParabola 内部使用，需先声明）
+  var pxFly = 0, pyFly = 0, vxFly = 0, vyFly = 0;
 
   // 规范化裁剪参数（兼容旧值/非法值）
   function normalizeCrop(v) {
@@ -279,7 +281,6 @@
     dragging = false;
     try { pet.releasePointerCapture(pointerId); } catch (err) {}
     pet.classList.remove('xsdoi-pet-dragging');
-    dragSamples = []; // 清空采样
     snapToEdge();
     saveState();
     if (dragMoved < 6) {
@@ -299,11 +300,14 @@
         pickTarget();
       }
     }
+    dragSamples = []; // 清空采样（放在所有分支之后）
   }
 
   // 启动抛物线自由落体
   function startParabolicFall() {
     flying = true;
+    vxFly = flyVx;
+    vyFly = flyVy;
     pet.classList.remove('xsdoi-pet-idle', 'xsdoi-pet-walking');
     pet.classList.add('xsdoi-pet-flying');
     // 从拖拽采样估算初速度（最后两帧平均，转为 px/frame）
@@ -320,17 +324,18 @@
     flyVy = -Math.abs(flyVy) * 0.8; // 向上初速度
     // 水平速度限制
     flyVx = Math.max(-4, Math.min(4, flyVx));
+    vxFly = flyVx;
+    vyFly = flyVy;
   }
 
   // 抛物线物理模拟，每帧调用；返回 true 表示已落地
   function updateParabola() {
     if (!flying) return false;
-    vy = flyVy;
-    vx = flyVx;
     // 应用重力
-    vy += G;
-    px += vx;
-    py += vy;
+    vxFly += 0; // 水平无阻力
+    vyFly += G;
+    px += vxFly;
+    py += vyFly;
     // 边界处理
     clampToViewport();
     applyPos();
