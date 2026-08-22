@@ -1,7 +1,7 @@
 // ============================================================
 // 网页桌宠 - content script（隔离世界）
 //
-// 在题目页注入一只可拖动的圆球桌宠：
+// 在 xsdoi.com 所有页面注入一只可拖动的圆球桌宠（全局注入，不限路由）：
 //   - 圆球外观：圆形容器，可显示用户自定义图片（storage.local 的
 //     webPetImg，cover 裁剪）；未设置时显示默认表情球
 //   - 随机散步：页面底部区域自由走动，边缘折返，偶有停顿
@@ -337,9 +337,6 @@
     clampToViewport();
     applyPos();
   });
-
-  // 仅题目页生效
-  if (!/\/problem\//.test(location.pathname)) return;
 
   var style = document.createElement('style');
   style.id = STYLE_ID;
