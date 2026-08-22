@@ -56,7 +56,9 @@
     '#' + CONTAINER_ID + ' .xsdoi-pet-eye{transform-box:fill-box;transform-origin:center;animation:xsdoiPetBlink 3.6s infinite;}',
     '@keyframes xsdoiPetBlink{0%,44%,56%,100%{transform:scaleY(1);}48%,52%{transform:scaleY(.08);}}',
     '#' + CONTAINER_ID + '.xsdoi-pet-bounce .xsdoi-pet-body{animation:xsdoiPetBounce .4s ease;}',
-    '@keyframes xsdoiPetBounce{0%{transform:scale(1);}40%{transform:scale(.86);}100%{transform:scale(1);}}'
+    '@keyframes xsdoiPetBounce{0%{transform:scale(1);}40%{transform:scale(.86);}100%{transform:scale(1);}}',
+    '#' + CONTAINER_ID + '.xsdoi-pet-flying .xsdoi-pet-body{animation:xsdoiPetFly .55s ease-in;}',
+    '@keyframes xsdoiPetFly{0%{transform:scale(1) rotate(0deg);}50%{transform:scale(.88,1.14) rotate(-8deg);}100%{transform:scale(1) rotate(0deg);}}'
   ].join('\n');
 
   // ---------- 状态 ----------
@@ -80,6 +82,13 @@
   var customImg = null; // 自定义图片 dataURL（storage.local webPetImg）
   // 圆形裁剪参数：scale = 放大倍数（圆直径 = 容器/scale），cx/cy = 裁剪中心（图片坐标 0-1）
   var crop = { scale: 2, cx: 0.5, cy: 0.5 };
+
+  // 抛物线飞行状态
+  var flying = false;
+  var flyVx = 0, flyVy = 0;  // 飞行初速度（px/frame）
+  var G = 0.18;              // 重力加速度（px/frame²，~60fps）
+  // 拖拽轨迹采样，用于估算松手速度
+  var dragSamples = [];
 
   // 规范化裁剪参数（兼容旧值/非法值）
   function normalizeCrop(v) {
@@ -207,6 +216,12 @@
     if (dragging) return;
     var now = Date.now();
     if (now < waitUntil) return;
+    // 如果在抛物线飞行中，先处理物理模拟
+    if (flying) {
+      if (updateParabola()) return; // 已落地，等待下一帧进入散步逻辑
+      applyPos();
+      return;
+    }
     var dx = targetX - px;
     var dy = targetY - py;
     var dist = Math.sqrt(dx * dx + dy * dy);
@@ -250,6 +265,9 @@
     var nx = e.clientX - dragDX;
     var ny = e.clientY - dragDY;
     dragMoved = Math.max(dragMoved, Math.abs(nx - px) + Math.abs(ny - py));
+    // 采样拖拽末速度（最近两帧的位置差）
+    dragSamples.push({ x: nx, y: ny, t: Date.now() });
+    if (dragSamples.length > 6) dragSamples.shift();
     px = nx;
     py = ny;
     clampToViewport();
@@ -261,6 +279,7 @@
     dragging = false;
     try { pet.releasePointerCapture(pointerId); } catch (err) {}
     pet.classList.remove('xsdoi-pet-dragging');
+    dragSamples = []; // 清空采样
     snapToEdge();
     saveState();
     if (dragMoved < 6) {
@@ -272,8 +291,68 @@
       waitUntil = Date.now() + 1200;
     } else {
       waitUntil = 0;
-      pickTarget();
+      // 判断是否在空中（未贴底）：松手时 y < 地面线则启动抛物线
+      var ground = groundY();
+      if (py < ground - PET_SIZE / 2) {
+        startParabolicFall();
+      } else {
+        pickTarget();
+      }
     }
+  }
+
+  // 启动抛物线自由落体
+  function startParabolicFall() {
+    flying = true;
+    pet.classList.remove('xsdoi-pet-idle', 'xsdoi-pet-walking');
+    pet.classList.add('xsdoi-pet-flying');
+    // 从拖拽采样估算初速度（最后两帧平均，转为 px/frame）
+    if (dragSamples.length >= 2) {
+      var a = dragSamples[dragSamples.length - 2];
+      var b = dragSamples[dragSamples.length - 1];
+      var dt = b.t - a.t;
+      if (dt > 0) {
+        flyVx = (b.x - a.x) / dt * 16;  // 归一化到 ~60fps
+        flyVy = (b.y - a.y) / dt * 16;
+      }
+    }
+    // 向左甩 → 正向 vx；向上甩 → vy 为负（屏幕坐标 y 向下为正）
+    flyVy = -Math.abs(flyVy) * 0.8; // 向上初速度
+    // 水平速度限制
+    flyVx = Math.max(-4, Math.min(4, flyVx));
+  }
+
+  // 抛物线物理模拟，每帧调用；返回 true 表示已落地
+  function updateParabola() {
+    if (!flying) return false;
+    vy = flyVy;
+    vx = flyVx;
+    // 应用重力
+    vy += G;
+    px += vx;
+    py += vy;
+    // 边界处理
+    clampToViewport();
+    applyPos();
+    // 检查是否落地
+    var ground = groundY();
+    if (py >= ground) {
+      py = ground;
+      applyPos();
+      flying = false;
+      pet.classList.remove('xsdoi-pet-flying');
+      // 落地弹跳反馈
+      pet.classList.remove('xsdoi-pet-bounce');
+      void pet.offsetWidth;
+      pet.classList.add('xsdoi-pet-bounce');
+      setTimeout(function () {
+        pet.classList.remove('xsdoi-pet-bounce');
+      }, 400);
+      // 落地后重新选目标散步
+      pickTarget();
+      return true;
+    }
+    return false;
   }
 
   // 松手时靠近屏幕边缘则吸附贴边
