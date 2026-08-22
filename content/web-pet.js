@@ -87,6 +87,7 @@
   var flying = false;
   var flyVx = 0, flyVy = 0;  // 飞行初速度（px/frame）
   var G = 0.18;              // 重力加速度（px/frame²，~60fps）
+  var MIN_JUMP_VY = -7;      // 最小跳跃初速（向上为负）
   // 拖拽轨迹采样，用于估算松手速度
   var dragSamples = [];
   // 抛物线运动中的瞬时速度（updateParabola 内部使用，需先声明）
@@ -94,11 +95,14 @@
 
   // 轨迹碰撞参数
   var COLLISION_RADIUS = PET_SIZE / 2 + 6; // 宠物碰撞半径
-  var BOUNCE_DAMPING = 0.75;              // 反弹阻尼系数
+  var BOUNCE_DAMPING = 0.85;              // 反弹阻尼系数（更高=弹得更远）
+  var BOUNCE_FORCE = 1.5;                  // 反弹力倍增（让宠物弹得更高）
+  var MAX_BOUNCE_VY = -10;                 // 最大向上反弹速度（限制跳跃上限）
   var SLIDE_FRICTION = 0.96;             // 滑行摩擦衰减
   var SLIDE_THRESHOLD = 0.7;              // 速度方向与轨迹方向夹角的 cos 阈值（>0.7 视为同向）
-  var COLLISION_COOLDOWN = 6;             // 碰撞冷却帧数（避免反弹瞬移）
+  var COLLISION_COOLDOWN = 8;             // 碰撞冷却帧数（避免反弹瞬移）
   var collisionCooldown = 0;              // 当前冷却计时器
+  var canJump = false;                    // 是否允许跳跃（碰撞时触发）
 
   // 规范化裁剪参数（兼容旧值/非法值）
   function normalizeCrop(v) {
@@ -232,6 +236,17 @@
     if (flying) {
       if (updateParabola()) return; // 已落地，等待下一帧进入散步逻辑
       applyPos();
+      return;
+    }
+    // 散步时检测轨迹碰撞
+    checkTrailCollision();
+    // 如果碰撞后设置了跳跃标志，启动抛物线
+    if (canJump) {
+      canJump = false;
+      startParabolicFall();
+      // 重置为向上初速（从地面跳起）
+      vxFly = flyVx;
+      vyFly = Math.max(MIN_JUMP_VY, flyVy);
       return;
     }
     var dx = targetX - px;
@@ -483,8 +498,8 @@
       } else {
         // 方向不接近 → 反弹：沿法线反弹
         var vDot = vxFly * nx + vyFly * ny;
-        vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING;
-        vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING;
+        vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
+        vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
       }
     } else {
       // 轨迹点静止，反弹
@@ -492,10 +507,18 @@
       vyFly = ny * 2;
     }
 
+    // 限制最大向上速度（防止飞到顶部）
+    vyFly = Math.max(MAX_BOUNCE_VY, vyFly);
+
     pet.classList.add('xsdoi-pet-bounce');
     setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
     // 启动冷却
     collisionCooldown = COLLISION_COOLDOWN;
+    // 如果在地面附近碰撞，标记为可跳跃
+    var ground = groundY();
+    if (py >= ground - 10) {
+      canJump = true;
+    }
     return true;
   }
 
