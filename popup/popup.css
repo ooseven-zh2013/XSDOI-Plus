@@ -631,35 +631,53 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
   display: block;
 }
 
-.pet-crop-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 30px);
-  gap: 6px;
+.pet-cropper {
+  position: relative;
+  width: 170px;
+  height: 170px;
   margin-top: 8px;
-}
-.pet-crop-btn {
-  width: 30px;
-  height: 30px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-2);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  touch-action: none;
 }
-.pet-crop-btn:hover {
-  border-color: var(--blue);
-  color: var(--blue);
+.pet-cropper img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.pet-crop-btn.active {
-  border-color: var(--blue);
-  color: var(--blue);
-  background: rgba(45, 140, 240, 0.12);
+.pet-crop-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.pet-crop-circle {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #2d8cf0;
+  border-radius: 50%;
+  cursor: move;
+  touch-action: none;
+}
+.pet-crop-handle {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  background: #2d8cf0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  touch-action: none;
 }
 
 

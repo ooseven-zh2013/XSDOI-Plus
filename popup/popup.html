@@ -661,19 +661,15 @@
           </div>
           <input type="file" id="pet-img-file" accept="image/*" hidden>
           <div class="pet-preview" id="pet-preview"><span>未设置<br>显示默认表情球</span></div>
-          <div class="label label-gap">圆形裁剪位置</div>
-          <div class="pet-crop-grid" id="pet-crop-grid">
-            <button class="pet-crop-btn" data-pos="0% 0%" title="左上">↖</button>
-            <button class="pet-crop-btn" data-pos="50% 0%" title="上中">↑</button>
-            <button class="pet-crop-btn" data-pos="100% 0%" title="右上">↗</button>
-            <button class="pet-crop-btn" data-pos="0% 50%" title="左中">←</button>
-            <button class="pet-crop-btn" data-pos="50% 50%" title="正中">●</button>
-            <button class="pet-crop-btn" data-pos="100% 50%" title="右中">→</button>
-            <button class="pet-crop-btn" data-pos="0% 100%" title="左下">↙</button>
-            <button class="pet-crop-btn" data-pos="50% 100%" title="下中">↓</button>
-            <button class="pet-crop-btn" data-pos="100% 100%" title="右下">↘</button>
+          <div class="label label-gap">圆形裁剪</div>
+          <div class="pet-cropper" id="pet-cropper" style="display:none;">
+            <img id="pet-crop-img" alt="裁剪预览">
+            <div class="pet-crop-mask" id="pet-crop-mask"></div>
+            <div class="pet-crop-circle" id="pet-crop-circle">
+              <div class="pet-crop-handle" id="pet-crop-handle"></div>
+            </div>
           </div>
-          <p class="tip">选择图片在圆球内显示的部位（仅设置图片后可见效果）</p>
+          <p class="tip">拖动圆调整裁剪位置，拖右下角小点缩放圆的大小（未设置图片时不显示）</p>
         </div>
       </section>
 

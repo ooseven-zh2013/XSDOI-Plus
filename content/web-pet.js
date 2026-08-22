@@ -19,7 +19,7 @@
   var STORAGE_KEY = 'webPet';           // { x: %, y: % }
   var ENABLE_KEY = 'webPetEnabled';     // popup「桌宠」面板开关
   var IMG_KEY = 'webPetImg';            // 自定义图片 dataURL（storage.local）
-  var CROP_KEY = 'webPetCrop';          // 圆形裁剪位置（object-position 百分比）
+  var CROP_KEY = 'webPetCrop';          // 裁剪参数 { scale, cx, cy }（popup 可视化裁剪器）
 
   var PET_SIZE = 56;   // 显示尺寸 px
   var MARGIN = 8;      // 与视口边缘的最小间距 px
@@ -45,7 +45,7 @@
     '#' + CONTAINER_ID + '{position:fixed;left:0;top:0;z-index:2147483000;width:' + PET_SIZE + 'px;height:' + PET_SIZE + 'px;pointer-events:none;will-change:transform;}',
     '#' + CONTAINER_ID + ' .xsdoi-pet-body{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;pointer-events:auto;cursor:grab;user-select:none;-webkit-user-select:none;background:#60a5fa;box-shadow:0 2px 8px rgba(0,0,0,.18);}',
     '#' + CONTAINER_ID + '.xsdoi-pet-dragging .xsdoi-pet-body{cursor:grabbing;}',
-    '#' + CONTAINER_ID + ' .xsdoi-pet-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;}',
+    '#' + CONTAINER_ID + ' .xsdoi-pet-img{position:absolute;left:0;top:0;object-fit:cover;display:block;pointer-events:none;max-width:none;max-height:none;border:none;margin:0;padding:0;background:none;box-shadow:none;border-radius:0;filter:none;transform:none;transition:none;animation:none;opacity:1;visibility:visible;z-index:0;}',
     '#' + CONTAINER_ID + ' .xsdoi-pet-body svg{display:block;width:100%;height:100%;}',
     '#' + CONTAINER_ID + '.xsdoi-pet-walking .xsdoi-pet-body{animation:xsdoiPetWalk .5s ease-in-out infinite alternate;}',
     '@keyframes xsdoiPetWalk{from{transform:translateY(0);}to{transform:translateY(-4px);}}',
@@ -75,7 +75,20 @@
   var waitUntil = 0;
   var raf = 0;
   var customImg = null; // 自定义图片 dataURL（storage.local webPetImg）
-  var crop = '50% 50%'; // 圆形裁剪位置（object-position，popup 可调）
+  // 圆形裁剪参数：scale = 放大倍数（圆直径 = 容器/scale），cx/cy = 裁剪中心（图片坐标 0-1）
+  var crop = { scale: 2, cx: 0.5, cy: 0.5 };
+
+  // 规范化裁剪参数（兼容旧值/非法值）
+  function normalizeCrop(v) {
+    if (v && typeof v === 'object' && typeof v.scale === 'number') {
+      return {
+        scale: Math.max(1, Math.min(8, v.scale)),
+        cx: (typeof v.cx === 'number') ? Math.max(0, Math.min(1, v.cx)) : 0.5,
+        cy: (typeof v.cy === 'number') ? Math.max(0, Math.min(1, v.cy)) : 0.5
+      };
+    }
+    return { scale: 2, cx: 0.5, cy: 0.5 };
+  }
 
   // ---------- 基础工具 ----------
   function measure() {
@@ -98,13 +111,21 @@
     document.addEventListener('pointerup', onPointerUp);
   }
 
-  // 渲染圆球内容：有自定义图片显示图片，否则显示默认表情球
+  // 渲染圆球内容：有自定义图片按裁剪参数定位显示，否则显示默认表情球
   function renderFace() {
     if (!body) return;
     if (customImg) {
       body.innerHTML = '<img class="xsdoi-pet-img" src="' + customImg + '" alt="">';
       var img = body.querySelector('.xsdoi-pet-img');
-      if (img) img.style.objectPosition = crop;
+      if (img) {
+        // 图片显示为容器宽 × scale 的方形（object-fit:cover 保持原比例），
+        // 让裁剪中心 (cx, cy) 对齐容器中心
+        var s = PET_SIZE * crop.scale;
+        img.style.width = s + 'px';
+        img.style.height = s + 'px';
+        img.style.left = (PET_SIZE / 2 - crop.cx * s) + 'px';
+        img.style.top = (PET_SIZE / 2 - crop.cy * s) + 'px';
+      }
     } else {
       body.innerHTML = SVG_FACE;
     }
@@ -232,7 +253,7 @@
   function load() {
     chrome.storage.sync.get([STORAGE_KEY, ENABLE_KEY, CROP_KEY], function (items) {
       enabled = items[ENABLE_KEY] !== false;
-      if (typeof items[CROP_KEY] === 'string' && items[CROP_KEY]) crop = items[CROP_KEY];
+      crop = normalizeCrop(items[CROP_KEY]);
       var sp = items[STORAGE_KEY];
       if (sp) {
         if (typeof sp.x === 'number') pos.x = sp.x;
@@ -263,11 +284,8 @@
       applyVisibility();
     }
     if (area === 'sync' && changes[CROP_KEY]) {
-      var c = changes[CROP_KEY].newValue;
-      if (typeof c === 'string' && c) {
-        crop = c;
-        renderFace();
-      }
+      crop = normalizeCrop(changes[CROP_KEY].newValue);
+      renderFace();
     }
     if (area === 'local' && changes[IMG_KEY]) {
       var v = changes[IMG_KEY].newValue;
