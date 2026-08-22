@@ -15,6 +15,7 @@
       <div class="nav-item" data-view="powermode">打字特效</div>
       <div class="nav-item" data-view="mousetrail">鼠标尾迹</div>
       <div class="nav-item" data-view="clickfx">点击特效</div>
+      <div class="nav-item" data-view="pet">网页桌宠</div>
       <div class="nav-item" data-view="backup">代码备份</div>
     </nav>
 
@@ -636,6 +637,34 @@
         <p class="tip">调整后请点击「保存配置」才会生效并持久化。</p>
       </section>
 
+      <!-- ============ 网页桌宠 ============ -->
+      <section class="view" id="view-pet">
+        <h2 class="view-title">网页桌宠</h2>
+        <p class="view-sub">题目页上的圆球小宠物，可拖动、可放入自定义图片</p>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">显示桌宠</div>
+            <div class="desc">关闭后桌宠在页面上隐藏</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="pet-enabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="pm-color-block">
+          <div class="label">自定义图片</div>
+          <div class="bg-btn-pair">
+            <button class="bg-btn primary" id="pet-img-pick">选择图片</button>
+            <button class="bg-btn" id="pet-img-clear">清除图片</button>
+          </div>
+          <input type="file" id="pet-img-file" accept="image/*" hidden>
+          <div class="pet-preview" id="pet-preview"><span>未设置<br>显示默认表情球</span></div>
+          <p class="tip">图片会按圆形裁剪显示在桌宠内（≤ 2MB）；未设置时显示默认表情球</p>
+        </div>
+      </section>
+
       <!-- ============ 代码备份 ============ -->
       <section class="view" id="view-backup">
         <h2 class="view-title">代码备份</h2>
@@ -666,6 +695,7 @@
   <script src="powermode-panel.js"></script>
   <script src="mouse-trail-panel.js"></script>
   <script src="click-fx-panel.js"></script>
+  <script src="pet-panel.js"></script>
   <script src="auto-save-panel.js"></script>
 </body>
 </html>

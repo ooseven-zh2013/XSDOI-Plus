@@ -606,3 +606,28 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
 }
 .as-status.ok { color: var(--green); }
 .as-status.err { color: var(--red); }
+
+/* ============ 网页桌宠面板 ============ */
+.pet-preview {
+  width: 72px;
+  height: 72px;
+  margin-top: 10px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(127, 127, 127, 0.1);
+  border: 1px dashed var(--border, #c0c4cc);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  box-sizing: border-box;
+}
+.pet-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
