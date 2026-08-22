@@ -11,18 +11,27 @@
 
   var ENABLE_KEY = 'webPetEnabled';
   var IMG_KEY = 'webPetImg';
+  var CROP_KEY = 'webPetCrop';
   var IMG_MAX_BYTES = 2 * 1024 * 1024;
+  var DEFAULT_CROP = '50% 50%';
 
   var enabledEl = document.getElementById('pet-enabled');
   var pickBtn = document.getElementById('pet-img-pick');
   var clearBtn = document.getElementById('pet-img-clear');
   var fileInput = document.getElementById('pet-img-file');
   var preview = document.getElementById('pet-preview');
+  var cropBtns = document.querySelectorAll('.pet-crop-btn');
+
+  var currentCrop = DEFAULT_CROP;
 
   // ---------- 加载当前状态 ----------
   function load() {
-    chrome.storage.sync.get([ENABLE_KEY], function (sync) {
+    chrome.storage.sync.get([ENABLE_KEY, CROP_KEY], function (sync) {
       enabledEl.checked = sync[ENABLE_KEY] !== false;
+      if (typeof sync[CROP_KEY] === 'string' && sync[CROP_KEY]) {
+        currentCrop = sync[CROP_KEY];
+      }
+      highlightCrop();
     });
     chrome.storage.local.get([IMG_KEY], function (loc) {
       var v = loc[IMG_KEY];
@@ -37,11 +46,30 @@
   // ---------- 预览 ----------
   function showPreview(dataUrl) {
     preview.innerHTML = '<img src="' + dataUrl + '" alt="桌宠图片">';
+    preview.querySelector('img').style.objectPosition = currentCrop;
   }
 
   function showEmpty() {
     preview.innerHTML = '<span>未设置<br>显示默认表情球</span>';
   }
+
+  // ---------- 裁剪位置 ----------
+  function highlightCrop() {
+    cropBtns.forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-pos') === currentCrop);
+    });
+  }
+
+  cropBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      currentCrop = btn.getAttribute('data-pos');
+      chrome.storage.sync.set({ webPetCrop: currentCrop });
+      highlightCrop();
+      // 同步预览裁剪位置
+      var img = preview.querySelector('img');
+      if (img) img.style.objectPosition = currentCrop;
+    });
+  });
 
   // ---------- 显隐开关 ----------
   enabledEl.addEventListener('change', function () {

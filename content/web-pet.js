@@ -19,6 +19,7 @@
   var STORAGE_KEY = 'webPet';           // { x: %, y: % }
   var ENABLE_KEY = 'webPetEnabled';     // popup「桌宠」面板开关
   var IMG_KEY = 'webPetImg';            // 自定义图片 dataURL（storage.local）
+  var CROP_KEY = 'webPetCrop';          // 圆形裁剪位置（object-position 百分比）
 
   var PET_SIZE = 56;   // 显示尺寸 px
   var MARGIN = 8;      // 与视口边缘的最小间距 px
@@ -74,6 +75,7 @@
   var waitUntil = 0;
   var raf = 0;
   var customImg = null; // 自定义图片 dataURL（storage.local webPetImg）
+  var crop = '50% 50%'; // 圆形裁剪位置（object-position，popup 可调）
 
   // ---------- 基础工具 ----------
   function measure() {
@@ -101,6 +103,8 @@
     if (!body) return;
     if (customImg) {
       body.innerHTML = '<img class="xsdoi-pet-img" src="' + customImg + '" alt="">';
+      var img = body.querySelector('.xsdoi-pet-img');
+      if (img) img.style.objectPosition = crop;
     } else {
       body.innerHTML = SVG_FACE;
     }
@@ -226,8 +230,9 @@
 
   // ---------- 初始化 ----------
   function load() {
-    chrome.storage.sync.get([STORAGE_KEY, ENABLE_KEY], function (items) {
+    chrome.storage.sync.get([STORAGE_KEY, ENABLE_KEY, CROP_KEY], function (items) {
       enabled = items[ENABLE_KEY] !== false;
+      if (typeof items[CROP_KEY] === 'string' && items[CROP_KEY]) crop = items[CROP_KEY];
       var sp = items[STORAGE_KEY];
       if (sp) {
         if (typeof sp.x === 'number') pos.x = sp.x;
@@ -256,6 +261,13 @@
     if (area === 'sync' && changes[ENABLE_KEY]) {
       enabled = changes[ENABLE_KEY].newValue !== false;
       applyVisibility();
+    }
+    if (area === 'sync' && changes[CROP_KEY]) {
+      var c = changes[CROP_KEY].newValue;
+      if (typeof c === 'string' && c) {
+        crop = c;
+        renderFace();
+      }
     }
     if (area === 'local' && changes[IMG_KEY]) {
       var v = changes[IMG_KEY].newValue;

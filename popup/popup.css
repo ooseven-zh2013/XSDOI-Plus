@@ -631,3 +631,35 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
   display: block;
 }
 
+.pet-crop-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  gap: 6px;
+  margin-top: 8px;
+}
+.pet-crop-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pet-crop-btn:hover {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.pet-crop-btn.active {
+  border-color: var(--blue);
+  color: var(--blue);
+  background: rgba(45, 140, 240, 0.12);
+}
+
+
