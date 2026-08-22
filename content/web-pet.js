@@ -92,11 +92,11 @@
   // 抛物线运动中的瞬时速度（updateParabola 内部使用，需先声明）
   var pxFly = 0, pyFly = 0, vxFly = 0, vyFly = 0;
 
-  // 轨迹碰撞物理
-  var COLLISION_RADIUS = PET_SIZE / 2 + 8; // 碰撞半径（宠物半径 + 余量）
-  var BOUNCE_DAMPING = 0.7;              // 反弹阻尼
-  var SLIDE_FRICTION = 0.95;             // 滑行摩擦力
-  var SLIDE_THRESHOLD = 0.7;             // 方向对齐阈值（cos角）
+  // 轨迹碰撞参数
+  var COLLISION_RADIUS = PET_SIZE / 2 + 6; // 宠物碰撞半径
+  var BOUNCE_DAMPING = 0.75;              // 反弹阻尼系数
+  var SLIDE_FRICTION = 0.96;             // 滑行摩擦衰减
+  var SLIDE_THRESHOLD = 0.7;              // 速度方向与轨迹方向夹角的 cos 阈值（>0.7 视为同向）
 
   // 规范化裁剪参数（兼容旧值/非法值）
   function normalizeCrop(v) {
