@@ -419,10 +419,12 @@
         py = c.y - PET_SIZE / 2 + ny * pushDist;
         clampToViewport();
         applyPos();
-        // 反弹速度：沿法线方向，保留切线分量
+        // 反弹速度：沿法线方向，保留切线分量（只在速度朝向碰撞面时反弹）
         var vDot = vxFly * nx + vyFly * ny;
-        vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
-        vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
+        if (vDot < 0) {
+          vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
+          vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
+        }
         // 限制最大向上速度
         vyFly = Math.max(MAX_BOUNCE_VY, vyFly);
         // 确保至少有一些速度（避免完全静止）
@@ -482,10 +484,12 @@
     clampToViewport();
     applyPos();
 
-    // 统一法线反弹：无论角度如何，始终沿碰撞法线方向反弹
+    // 统一法线反弹：只在速度朝向碰撞面时反弹，避免"背向碰撞"时被错误反弹
     var vDotN = vxFly * nx + vyFly * ny;
-    vxFly = (vxFly - 2 * vDotN * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
-    vyFly = (vyFly - 2 * vDotN * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
+    if (vDotN < 0) {
+      vxFly = (vxFly - 2 * vDotN * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
+      vyFly = (vyFly - 2 * vDotN * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
+    }
 
     // 限制最大向上速度（防止飞到顶部）
     vyFly = Math.max(MAX_BOUNCE_VY, vyFly);
