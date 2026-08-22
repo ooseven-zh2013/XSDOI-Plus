@@ -87,22 +87,22 @@
   var flying = false;
   var flyVx = 0, flyVy = 0;  // 飞行初速度（px/frame）
   var G = 0.18;              // 重力加速度（px/frame²，~60fps）
-  var MIN_JUMP_VY = -7;      // 最小跳跃初速（向上为负）
+  var MIN_JUMP_VY = -9;      // 最小跳跃初速（向上为负）
   // 拖拽轨迹采样，用于估算松手速度
   var dragSamples = [];
   // 抛物线运动中的瞬时速度（updateParabola 内部使用，需先声明）
   var pxFly = 0, pyFly = 0, vxFly = 0, vyFly = 0;
 
   // 轨迹碰撞参数
-  var COLLISION_RADIUS = PET_SIZE / 2 + 6; // 宠物碰撞半径
-  var BOUNCE_DAMPING = 0.85;              // 反弹阻尼系数（更高=弹得更远）
-  var BOUNCE_FORCE = 1.5;                  // 反弹力倍增（让宠物弹得更高）
-  var MAX_BOUNCE_VY = -10;                 // 最大向上反弹速度（限制跳跃上限）
+  var COLLISION_RADIUS = PET_SIZE / 2 + 4; // 宠物碰撞半径（减小避免穿模）
+  var BOUNCE_DAMPING = 0.9;              // 反弹阻尼系数（更高=更弹）
+  var BOUNCE_FORCE = 1.8;                // 反弹力倍增（让宠物弹得更高）
+  var MAX_BOUNCE_VY = -14;               // 最大向上反弹速度（提高跳跃上限）
   var SLIDE_FRICTION = 0.96;             // 滑行摩擦衰减
-  var SLIDE_THRESHOLD = 0.7;              // 速度方向与轨迹方向夹角的 cos 阈值（>0.7 视为同向）
-  var COLLISION_COOLDOWN = 8;             // 碰撞冷却帧数（避免反弹瞬移）
-  var collisionCooldown = 0;              // 当前冷却计时器
-  var canJump = false;                    // 是否允许跳跃（碰撞时触发）
+  var SLIDE_THRESHOLD = 0.7;             // 速度方向与轨迹方向夹角的 cos 阈值（>0.7 视为同向）
+  var COLLISION_COOLDOWN = 6;            // 碰撞冷却帧数（避免反弹瞬移）
+  var collisionCooldown = 0;             // 当前冷却计时器
+  var canJump = false;                   // 是否允许跳跃（碰撞时触发）
 
   // 规范化裁剪参数（兼容旧值/非法值）
   function normalizeCrop(v) {
@@ -415,20 +415,23 @@
         // 碰撞！计算反弹方向
         var nx = dx / dist;
         var ny = dy / dist;
-        // 弹出宠物到碰撞位置外
-        px = c.x - PET_SIZE / 2 - nx * (COLLISION_RADIUS + dotRadius + 2);
-        py = c.y - PET_SIZE / 2 - ny * (COLLISION_RADIUS + dotRadius + 2);
+        // 弹出宠物到碰撞位置外（沿法线正方向推出）
+        var pushDist = COLLISION_RADIUS + dotRadius + 1;
+        px = c.x - PET_SIZE / 2 + nx * pushDist;
+        py = c.y - PET_SIZE / 2 + ny * pushDist;
         clampToViewport();
         applyPos();
         // 反弹速度：沿法线方向，保留切线分量
         var vDot = vxFly * nx + vyFly * ny;
-        vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING;
-        vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING;
+        vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
+        vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
+        // 限制最大向上速度
+        vyFly = Math.max(MAX_BOUNCE_VY, vyFly);
         // 确保至少有一些速度（避免完全静止）
         var speed = Math.sqrt(vxFly * vxFly + vyFly * vyFly);
         if (speed < 0.5) {
-          vxFly = nx * 2;
-          vyFly = ny * 2;
+          vxFly = nx * 3;
+          vyFly = ny * 3;
         }
         pet.classList.add('xsdoi-pet-bounce');
         setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
@@ -476,9 +479,10 @@
     var nx = (c.x - closestPoint.x) / minDist || 0;
     var ny = (c.y - closestPoint.y) / minDist || 1;
 
-    // 推送宠物到碰撞位置外
-    px = c.x - PET_SIZE / 2 - nx * (COLLISION_RADIUS + 2);
-    py = c.y - PET_SIZE / 2 - ny * (COLLISION_RADIUS + 2);
+    // 推送宠物到碰撞位置外（沿法线正方向推出，避免穿模）
+    var pushDist = COLLISION_RADIUS + 1;
+    px = c.x - PET_SIZE / 2 + nx * pushDist;
+    py = c.y - PET_SIZE / 2 + ny * pushDist;
     clampToViewport();
     applyPos();
 
@@ -491,24 +495,30 @@
       var dotProduct = vxFly * trailNx + vyFly * trailNy;
 
       if (speed > 0 && dotProduct / speed > SLIDE_THRESHOLD) {
-        // 方向接近 → 滑行：速度沿轨迹方向，保留切线分量
+        // 方向接近 → 滑行：速度沿轨迹方向
         var slideSpeed = Math.abs(dotProduct) * 0.8;
         vxFly = trailNx * slideSpeed;
         vyFly = trailNy * slideSpeed;
       } else {
-        // 方向不接近 → 反弹：沿法线反弹
-        var vDot = vxFly * nx + vyFly * ny;
-        vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
-        vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
+        // 方向不接近 → 反弹：沿法线反弹，加大力度
+        var vDotN = vxFly * nx + vyFly * ny;
+        vxFly = (vxFly - 2 * vDotN * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
+        vyFly = (vyFly - 2 * vDotN * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
       }
     } else {
       // 轨迹点静止，反弹
-      vxFly = nx * 2;
-      vyFly = ny * 2;
+      vxFly = nx * 3;
+      vyFly = ny * 3;
     }
 
     // 限制最大向上速度（防止飞到顶部）
     vyFly = Math.max(MAX_BOUNCE_VY, vyFly);
+    // 确保至少有一些速度
+    var newSpeed = Math.sqrt(vxFly * vxFly + vyFly * vyFly);
+    if (newSpeed < 0.5) {
+      vxFly = nx * 3;
+      vyFly = ny * 3;
+    }
 
     pet.classList.add('xsdoi-pet-bounce');
     setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
@@ -519,6 +529,7 @@
     if (py >= ground - 10) {
       canJump = true;
     }
+    return true;
     return true;
   }
 
