@@ -586,7 +586,7 @@
           '<div>无法内嵌 DeepSeek（网站限制）</div>',
           '<button class="xsdoi-ds-open-btn" style="padding:8px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">在新标签页打开</button>',
         '</div>',
-        '<iframe class="xsdoi-ds-iframe" src="https://chat.deepseek.com" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#fff;"></iframe>'
+        '<iframe class="xsdoi-ds-iframe" src="https://chat.deepseek.com" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#fff;"></iframe>',
       '</div>'
     ].join('');
     var closeBtn = overlay.querySelector('.xsdoi-ds-close');
