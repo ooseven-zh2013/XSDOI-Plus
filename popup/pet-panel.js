@@ -18,6 +18,7 @@
   var API_URL_KEY = 'webPetApiUrl';
   var API_MODEL_KEY = 'webPetModel';
   var API_KEY_KEY = 'webPetApiKey';
+  var SYSTEM_PROMPT_KEY = 'webPetSystemPrompt';
   var IMG_MAX_BYTES = 2 * 1024 * 1024;
   var DEFAULT_CROP = { scale: 2, cx: 0.5, cy: 0.5 };
   var SCALE_MIN = 1;
@@ -40,6 +41,8 @@
   var apiModelInput = document.getElementById('pet-model');
   var apiKeyInput = document.getElementById('pet-api-key');
   var apiSaveBtn = document.getElementById('pet-api-save');
+  var systemPromptInput = document.getElementById('pet-system-prompt');
+  var promptSaveBtn = document.getElementById('pet-prompt-save');
 
   var currentCrop = Object.assign({}, DEFAULT_CROP); // 界面草稿值（保存时才应用）
   var savedCrop = Object.assign({}, DEFAULT_CROP);   // 已持久化值
@@ -74,11 +77,12 @@
         showEmpty();
       }
     });
-    // 加载 API 配置
-    chrome.storage.sync.get([API_URL_KEY, API_MODEL_KEY, API_KEY_KEY], function (cfg) {
+    // 加载 API 配置和系统提示词
+    chrome.storage.sync.get([API_URL_KEY, API_MODEL_KEY, API_KEY_KEY, SYSTEM_PROMPT_KEY], function (cfg) {
       if (cfg[API_URL_KEY]) apiUrlInput.value = cfg[API_URL_KEY];
       if (cfg[API_MODEL_KEY]) apiModelInput.value = cfg[API_MODEL_KEY];
       if (cfg[API_KEY_KEY]) apiKeyInput.value = cfg[API_KEY_KEY];
+      if (cfg[SYSTEM_PROMPT_KEY]) systemPromptInput.value = cfg[SYSTEM_PROMPT_KEY];
     });
   }
 
@@ -263,6 +267,21 @@
       }
       apiSaveBtn.textContent = '已保存 ✓';
       setTimeout(function () { apiSaveBtn.textContent = '保存 API 设置'; }, 1500);
+    });
+  });
+
+  // ---------- 系统提示词保存 ----------
+  promptSaveBtn.addEventListener('click', function () {
+    chrome.storage.sync.set({
+      [SYSTEM_PROMPT_KEY]: systemPromptInput.value.trim()
+    }, function () {
+      if (chrome.runtime.lastError) {
+        promptSaveBtn.textContent = '保存失败，请重试';
+        setTimeout(function () { promptSaveBtn.textContent = '保存提示词'; }, 1500);
+        return;
+      }
+      promptSaveBtn.textContent = '已保存 ✓';
+      setTimeout(function () { promptSaveBtn.textContent = '保存提示词'; }, 1500);
     });
   });
 

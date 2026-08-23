@@ -693,6 +693,16 @@
         </div>
         <button class="bg-btn primary" id="pet-api-save" style="width:100%;margin-top:4px;">保存 API 设置</button>
         <p class="tip">设置保存后，双击宠物打开聊天窗口时会自动填入，无需手动填写。</p>
+
+        <hr class="section-hr" style="margin:16px 0 12px;border:none;border-top:1px solid var(--border-soft);">
+
+        <div class="label" style="margin-bottom:8px;">系统提示词设置</div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:12px;color:var(--text-2);">提示词</label>
+          <textarea id="pet-system-prompt" placeholder="输入系统提示词..." style="width:100%;height:120px;padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;outline:none;resize:vertical;font-family:monospace;"></textarea>
+        </div>
+        <button class="bg-btn primary" id="pet-prompt-save" style="width:100%;margin-top:4px;">保存提示词</button>
+        <p class="tip">系统提示词会发送给 AI，用于设定其角色和行为。留空则使用默认提示词。</p>
       </section>
 
       <!-- ============ 代码备份 ============ -->
