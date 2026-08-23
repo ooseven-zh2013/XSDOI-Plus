@@ -114,7 +114,7 @@
     '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg th,#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg td{border:1px solid rgba(255,255,255,0.2);padding:6px 10px;text-align:left;font-size:13px;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg th{background:rgba(255,255,255,0.1);}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-input{padding:12px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px;flex-shrink:0;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-input input{flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-input textarea{flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;resize:none;line-height:1.5;font-family:inherit;min-height:44px;max-height:140px;box-sizing:border-box;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-input button{padding:10px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-input button:disabled{opacity:0.5;cursor:not-allowed;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-close{position:absolute;top:12px;right:12px;width:32px;height:32px;z-index:10;}',
@@ -714,7 +714,7 @@
             '</div>',
             '<div class="xsdoi-ds-messages" id="xsdoi-ds-messages"></div>',
             '<div class="xsdoi-ds-input">',
-              '<input id="xsdoi-ds-input" type="text" placeholder="输入消息... (Enter 发送)" autocomplete="off">',
+              '<textarea id="xsdoi-ds-input" placeholder="输入消息... (Enter 换行, Ctrl+Enter 发送)" autocomplete="off" rows="2"></textarea>',
               '<button id="xsdoi-ds-send">发送</button>',
             '</div>',
           '</div>',
@@ -807,8 +807,9 @@
 
       // 发送消息
       sendBtn.addEventListener('click', sendMessage);
-      input.addEventListener('keypress', function (e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
+      // Enter 换行，Ctrl/Meta+Enter 发送
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
           e.preventDefault();
           sendMessage();
         }
