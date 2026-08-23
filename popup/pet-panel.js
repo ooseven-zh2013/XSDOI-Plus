@@ -25,6 +25,15 @@
   var SCALE_MAX = 8;
   var MIN_R = 8; // 圆最小半径 px
 
+  // 默认系统提示词（与 content/web-pet.js 的 DEFAULT_SYSTEM_PROMPT 保持一致）
+  var DEFAULT_SYSTEM_PROMPT = [
+    '你是一名编程助手，你需要用简体中文回答用户的消息（哪怕用户说的是英文）。',
+    '你的回答需要遵循 Markdown 格式。',
+    '公式格式用 LaTeX：行内公式用 $...$，独立公式用 $$...$$。',
+    '代码块用 ``` 包裹，并注明编程语言，例如：\n```cpp\n// 代码\n```\n当用户没有指明编程语言时，默认使用 C++14。',
+    '回答要清晰、简洁、有帮助。'
+  ].join(' ');
+
   var enabledEl = document.getElementById('pet-enabled');
   var pickBtn = document.getElementById('pet-img-pick');
   var clearBtn = document.getElementById('pet-img-clear');
@@ -43,6 +52,7 @@
   var apiSaveBtn = document.getElementById('pet-api-save');
   var systemPromptInput = document.getElementById('pet-system-prompt');
   var promptSaveBtn = document.getElementById('pet-prompt-save');
+  var promptResetBtn = document.getElementById('pet-prompt-reset');
 
   var currentCrop = Object.assign({}, DEFAULT_CROP); // 界面草稿值（保存时才应用）
   var savedCrop = Object.assign({}, DEFAULT_CROP);   // 已持久化值
@@ -82,7 +92,8 @@
       if (cfg[API_URL_KEY]) apiUrlInput.value = cfg[API_URL_KEY];
       if (cfg[API_MODEL_KEY]) apiModelInput.value = cfg[API_MODEL_KEY];
       if (cfg[API_KEY_KEY]) apiKeyInput.value = cfg[API_KEY_KEY];
-      if (cfg[SYSTEM_PROMPT_KEY]) systemPromptInput.value = cfg[SYSTEM_PROMPT_KEY];
+      // 已保存的自定义提示词优先显示；从未保存过则显示内置默认提示词
+      systemPromptInput.value = cfg[SYSTEM_PROMPT_KEY] || DEFAULT_SYSTEM_PROMPT;
     });
   }
 
@@ -282,6 +293,22 @@
       }
       promptSaveBtn.textContent = '已保存 ✓';
       setTimeout(function () { promptSaveBtn.textContent = '保存提示词'; }, 1500);
+    });
+  });
+
+  // ---------- 系统提示词恢复默认 ----------
+  promptResetBtn.addEventListener('click', function () {
+    systemPromptInput.value = DEFAULT_SYSTEM_PROMPT;
+    chrome.storage.sync.set({
+      [SYSTEM_PROMPT_KEY]: DEFAULT_SYSTEM_PROMPT
+    }, function () {
+      if (chrome.runtime.lastError) {
+        promptResetBtn.textContent = '恢复失败，请重试';
+        setTimeout(function () { promptResetBtn.textContent = '恢复默认'; }, 1500);
+        return;
+      }
+      promptResetBtn.textContent = '已恢复 ✓';
+      setTimeout(function () { promptResetBtn.textContent = '恢复默认'; }, 1500);
     });
   });
 
