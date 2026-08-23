@@ -128,7 +128,7 @@
     '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning>summary::-webkit-details-marker{display:none;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning>summary::before{content:"▸";font-size:11px;transition:transform .15s;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning[open]>summary::before{transform:rotate(90deg);}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning-body{padding:0 12px 10px;color:rgba(255,255,255,0.62);max-height:320px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-word;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning-body{display:block;padding:8px 12px 10px;color:rgba(255,255,255,0.62);max-height:320px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-word;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning-body p{margin:0 0 8px;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning-body code{background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;font-size:12px;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-status.error::before{background:#f38ba8;animation:none;}',
@@ -1085,6 +1085,7 @@
         div.innerHTML = renderMessage(text.trim().replace(/\n{2,}/g, '\n\n'));
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
+        return div; // 返回新创建的 div，让调用方（renderCurrentSession）能定位插入 reasoning details 的位置
       }
 
       function renderCurrentSession(container) {
@@ -1096,8 +1097,10 @@
         }
         for (var i = 0; i < session.messages.length; i++) {
           var msg = session.messages[i];
-          appendMessage(container, msg.content, msg.role);
-          // 若该条助手消息带思考过程，渲染为可折叠 summary（默认收起）
+          var msgDiv = appendMessage(container, msg.content, msg.role);
+          // 若该条助手消息带思考过程，渲染为可折叠 summary（默认收起）。
+          // 关键：必须插在「本轮的 bot div」之前（user→思考→bot 顺序），
+          // 否则简单 appendChild 会让 reasoning 落到 bot 下方，跨多轮永久错位。
           if (msg.role === 'assistant' && msg.reasoning) {
             var det = document.createElement('details');
             det.className = 'xsdoi-ds-reasoning';
@@ -1114,7 +1117,7 @@
             }
             det.appendChild(sum);
             det.appendChild(body);
-            container.appendChild(det);
+            container.insertBefore(det, msgDiv);
           }
         }
       }
