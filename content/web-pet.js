@@ -725,9 +725,7 @@
           '<div class="xsdoi-ds-main">',
             '<div class="xsdoi-ds-header">',
               '<span class="xsdoi-ds-title">聊天</span>',
-              '<div class="xsdoi-ds-header-actions">',
-                '<button class="xsdoi-ds-icon-btn" id="xsdoi-ds-prompt-btn" title="编辑系统提示词">⚙</button>',
-              '</div>',
+              '<div class="xsdoi-ds-header-actions"></div>',
             '</div>',
             '<div class="xsdoi-ds-messages" id="xsdoi-ds-messages"></div>',
             '<div class="xsdoi-ds-input">',
@@ -745,9 +743,7 @@
       var sendBtn = overlay.querySelector('#xsdoi-ds-send');
       var closeBtn = overlay.querySelector('.xsdoi-ds-close');
       var newBtn = overlay.querySelector('.xsdoi-ds-new-btn');
-      var promptBtn = overlay.querySelector('#xsdoi-ds-prompt-btn');
       var sessionList = overlay.querySelector('.xsdoi-ds-session-list');
-      var newBtn = overlay.querySelector('.xsdoi-ds-new-btn');
 
       // 更新新建按钮状态（空会话时禁用）
       function updateNewBtnState() {
@@ -819,11 +815,6 @@
         renderSessionList(sessionList);
         renderCurrentSession(messagesDiv);
         updateNewBtnState();
-      });
-
-      // 系统提示词编辑
-      promptBtn.addEventListener('click', function () {
-        showPromptEditor(overlay, messagesDiv);
       });
 
       // 发送消息
@@ -981,36 +972,7 @@
         }
       }
 
-      function showPromptEditor(card, messagesDiv) {
-        var modal = document.createElement('div');
-        modal.id = 'xsdoi-ds-prompt-modal';
-        modal.innerHTML = [
-          '<div class="ds-prompt-box">',
-            '<div class="ds-prompt-title">编辑系统提示词</div>',
-            '<textarea id="xsdoi-ds-prompt-text">' + escapeHtml(systemPrompt) + '</textarea>',
-            '<div class="ds-prompt-actions">',
-              '<button class="ds-prompt-btn cancel" id="xsdoi-ds-prompt-cancel">取消</button>',
-              '<button class="ds-prompt-btn save" id="xsdoi-ds-prompt-save">保存</button>',
-            '</div>',
-          '</div>',
-        ].join('');
-        card.appendChild(modal);
-
-        modal.querySelector('#xsdoi-ds-prompt-cancel').addEventListener('click', function () {
-          modal.remove();
-        });
-        modal.querySelector('#xsdoi-ds-prompt-save').addEventListener('click', function () {
-          var newPrompt = modal.querySelector('#xsdoi-ds-prompt-text').value.trim();
-          if (newPrompt) {
-            systemPrompt = newPrompt;
-            chrome.storage.sync.set({ [SYSTEM_PROMPT_KEY]: systemPrompt });
-          }
-          modal.remove();
-        });
-        modal.querySelector('textarea').focus();
-        modal.querySelector('textarea').select();
-      }
-    });
+      function showPromptEditor    }
   }
 
   function escapeHtml(text) {
