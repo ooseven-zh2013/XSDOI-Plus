@@ -577,7 +577,11 @@
       '<div class="xsdoi-ds-config" style="padding:12px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.1);">',
         '<div style="margin-bottom:8px;">',
           '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API地址:</label>',
-          '<input id="xsdoi-ds-api-url" type="text" value="https://api.deepseek.com" placeholder="https://api.deepseek.com" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
+          '<input id="xsdoi-ds-api-url" type="text" value="https://api.deepseek.com" placeholder="https://api.deepseek.com" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;" title="支持任意 OpenAI 兼容接口：DeepSeek、智谱、Agnes 等">',
+        '</div>',
+        '<div>',
+          '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">模型名:</label>',
+          '<input id="xsdoi-ds-model" type="text" value="deepseek-chat" placeholder="deepseek-chat / glm-4 / agnes 等" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
         '</div>',
         '<div>',
           '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API Key:</label>',
@@ -630,7 +634,7 @@
           'Authorization': 'Bearer ' + apiKey
         },
         body: JSON.stringify({
-          model: 'deepseek-chat',
+          model: modelInput.value.trim() || 'deepseek-chat',
           messages: [
             {role: 'system', content: '你是一个有用的助手。'},
             {role: 'user', content: text}
