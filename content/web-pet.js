@@ -182,8 +182,16 @@
   }
 
   function clampToViewport() {
+    var bounced = {};
+    var oldPx = px, oldPy = py;
     px = Math.max(MARGIN, Math.min(vw - PET_SIZE - MARGIN, px));
     py = Math.max(MARGIN, Math.min(vh - PET_SIZE - MARGIN, py));
+    // 检测是否撞墙并记录反弹方向
+    if (px === MARGIN && oldPx < MARGIN) bounced.left = true;
+    if (px === vw - PET_SIZE - MARGIN && oldPx > vw - PET_SIZE - MARGIN) bounced.right = true;
+    if (py === MARGIN && oldPy < MARGIN) bounced.top = true;
+    if (py === vh - PET_SIZE - MARGIN && oldPy > vh - PET_SIZE - MARGIN) bounced.bottom = true;
+    return bounced;
   }
 
   // ---------- 显隐（popup「桌宠」面板开关） ----------
@@ -361,8 +369,10 @@
     vyFly += G;
     px += vxFly;
     py += vyFly;
-    // 边界处理
-    clampToViewport();
+    // 边界处理（碰撞反弹）
+    var bounds = clampToViewport();
+    if (bounds.left || bounds.right) vxFly = -vxFly * BOUNCE_DAMPING;
+    if (bounds.top) vyFly = -vyFly * BOUNCE_DAMPING;
     applyPos();
     // 检查轨迹碰撞
     checkTrailCollision();
