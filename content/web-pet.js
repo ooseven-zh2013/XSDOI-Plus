@@ -637,57 +637,16 @@
     return html;
   }
 
-  // 加载 marked 和 KaTeX
+  // marked 和 KaTeX 已通过 manifest content_scripts 静态注入（隔离世界内直接可用），
+  // 无需再动态加载 CDN 脚本（MV3 CSP 禁止 content script 从外部域名加载 JS）。
   function loadChatLibraries(callback) {
-    if (loadedMarked && loadedKaTeX) {
-      callback();
-      return;
+    loadedMarked = true;
+    loadedKaTeX = true;
+    // marked 需要配置无风险模式
+    if (typeof marked !== 'undefined' && typeof marked.setOptions === 'function') {
+      marked.setOptions({ breaks: true, gfm: true });
     }
-
-    // 加载 marked
-    if (!loadedMarked) {
-      var markedScript = document.createElement('script');
-      markedScript.src = 'https://cdn.jsdelivr.net/npm/marked@12/marked.min.js';
-      markedScript.onload = function () {
-        loadedMarked = true;
-        // marked 需要配置无风险模式
-        if (typeof marked.setOptions === 'function') {
-          marked.setOptions({ breaks: true, gfm: true });
-        }
-        if (loadedKaTeX) callback();
-      };
-      markedScript.onerror = function () {
-        console.warn('[XSDOI] Failed to load marked');
-        loadedMarked = true; // 标记为已尝试，避免重复加载
-        if (loadedKaTeX) callback();
-      };
-      document.head.appendChild(markedScript);
-    }
-
-    // 加载 KaTeX CSS
-    if (!loadedKaTeX) {
-      var katexCSS = document.createElement('link');
-      katexCSS.rel = 'stylesheet';
-      katexCSS.href = 'https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css';
-      katexCSS.onerror = function () {
-        console.warn('[XSDOI] Failed to load KaTeX CSS');
-      };
-      document.head.appendChild(katexCSS);
-
-      // 加载 KaTeX JS
-      var katexScript = document.createElement('script');
-      katexScript.src = 'https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js';
-      katexScript.onload = function () {
-        loadedKaTeX = true;
-        if (loadedMarked) callback();
-      };
-      katexScript.onerror = function () {
-        console.warn('[XSDOI] Failed to load KaTeX JS');
-        loadedKaTeX = true;
-        if (loadedMarked) callback();
-      };
-      document.head.appendChild(katexScript);
-    }
+    if (callback) callback();
   }
 
   // 打开聊天窗口
