@@ -123,7 +123,7 @@
     '#xsdoi-deepseek-overlay .xsdoi-ds-status{align-self:flex-start;max-width:85%;margin:2px 0;padding:6px 12px;border-radius:12px 12px 12px 4px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55);font-size:12px;display:flex;align-items:center;gap:8px;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#60a5fa;animation:xsdoiDsPulse 1s infinite ease-in-out;flex-shrink:0;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-status.error{background:rgba(243,139,168,0.15);color:#f38ba8;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning{align-self:stretch;max-width:92%;margin:2px 0 6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;overflow:hidden;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning{align-self:stretch;max-width:92%;margin:2px 0 6px;min-height:34px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;overflow:hidden;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning>summary{list-style:none;cursor:pointer;padding:6px 12px;color:rgba(255,255,255,0.5);user-select:none;display:flex;align-items:center;gap:6px;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning>summary::-webkit-details-marker{display:none;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning>summary::before{content:"▸";font-size:11px;transition:transform .15s;}',
@@ -892,7 +892,14 @@
             reasoningBody.className = 'xsdoi-ds-reasoning-body';
             reasoningDiv.appendChild(sum);
             reasoningDiv.appendChild(reasoningBody);
-            messagesDiv.appendChild(reasoningDiv);
+            // 关键：思考过程必须插在「当前这一轮的 bot 占位块」之前（user 之后），
+            // 而非简单 appendChild 到末尾——否则当 SSE 先回 content 后回 reasoning 时，
+            // botDiv 会先建、reasoning 后追，导致思考块落到回复下方（顺序错乱）。
+            if (botDiv && botDiv.parentNode === messagesDiv) {
+              messagesDiv.insertBefore(reasoningDiv, botDiv);
+            } else {
+              messagesDiv.appendChild(reasoningDiv);
+            }
           }
           function renderReasoning() {
             if (!reasoningBody) return;
