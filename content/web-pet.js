@@ -580,29 +580,48 @@
         '<span class="xsdoi-ds-title">DeepSeek</span>',
         '<button class="xsdoi-ds-close" title="关闭">×</button>',
       '</div>',
-      '<div class="xsdoi-ds-loading" style="flex:1;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);font-size:14px;">加载中...</div>',
-      '<iframe class="xsdoi-ds-iframe" src="https://chat.deepseek.com" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#fff;opacity:0;transition:opacity 0.3s;"></iframe>'
+      '<div class="xsdoi-ds-content" style="flex:1;position:relative;overflow:hidden;">',
+        '<div class="xsdoi-ds-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);font-size:14px;">加载中...</div>',
+        '<div class="xsdoi-ds-error" style="position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,0.7);font-size:14px;">',
+          '<div>无法内嵌 DeepSeek（网站限制）</div>',
+          '<button class="xsdoi-ds-open-btn" style="padding:8px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">在新标签页打开</button>',
+        '</div>',
+        '<iframe class="xsdoi-ds-iframe" src="https://chat.deepseek.com" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#fff;"></iframe>'
+      '</div>'
     ].join('');
     var closeBtn = overlay.querySelector('.xsdoi-ds-close');
     var loading = overlay.querySelector('.xsdoi-ds-loading');
+    var error = overlay.querySelector('.xsdoi-ds-error');
     var iframe = overlay.querySelector('.xsdoi-ds-iframe');
+    var openBtn = overlay.querySelector('.xsdoi-ds-open-btn');
     closeBtn.addEventListener('click', function () {
       overlay.remove();
     });
-    // iframe 加载完成后显示，隐藏 loading
+    openBtn.addEventListener('click', function () {
+      overlay.remove();
+      window.open('https://chat.deepseek.com', '_blank');
+    });
+    // iframe 加载完成后隐藏 loading
     iframe.addEventListener('load', function () {
       setTimeout(function () {
         if (overlay.parentNode) {
-          iframe.style.opacity = '1';
           loading.style.display = 'none';
         }
-      }, 1000);
+      }, 1500);
     });
-    // 超时 fallback：如果 3 秒内 iframe 没加载完成，打开新窗口
+    // 如果 iframe 被阻止，显示错误提示
     setTimeout(function () {
-      if (overlay && overlay.parentNode && iframe.style.opacity !== '1') {
-        overlay.remove();
-        window.open('https://chat.deepseek.com', '_blank');
+      if (!overlay || !overlay.parentNode) return;
+      // 检查 iframe 是否可见（如果 display:none 说明被阻止）
+      try {
+        if (iframe.contentDocument && iframe.contentDocument.body.innerHTML === '') {
+          loading.style.display = 'none';
+          error.style.display = 'flex';
+        }
+      } catch (e) {
+        // 跨域无法访问，显示错误
+        loading.style.display = 'none';
+        error.style.display = 'flex';
       }
     }, 3000);
     document.body.appendChild(overlay);
