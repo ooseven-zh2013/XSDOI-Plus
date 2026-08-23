@@ -600,6 +600,7 @@
 
     var apiUrlInput = overlay.querySelector('#xsdoi-ds-api-url');
     var apiKeyInput = overlay.querySelector('#xsdoi-ds-api-key');
+    var modelInput = overlay.querySelector('#xsdoi-ds-model');
     var messagesDiv = overlay.querySelector('.xsdoi-ds-messages');
     var input = overlay.querySelector('#xsdoi-ds-input');
     var sendBtn = overlay.querySelector('#xsdoi-ds-send');
