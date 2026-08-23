@@ -117,6 +117,8 @@
     '#xsdoi-deepseek-overlay .xsdoi-ds-input textarea{flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;resize:none;line-height:1.5;font-family:inherit;min-height:44px;max-height:140px;box-sizing:border-box;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-input button{padding:10px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-input button:disabled{opacity:0.5;cursor:not-allowed;}',
+    '#xsdoi-deepseek-overlay .ds-typing{display:inline-block;animation:xsdoiDsBlink 1s steps(2) infinite;color:rgba(255,255,255,0.6);}',
+    '@keyframes xsdoiDsBlink{0%,100%{opacity:1;}50%{opacity:0;}}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-close{position:absolute;top:12px;right:12px;width:32px;height:32px;z-index:10;}',
     '#xsdoi-deepseek-overlay .katex{font-size:1em;}',
     '#xsdoi-deepseek-overlay .katex-display{margin:8px 0;overflow-x:auto;}',
@@ -734,8 +736,9 @@
           e.stopPropagation();
           var sid = deleteBtn.closest('.xsdoi-ds-session-item').dataset.sessionId;
           if (Object.keys(sessions).length <= 1) {
-            // 最后一个会话，清空消息而不是删除
+            // 最后一个会话，清空消息而不是删除（重置为默认名）
             sessions[sid].messages = [];
+            sessions[sid].name = '新会话';
             saveCurrentSession();
             renderSessionList(sessionList);
             renderCurrentSession(messagesDiv);
@@ -811,6 +814,21 @@
           messages = messages.concat(recentMessages);
 
           var apiBase = chatCfg.apiUrl.trim().replace(/\/v1\/?$/, '');
+          var botDiv = null;    // 流式输出的 bot 消息（懒创建）
+          var fullReply = '';   // 完整回复（流结束后保存）
+
+          // 滚动：仅在用户接近底部时自动跟随
+          function scrollIfNearBottom() {
+            var nearBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight < 60;
+            if (nearBottom) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+          }
+
+          // 更新流式输出内容（带闪烁光标）
+          function renderBotStream() {
+            if (!botDiv) return;
+            botDiv.innerHTML = renderMessage(fullReply.trim().replace(/\n{2,}/g, '\n\n')) + '<span class="ds-typing">▍</span>';
+            scrollIfNearBottom();
+          }
 
           fetch(apiBase + '/v1/chat/completions', {
             method: 'POST',
@@ -821,26 +839,92 @@
             body: JSON.stringify({
               model: chatCfg.model.trim() || 'deepseek-chat',
               messages: messages,
-              temperature: 0.7
+              temperature: 0.7,
+              stream: true
             })
           })
-          .then(function(res) { return res.json(); })
-          .then(function(data) {
-            if (data.error) {
-              appendMessage(messagesDiv, '错误: ' + data.error.message, 'bot');
-            } else {
-              var reply = data.choices[0].message.content;
-              appendMessage(messagesDiv, reply, 'bot');
-              // 保存到会话
-              session.messages.push({ role: 'assistant', content: reply });
+          .then(function (res) {
+            if (!res.ok) {
+              return res.json().then(function (data) {
+                throw new Error((data.error && data.error.message) || ('HTTP ' + res.status));
+              });
+            }
+            // 服务端不支持流式时降级为 JSON 一次性返回
+            var ct = res.headers.get('content-type') || '';
+            if (ct.indexOf('text/event-stream') === -1) {
+              return res.json().then(function (data) {
+                if (data.error) throw new Error(data.error.message);
+                fullReply = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+                if (fullReply) {
+                  botDiv = document.createElement('div');
+                  botDiv.className = 'xsdoi-ds-msg bot';
+                  messagesDiv.appendChild(botDiv);
+                  botDiv.innerHTML = renderMessage(fullReply.trim().replace(/\n{2,}/g, '\n\n'));
+                  scrollIfNearBottom();
+                }
+              });
+            }
+            // 流式：逐块读取 SSE（text/event-stream）
+            var reader = res.body.getReader();
+            var decoder = new TextDecoder('utf-8');
+            var buffer = '';
+            function pump() {
+              return reader.read().then(function (result) {
+                if (result.done) return;
+                buffer += decoder.decode(result.value, { stream: true });
+                var lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (var i = 0; i < lines.length; i++) {
+                  var line = lines[i].trim();
+                  if (line.indexOf('data:') !== 0) continue;
+                  var data = line.slice(5).trim();
+                  if (data === '[DONE]') continue;
+                  try {
+                    var json = JSON.parse(data);
+                    var delta = json.choices && json.choices[0] && json.choices[0].delta;
+                    var content = delta && delta.content;
+                    if (content) {
+                      fullReply += content;
+                      if (!botDiv) {
+                        botDiv = document.createElement('div');
+                        botDiv.className = 'xsdoi-ds-msg bot';
+                        messagesDiv.appendChild(botDiv);
+                      }
+                      renderBotStream();
+                    }
+                  } catch (e) { /* 忽略不完整的 JSON 行 */ }
+                }
+                return pump();
+              });
+            }
+            return pump();
+          })
+          .then(function () {
+            // 流结束：保存完整回复到会话
+            if (fullReply) {
+              session.messages.push({ role: 'assistant', content: fullReply });
               saveCurrentSession();
               renderSessionList(sessionList);
             }
           })
-          .catch(function(err) {
-            appendMessage(messagesDiv, '请求失败: ' + err.message, 'bot');
+          .catch(function (err) {
+            console.error('[XSDOI] chat error:', err);
+            if (fullReply) {
+              // 已有部分内容：附上错误提示
+              fullReply += '\n\n> ⚠️ ' + err.message;
+              if (botDiv) {
+                botDiv.innerHTML = renderMessage(fullReply.trim().replace(/\n{2,}/g, '\n\n'));
+                scrollIfNearBottom();
+              }
+            } else {
+              appendMessage(messagesDiv, '请求失败: ' + err.message, 'bot');
+            }
           })
-          .finally(function() {
+          .finally(function () {
+            // 移除打字光标，显示最终内容
+            if (botDiv && fullReply) {
+              botDiv.innerHTML = renderMessage(fullReply.trim().replace(/\n{2,}/g, '\n\n'));
+            }
             sendBtn.disabled = false;
             sendBtn.textContent = '发送';
             input.focus();
@@ -855,6 +939,9 @@
       }
 
       function appendMessage(container, text, role) {
+        // 往容器加消息时移除空态占位（发送消息开始对话）
+        var emptyEl = container.querySelector('#xsdoi-ds-empty');
+        if (emptyEl) emptyEl.remove();
         var div = document.createElement('div');
         div.className = 'xsdoi-ds-msg ' + (role === 'user' ? 'user' : 'bot');
         div.innerHTML = renderMessage(text.trim().replace(/\n{2,}/g, '\n\n'));
@@ -908,7 +995,9 @@
             e.stopPropagation();
             var sid = item.dataset.sessionId;
             if (Object.keys(sessions).length <= 1) {
+              // 最后一个会话：清空消息并重置为默认名（而不是保留旧名字）
               sessions[sid].messages = [];
+              sessions[sid].name = '新会话';
               saveCurrentSession();
               renderSessionList(sessionList);
               renderCurrentSession(messagesDiv);
