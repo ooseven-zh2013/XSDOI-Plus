@@ -57,7 +57,7 @@
     '@keyframes xsdoiPetBounce{0%{transform:scale(1);}40%{transform:scale(.86);}100%{transform:scale(1);}}',
     '#' + CONTAINER_ID + '.xsdoi-pet-flying .xsdoi-pet-body{animation:xsdoiPetFly .55s ease-in;}',
     '@keyframes xsdoiPetFly{0%{transform:scale(1) rotate(0deg);}50%{transform:scale(.88,1.14) rotate(-8deg);}100%{transform:scale(1) rotate(0deg);}}',
-    '#xsdoi-deepseek-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;}',
+    '#xsdoi-deepseek-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;display:flex;justify-content:center;align-items:center;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-card{position:relative;width:min(520px,90vw);max-height:80vh;margin:auto;background:rgba(15,15,25,0.92);border:1px solid rgba(255,255,255,0.15);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;}',
