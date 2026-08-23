@@ -597,9 +597,7 @@
           '<span class="xsdoi-ds-title">聊天</span>',
           '<button class="xsdoi-ds-close" title="关闭">×</button>',
         '</div>',
-        '<div class="xsdoi-ds-messages">',
-          '<div style="align-self:flex-start;background:rgba(255,255,255,0.1);padding:10px 14px;border-radius:12px 12px 12px 4px;max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);">发送消息开始对话</div>',
-        '</div>',
+        '<div class="xsdoi-ds-messages"></div>',
         '<div class="xsdoi-ds-input">',
           '<input id="xsdoi-ds-input" type="text" placeholder="输入消息..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;">',
           '<button id="xsdoi-ds-send" style="padding:10px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;">发送</button>',
@@ -686,7 +684,7 @@
     function appendMessage(text, role) {
       var div = document.createElement('div');
       div.style.cssText = 'align-self:' + (role === 'user' ? 'flex-end' : 'flex-start') + ';background:' + (role === 'user' ? 'rgba(96,165,250,0.6)' : 'rgba(255,255,255,0.1)') + ';padding:10px 14px;border-radius:' + (role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px') + ';max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);white-space:pre-wrap;word-break:break-word;';
-      div.textContent = text;
+      div.textContent = text.trim().replace(/\n{2,}/g, '\n\n');
       messagesDiv.appendChild(div);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
