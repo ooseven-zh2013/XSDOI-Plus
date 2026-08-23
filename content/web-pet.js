@@ -293,6 +293,7 @@
   function saveState() {
     pos.x = px / Math.max(1, vw - PET_SIZE) * 100;
     pos.y = py / Math.max(1, vh - PET_SIZE) * 100;
+    if (!isCtxValid()) return;
     chrome.storage.sync.set({ webPet: { x: pos.x, y: pos.y } });
   }
 
@@ -611,6 +612,7 @@
 
   // 保存会话
   function saveCurrentSession() {
+    if (!isCtxValid()) { notifyCtxInvalid(); return; }
     if (!currentSessionId || !sessions[currentSessionId]) return;
     sessions[currentSessionId].updatedAt = new Date().toLocaleString('zh-CN');
     chrome.storage.sync.set({
@@ -1000,15 +1002,15 @@
           return sessions[b].updatedAt.localeCompare(sessions[a].updatedAt);
         });
         for (var i = 0; i < sessionOrder.length; i++) {
-          var sid = sessionOrder[i];
-          var s = sessions[sid];
-          var isActive = sid === currentSessionId ? ' active' : '';
-          var preview = '';
+          let sid = sessionOrder[i];
+          let s = sessions[sid];
+          let isActive = sid === currentSessionId ? ' active' : '';
+          let preview = '';
           if (s.messages.length > 0) {
-            var lastMsg = s.messages[s.messages.length - 1];
+            let lastMsg = s.messages[s.messages.length - 1];
             preview = lastMsg.content.substring(0, 30) + (lastMsg.content.length > 30 ? '...' : '');
           }
-          var item = document.createElement('div');
+          let item = document.createElement('div');
           item.className = 'xsdoi-ds-session-item' + isActive;
           item.dataset.sessionId = sid;
           item.innerHTML = '<div style="flex:1;min-width:0;">' +
@@ -1106,6 +1108,31 @@
     return div.innerHTML;
   }
 
+  // 扩展上下文是否仍然有效（扩展被重载/卸载后 content script 调用 chrome.* 会抛
+  // "Extension context invalidated"，此时 chrome.runtime.id 变为 undefined）
+  function isCtxValid() {
+    try {
+      return !!(chrome.runtime && chrome.runtime.id);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 上下文失效时一次性提示用户刷新页面（避免反复弹、也不静默吞掉）
+  var ctxToastShown = false;
+  function notifyCtxInvalid() {
+    if (ctxToastShown) return;
+    ctxToastShown = true;
+    var t = document.createElement('div');
+    t.textContent = 'XSDOI 扩展已更新，请刷新本页面以恢复保存功能';
+    t.style.cssText = 'position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:2147483647;' +
+      'background:#f38ba8;color:#1e1e2e;padding:10px 18px;border-radius:8px;font-size:14px;' +
+      'box-shadow:0 4px 16px rgba(0,0,0,0.3);font-family:sans-serif;cursor:pointer;';
+    t.addEventListener('click', function () { t.remove(); });
+    (document.body || document.documentElement).appendChild(t);
+    setTimeout(function () { if (t.parentNode) t.remove(); }, 8000);
+  }
+
   // ---------- 初始化 ----------
   function load() {
     chrome.storage.sync.get([STORAGE_KEY, ENABLE_KEY, CROP_KEY], function (items) {
@@ -1135,6 +1162,7 @@
 
   // popup 开关 / 图片变化时实时响应
   chrome.storage.onChanged.addListener(function (changes, area) {
+    if (!isCtxValid()) return;
     if (area === 'sync' && changes[ENABLE_KEY]) {
       enabled = changes[ENABLE_KEY].newValue !== false;
       applyVisibility();
