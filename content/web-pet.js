@@ -259,10 +259,10 @@
   function onPointerDown(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     var now = Date.now();
-    // 双击检测：两次点击间隔 < 300ms 且移动距离小
+    // 双击检测：两次点击间隔 < 300ms
     if (now - lastClickTime < 300) {
-      openDeepSeek();
       lastClickTime = 0;
+      openDeepSeek();
       return;
     }
     lastClickTime = now;
