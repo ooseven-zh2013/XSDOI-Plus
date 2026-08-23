@@ -615,6 +615,8 @@
   // 生成 Markdown + LaTeX 渲染的 HTML
   function renderMessage(text) {
     if (!loadedMarked || !loadedKaTeX) return text;
+    // CDN 加载失败时标志位也会被置 true，但全局对象不存在，需额外防御
+    if (typeof marked === 'undefined' || typeof katex === 'undefined') return text;
     // 先用 marked 渲染 Markdown
     var html = marked.parse(text);
     // 再用 KaTeX 渲染 LaTeX
@@ -822,67 +824,75 @@
         var text = input.value.trim();
         if (!text) return;
 
-        // 检查 API Key
-        if (!chatCfg.apiKey) {
-          appendMessage(messagesDiv, '请先在 popup「网页桌宠」中设置 API Key', 'bot');
-          return;
-        }
-
-        // 添加用户消息
-        appendMessage(messagesDiv, text, 'user');
-        input.value = '';
-        sendBtn.disabled = true;
-        sendBtn.textContent = '...';
-
-        // 保存到会话
-        var session = sessions[currentSessionId];
-        session.messages.push({ role: 'user', content: text });
-        saveCurrentSession();
-        renderSessionList(sessionList);
-
-        // 构建消息列表（包含历史上下文）
-        var messages = [
-          { role: 'system', content: systemPrompt }
-        ];
-        // 只保留最近 20 条消息作为上下文（避免 token 过多）
-        var recentMessages = session.messages.slice(-20);
-        messages = messages.concat(recentMessages);
-
-        var apiBase = chatCfg.apiUrl.trim().replace(/\/v1\/?$/, '');
-
-        fetch(apiBase + '/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + chatCfg.apiKey
-          },
-          body: JSON.stringify({
-            model: chatCfg.model.trim() || 'deepseek-chat',
-            messages: messages,
-            temperature: 0.7
-          })
-        })
-        .then(function(res) { return res.json(); })
-        .then(function(data) {
-          if (data.error) {
-            appendMessage(messagesDiv, '错误: ' + data.error.message, 'bot');
-          } else {
-            var reply = data.choices[0].message.content;
-            appendMessage(messagesDiv, reply, 'bot');
-            // 保存到会话
-            session.messages.push({ role: 'assistant', content: reply });
-            saveCurrentSession();
-            renderSessionList(sessionList);
+        try {
+          // 检查 API Key
+          if (!chatCfg.apiKey) {
+            appendMessage(messagesDiv, '请先在 popup「网页桌宠」中设置 API Key', 'bot');
+            return;
           }
-        })
-        .catch(function(err) {
-          appendMessage(messagesDiv, '请求失败: ' + err.message, 'bot');
-        })
-        .finally(function() {
+
+          // 添加用户消息
+          appendMessage(messagesDiv, text, 'user');
+          input.value = '';
+          sendBtn.disabled = true;
+          sendBtn.textContent = '...';
+
+          // 保存到会话
+          var session = sessions[currentSessionId];
+          session.messages.push({ role: 'user', content: text });
+          saveCurrentSession();
+          renderSessionList(sessionList);
+
+          // 构建消息列表（包含历史上下文）
+          var messages = [
+            { role: 'system', content: systemPrompt }
+          ];
+          // 只保留最近 20 条消息作为上下文（避免 token 过多）
+          var recentMessages = session.messages.slice(-20);
+          messages = messages.concat(recentMessages);
+
+          var apiBase = chatCfg.apiUrl.trim().replace(/\/v1\/?$/, '');
+
+          fetch(apiBase + '/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + chatCfg.apiKey
+            },
+            body: JSON.stringify({
+              model: chatCfg.model.trim() || 'deepseek-chat',
+              messages: messages,
+              temperature: 0.7
+            })
+          })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data.error) {
+              appendMessage(messagesDiv, '错误: ' + data.error.message, 'bot');
+            } else {
+              var reply = data.choices[0].message.content;
+              appendMessage(messagesDiv, reply, 'bot');
+              // 保存到会话
+              session.messages.push({ role: 'assistant', content: reply });
+              saveCurrentSession();
+              renderSessionList(sessionList);
+            }
+          })
+          .catch(function(err) {
+            appendMessage(messagesDiv, '请求失败: ' + err.message, 'bot');
+          })
+          .finally(function() {
+            sendBtn.disabled = false;
+            sendBtn.textContent = '发送';
+            input.focus();
+          });
+        } catch (err) {
+          // 兜底：任何同步异常都显示出来，避免「点了没反应」
+          console.error('[XSDOI] sendMessage:', err);
           sendBtn.disabled = false;
           sendBtn.textContent = '发送';
-          input.focus();
-        });
+          appendMessage(messagesDiv, '发送出错: ' + (err && err.message ? err.message : err), 'bot');
+        }
       }
 
       function appendMessage(container, text, role) {
