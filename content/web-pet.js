@@ -820,8 +820,6 @@
 
           var apiBase = chatCfg.apiUrl.trim().replace(/\/v1\/?$/, '');
 
-          // 步骤状态：正在连接模型
-          setStatus('🔄 正在连接模型...');
           var botDiv = null;    // 流式输出的 bot 消息（懒创建）
           var fullReply = '';   // 完整回复（流结束后保存）
 
@@ -840,6 +838,9 @@
           function clearStatus() {
             if (statusEl) { statusEl.remove(); statusEl = null; }
           }
+
+          // 步骤状态：正在连接模型（须在 statusEl 声明初始化之后调用）
+          setStatus('🔄 正在连接模型...');
 
           // 滚动：仅在用户接近底部时自动跟随
           function scrollIfNearBottom() {
