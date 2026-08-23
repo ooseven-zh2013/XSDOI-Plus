@@ -56,7 +56,13 @@
     '#' + CONTAINER_ID + '.xsdoi-pet-bounce .xsdoi-pet-body{animation:xsdoiPetBounce .4s ease;}',
     '@keyframes xsdoiPetBounce{0%{transform:scale(1);}40%{transform:scale(.86);}100%{transform:scale(1);}}',
     '#' + CONTAINER_ID + '.xsdoi-pet-flying .xsdoi-pet-body{animation:xsdoiPetFly .55s ease-in;}',
-    '@keyframes xsdoiPetFly{0%{transform:scale(1) rotate(0deg);}50%{transform:scale(.88,1.14) rotate(-8deg);}100%{transform:scale(1) rotate(0deg);}}'
+    '@keyframes xsdoiPetFly{0%{transform:scale(1) rotate(0deg);}50%{transform:scale(.88,1.14) rotate(-8deg);}100%{transform:scale(1) rotate(0deg);}}',
+    '#xsdoi-deepseek-overlay{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80vw;max-width:900px;height:70vh;max-height:700px;background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;z-index:2147483647;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column;overflow:hidden;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.1);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-title{color:#fff;font-size:14px;font-weight:500;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-close{background:none;border:none;color:rgba(255,255,255,0.7);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-close:hover{color:#fff;}',
+    '#xsdoi-deepseek-overlay iframe{flex:1;border:none;width:100%;height:100%;background:#fff;}'
   ].join('\n');
 
   // ---------- 状态 ----------
@@ -126,6 +132,7 @@
     pet.addEventListener('pointercancel', function (e) {
       if (e.pointerId === pointerId) onPointerUp(e);
     });
+    pet.addEventListener('dblclick', openDeepSeek);
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
   }
@@ -562,6 +569,44 @@
     clampToViewport();
     applyPos();
   });
+
+  // 双击宠物弹出 DeepSeek 对话窗口
+  function openDeepSeek() {
+    if (document.getElementById('xsdoi-deepseek-overlay')) return; // 已打开则不重复
+    var overlay = document.createElement('div');
+    overlay.id = 'xsdoi-deepseek-overlay';
+    overlay.innerHTML = [
+      '<div class="xsdoi-ds-header">',
+        '<span class="xsdoi-ds-title">DeepSeek</span>',
+        '<button class="xsdoi-ds-close" title="关闭">×</button>',
+      '</div>',
+      '<div class="xsdoi-ds-loading" style="flex:1;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);font-size:14px;">加载中...</div>',
+      '<iframe class="xsdoi-ds-iframe" src="https://chat.deepseek.com" allow="clipboard-write" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#fff;opacity:0;transition:opacity 0.3s;"></iframe>'
+    ].join('');
+    var closeBtn = overlay.querySelector('.xsdoi-ds-close');
+    var loading = overlay.querySelector('.xsdoi-ds-loading');
+    var iframe = overlay.querySelector('.xsdoi-ds-iframe');
+    closeBtn.addEventListener('click', function () {
+      overlay.remove();
+    });
+    // iframe 加载完成后显示，隐藏 loading
+    iframe.addEventListener('load', function () {
+      setTimeout(function () {
+        if (overlay.parentNode) {
+          iframe.style.opacity = '1';
+          loading.style.display = 'none';
+        }
+      }, 1000);
+    });
+    // 超时 fallback：如果 3 秒内 iframe 没加载完成，打开新窗口
+    setTimeout(function () {
+      if (overlay && overlay.parentNode && iframe.style.opacity !== '1') {
+        overlay.remove();
+        window.open('https://chat.deepseek.com', '_blank');
+      }
+    }, 3000);
+    document.body.appendChild(overlay);
+  }
 
   var style = document.createElement('style');
   style.id = STYLE_ID;
