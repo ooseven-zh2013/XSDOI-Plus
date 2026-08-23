@@ -123,6 +123,14 @@
     '#xsdoi-deepseek-overlay .xsdoi-ds-status{align-self:flex-start;max-width:85%;margin:2px 0;padding:6px 12px;border-radius:12px 12px 12px 4px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55);font-size:12px;display:flex;align-items:center;gap:8px;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#60a5fa;animation:xsdoiDsPulse 1s infinite ease-in-out;flex-shrink:0;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-status.error{background:rgba(243,139,168,0.15);color:#f38ba8;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning{align-self:stretch;max-width:92%;margin:2px 0 6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;font-size:13px;overflow:hidden;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning>summary{list-style:none;cursor:pointer;padding:6px 12px;color:rgba(255,255,255,0.5);user-select:none;display:flex;align-items:center;gap:6px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning>summary::-webkit-details-marker{display:none;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning>summary::before{content:"▸";font-size:11px;transition:transform .15s;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning[open]>summary::before{transform:rotate(90deg);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning-body{padding:0 12px 10px;color:rgba(255,255,255,0.62);max-height:320px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-word;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning-body p{margin:0 0 8px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-reasoning-body code{background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:4px;font-size:12px;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-status.error::before{background:#f38ba8;animation:none;}',
     '@keyframes xsdoiDsPulse{0%,100%{opacity:0.3;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-close{position:absolute;top:12px;right:12px;width:32px;height:32px;z-index:10;}',
@@ -668,7 +676,7 @@
     var preBlocks = [];
     html = html.replace(/<pre>[\s\S]*?<\/pre>/g, function (m) {
       preBlocks.push(m);
-      return ' PRE' + (preBlocks.length - 1) + ' ';
+      return ' PRE' + (preBlocks.length - 1) + ' ';
     });
     html = html.replace(/<code>([\s\S]*?)<\/code>/g, function (m, inner) {
       if (!/\\/.test(inner) && !/[∈∉⊂⊃⊆⊇∪∩∀∃√∑∫∏∂∇∞±×÷⋅≤≥≠≈≡αβγδθπσφψω]/u.test(inner)) {
@@ -685,7 +693,7 @@
         return m;
       }
     });
-    html = html.replace(/ PRE(\d+) /g, function (_, i) { return preBlocks[+i]; });
+    html = html.replace(/ PRE(\d+) /g, function (_, i) { return preBlocks[+i]; });
 
     return html;
   }
@@ -868,6 +876,35 @@
 
           var botDiv = null;    // 流式输出的 bot 消息（懒创建）
           var fullReply = '';   // 完整回复（流结束后保存）
+          var reasoningDiv = null;     // 思考过程折叠块 <details>
+          var reasoningBody = null;    // 思考过程内容容器
+          var fullReasoning = '';      // 完整思考过程（流结束后保存）
+
+          // 懒创建「思考过程」折叠块（流式过程中展开，结束收起为 summary 标签）
+          function ensureReasoning() {
+            if (reasoningDiv) return;
+            reasoningDiv = document.createElement('details');
+            reasoningDiv.className = 'xsdoi-ds-reasoning';
+            reasoningDiv.open = true;
+            var sum = document.createElement('summary');
+            sum.textContent = '💭 思考过程';
+            reasoningBody = document.createElement('div');
+            reasoningBody.className = 'xsdoi-ds-reasoning-body';
+            reasoningDiv.appendChild(sum);
+            reasoningDiv.appendChild(reasoningBody);
+            messagesDiv.appendChild(reasoningDiv);
+          }
+          function renderReasoning() {
+            if (!reasoningBody) return;
+            var txt = fullReasoning.trim().replace(/\n{2,}/g, '\n\n');
+            // 思考过程多为纯文本/少量 markdown，用 renderMessage 渲染（失败则降级为纯文本）
+            try {
+              reasoningBody.innerHTML = renderMessage(txt) || escapeHtml(txt);
+            } catch (e) {
+              reasoningBody.textContent = txt;
+            }
+            scrollIfNearBottom();
+          }
 
           // 步骤状态指示器：连接中 → 等待响应 → 思考中 → 完成/出错
           var statusEl = null;
@@ -926,7 +963,15 @@
             if (ct.indexOf('text/event-stream') === -1) {
               return res.json().then(function (data) {
                 if (data.error) throw new Error(data.error.message);
-                fullReply = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+                var msgObj = (data.choices && data.choices[0] && data.choices[0].message) || {};
+                fullReply = msgObj.content || '';
+                var r = msgObj.reasoning_content || '';
+                if (r) {
+                  fullReasoning = r;
+                  ensureReasoning();
+                  renderReasoning();
+                  if (reasoningDiv) reasoningDiv.open = false;
+                }
                 if (fullReply) {
                   botDiv = document.createElement('div');
                   botDiv.className = 'xsdoi-ds-msg bot';
@@ -955,6 +1000,13 @@
                   try {
                     var json = JSON.parse(data);
                     var delta = json.choices && json.choices[0] && json.choices[0].delta;
+                    // 思考过程：DeepSeek 用 reasoning_content，OpenAI o 系列用 reasoning
+                    var reasoning = (delta && (delta.reasoning_content || delta.reasoning)) || '';
+                    if (reasoning) {
+                      ensureReasoning();
+                      fullReasoning += reasoning;
+                      renderReasoning();
+                    }
                     var content = delta && delta.content;
                     if (content) {
                       if (!botDiv) {
@@ -974,10 +1026,11 @@
             return pump();
           })
           .then(function () {
-            // 流结束：清除状态指示，保存完整回复到会话
+            // 流结束：思考过程收起为 summary 标签，清除状态指示，保存完整回复到会话
+            if (reasoningDiv) reasoningDiv.open = false;
             clearStatus();
             if (fullReply) {
-              session.messages.push({ role: 'assistant', content: fullReply });
+              session.messages.push({ role: 'assistant', content: fullReply, reasoning: fullReasoning });
               saveCurrentSession();
               renderSessionList(sessionList);
             }
@@ -1037,6 +1090,25 @@
         for (var i = 0; i < session.messages.length; i++) {
           var msg = session.messages[i];
           appendMessage(container, msg.content, msg.role);
+          // 若该条助手消息带思考过程，渲染为可折叠 summary（默认收起）
+          if (msg.role === 'assistant' && msg.reasoning) {
+            var det = document.createElement('details');
+            det.className = 'xsdoi-ds-reasoning';
+            det.open = false;
+            var sum = document.createElement('summary');
+            sum.textContent = '💭 思考过程';
+            var body = document.createElement('div');
+            body.className = 'xsdoi-ds-reasoning-body';
+            var rt = msg.reasoning.trim().replace(/\n{2,}/g, '\n\n');
+            try {
+              body.innerHTML = renderMessage(rt) || escapeHtml(rt);
+            } catch (e) {
+              body.textContent = rt;
+            }
+            det.appendChild(sum);
+            det.appendChild(body);
+            container.appendChild(det);
+          }
         }
       }
 
