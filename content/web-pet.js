@@ -971,6 +971,8 @@
           container.appendChild(item);
         }
       }
+      }
+    }
   }
 
   function escapeHtml(text) {
