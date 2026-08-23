@@ -9,6 +9,7 @@
 //   - 显隐控制：读取 storage.sync 的 webPetEnabled（popup「桌宠」面板
 //     开关），关闭即隐藏
 //   - 持久化：开关、图片、位置（视口百分比）刷新后保持
+//   - 双击宠物：打开聊天窗口，支持 Markdown + LaTeX，多会话管理，系统提示词可编辑
 // ============================================================
 
 (function () {
@@ -20,6 +21,21 @@
   var ENABLE_KEY = 'webPetEnabled';     // popup「桌宠」面板开关
   var IMG_KEY = 'webPetImg';            // 自定义图片 dataURL（storage.local）
   var CROP_KEY = 'webPetCrop';          // 裁剪参数 { scale, cx, cy }（popup 可视化裁剪器）
+
+  // 聊天相关 storage keys
+  var SESSIONS_KEY = 'webPetSessions';          // {id, name, createdAt, updatedAt, messages[]}
+  var CURRENT_SESSION_KEY = 'webPetCurrentSessionId';
+  var SYSTEM_PROMPT_KEY = 'webPetSystemPrompt';
+  var API_CONFIG_KEYS = ['webPetApiUrl', 'webPetModel', 'webPetApiKey'];
+
+  // 默认系统提示词
+  var DEFAULT_SYSTEM_PROMPT = [
+    '你是一名编程助手，你需要用简体中文回答用户的消息（哪怕用户说的是英文）。',
+    '你的回答需要遵循 Markdown 格式。',
+    '公式格式用 LaTeX：行内公式用 $...$，独立公式用 $$...$$。',
+    '代码块用 ``` 包裹，并注明编程语言，例如：\n```cpp\n// 代码\n```\n当用户没有指明编程语言时，默认使用 C++14。',
+    '回答要清晰、简洁、有帮助。'
+  ].join(' ');
 
   var PET_SIZE = 56;   // 显示尺寸 px
   var MARGIN = 8;      // 与视口边缘的最小间距 px
@@ -58,15 +74,56 @@
     '#' + CONTAINER_ID + '.xsdoi-pet-flying .xsdoi-pet-body{animation:xsdoiPetFly .55s ease-in;}',
     '@keyframes xsdoiPetFly{0%{transform:scale(1) rotate(0deg);}50%{transform:scale(.88,1.14) rotate(-8deg);}100%{transform:scale(1) rotate(0deg);}}',
     '#xsdoi-deepseek-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;display:flex;justify-content:center;align-items:center;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-card{position:relative;width:min(520px,90vw);max-height:80vh;margin:auto;background:rgba(15,15,25,0.92);border:1px solid rgba(255,255,255,0.15);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-card{position:relative;width:90vw;max-width:900px;height:90vh;max-height:700px;margin:auto;background:rgba(15,15,25,0.95);border:1px solid rgba(255,255,255,0.15);border-radius:16px;display:flex;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-sidebar{width:200px;flex-shrink:0;border-right:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;background:rgba(0,0,0,0.2);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-sidebar-header{padding:12px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-sidebar-title{color:#fff;font-size:14px;font-weight:600;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-new-btn{width:24px;height:24px;border:none;background:rgba(96,165,250,0.8);color:#fff;border-radius:6px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-new-btn:hover{background:rgba(96,165,250,1);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-list{flex:1;overflow-y:auto;padding:8px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item{padding:8px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.7);font-size:13px;margin-bottom:4px;word-break:break-all;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item:hover{background:rgba(255,255,255,0.1);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item.active{background:rgba(96,165,250,0.3);color:#fff;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-preview{display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-main{flex:1;display:flex;flex-direction:column;min-width:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-title{color:#fff;font-size:15px;font-weight:600;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-close{width:32px;height:32px;border:none;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border-radius:8px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-close:hover{background:rgba(255,255,255,0.2);color:#fff;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-config{padding:14px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-header-actions{display:flex;gap:8px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-icon-btn{width:28px;height:28px;border:none;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-icon-btn:hover{background:rgba(255,255,255,0.2);color:#fff;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-input{padding:12px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px;flex-shrink:0;}'
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.6;word-break:break-word;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg.user{align-self:flex-end;background:rgba(96,165,250,0.6);color:#fff;border-radius:12px 12px 4px 12px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg.bot{align-self:flex-start;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.9);border-radius:12px 12px 12px 4px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg p{margin:0 0 8px 0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg p:last-child{margin-bottom:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg pre{background:rgba(0,0,0,0.3);padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg code{font-family:"Courier New",monospace;font-size:13px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg :not(pre) > code{background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;font-size:13px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg h1,#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg h2,#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg h3,#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg h4{margin:12px 0 8px 0;font-size:16px;color:#fff;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg ul,#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg ol{margin:8px 0;padding-left:20px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg li{margin:4px 0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg table{border-collapse:collapse;width:100%;margin:8px 0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg th,#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg td{border:1px solid rgba(255,255,255,0.2);padding:6px 10px;text-align:left;font-size:13px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages .ds-msg th{background:rgba(255,255,255,0.1);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-input{padding:12px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px;flex-shrink:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-input input{flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-input button{padding:10px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-input button:disabled{opacity:0.5;cursor:not-allowed;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-close{position:absolute;top:12px;right:12px;width:32px;height:32px;z-index:10;}',
+    '#xsdoi-deepseek-overlay .katex{font-size:1em;}',
+    '#xsdoi-deepseek-overlay .katex-display{margin:8px 0;overflow-x:auto;}',
+    '#xsdoi-ds-prompt-modal{position:absolute;top:0;left:0;width:100%;height:100%;z-index:20;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;}',
+    '#xsdoi-ds-prompt-modal .ds-prompt-box{background:rgba(20,20,30,0.98);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:20px;width:90%;max-width:500px;display:flex;flex-direction:column;gap:12px;}',
+    '#xsdoi-ds-prompt-modal .ds-prompt-title{color:#fff;font-size:16px;font-weight:600;}',
+    '#xsdoi-ds-prompt-modal textarea{width:100%;height:200px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:12px;font-size:14px;resize:vertical;outline:none;font-family:monospace;}',
+    '#xsdoi-ds-prompt-modal .ds-prompt-actions{display:flex;justify-content:flex-end;gap:8px;}',
+    '#xsdoi-ds-prompt-modal .ds-prompt-btn{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-size:14px;}',
+    '#xsdoi-ds-prompt-modal .ds-prompt-btn.cancel{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);}',
+    '#xsdoi-ds-prompt-modal .ds-prompt-btn.save{background:rgba(96,165,250,0.8);color:#fff;}',
+    '#xsdoi-ds-empty{text-align:center;padding:40px 20px;color:rgba(255,255,255,0.4);font-size:14px;}'
   ].join('\n');
 
   // ---------- 状态 ----------
@@ -107,6 +164,14 @@
   var COLLISION_COOLDOWN = 6;            // 碰撞冷却帧数（避免反弹瞬移）
   var collisionCooldown = 0;             // 当前冷却计时器
 
+  // 聊天状态
+  var sessions = {};    // {sessionId: {id, name, createdAt, updatedAt, messages:[]}}
+  var currentSessionId = null;
+  var chatCfg = { apiUrl: 'https://api.deepseek.com', model: 'deepseek-chat', apiKey: '' };
+  var systemPrompt = DEFAULT_SYSTEM_PROMPT;
+  var loadedMarked = false;
+  var loadedKaTeX = false;
+
   // 规范化裁剪参数（兼容旧值/非法值）
   function normalizeCrop(v) {
     if (v && typeof v === 'object' && typeof v.scale === 'number') {
@@ -139,8 +204,8 @@
       if (now - lastDownTime < 350 && e.pointerType === 'mouse') {
         // 双击：打开聊天窗口
         lastDownTime = 0;
-        openDeepSeek();
-        return; // 不执行拖动逻辑
+        openChat();
+        return;
       }
       lastDownTime = now;
       onPointerDown(e);
@@ -159,15 +224,10 @@
       body.innerHTML = '<img class="xsdoi-pet-img" src="' + customImg + '" alt="">';
       var img = body.querySelector('.xsdoi-pet-img');
       if (img) {
-        // 裁剪器里「圆直径 = 容器宽 / scale」，对应到宠物上即
-        // 「裁剪区域放大后宽度 = 容器宽 × scale」；高度按原图宽高比换算
-        // （h = w / ratio），两边与裁剪器视觉一一对应。当裁剪圆靠近图片
-        // 边缘、放大后图片盖不满圆球时，按比例整体放大做兜底，保证任何
-        // 裁剪位置圆球都被图片完全覆盖、不露出背景色
         var layout = function () {
           var ratio = (img.naturalWidth > 0 && img.naturalHeight > 0)
             ? img.naturalWidth / img.naturalHeight : 1;
-          var w = PET_SIZE * crop.scale; // 裁剪区域放大后的宽度（= 圆直径的 scale 倍）
+          var w = PET_SIZE * crop.scale;
           var h = w / ratio;
           var k = 1;
           if (crop.cx > 0) k = Math.max(k, PET_SIZE / (2 * crop.cx * w));
@@ -203,7 +263,6 @@
     var oldPx = px, oldPy = py;
     px = Math.max(MARGIN, Math.min(vw - PET_SIZE - MARGIN, px));
     py = Math.max(MARGIN, Math.min(vh - PET_SIZE - MARGIN, py));
-    // 检测是否撞墙并记录反弹方向
     if (px === MARGIN && oldPx < MARGIN) bounced.left = true;
     if (px === vw - PET_SIZE - MARGIN && oldPx > vw - PET_SIZE - MARGIN) bounced.right = true;
     if (py === MARGIN && oldPy < MARGIN) bounced.top = true;
@@ -224,7 +283,6 @@
   }
 
   // ---------- 随机散步（贴底走动） ----------
-  // 底部地面线：宠物始终回到页面底部左右走动，不再满窗口乱飞
   function groundY() {
     return vh - PET_SIZE - MARGIN;
   }
@@ -241,22 +299,17 @@
     if (dragging) return;
     var now = Date.now();
     if (now < waitUntil) return;
-    // 递减碰撞冷却
     if (collisionCooldown > 0) collisionCooldown--;
-    // 如果在抛物线飞行中，先处理物理模拟
     if (flying) {
-      if (updateParabola()) return; // 已落地，等待下一帧进入散步逻辑
+      if (updateParabola()) return;
       applyPos();
       return;
     }
-    // 散步时检测轨迹碰撞
     checkTrailCollision();
-    // 继续散步逻辑
     var dx = targetX - px;
     var dy = targetY - py;
     var dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 3) {
-      // 到达目标：休息 1.5~4s 再走
       pet.classList.remove('xsdoi-pet-walking');
       pet.classList.add('xsdoi-pet-idle');
       waitUntil = now + 1500 + Math.random() * 2500;
@@ -294,7 +347,6 @@
     var nx = e.clientX - dragDX;
     var ny = e.clientY - dragDY;
     dragMoved = Math.max(dragMoved, Math.abs(nx - px) + Math.abs(ny - py));
-    // 采样拖拽末速度（最近两帧的位置差）
     dragSamples.push({ x: nx, y: ny, t: Date.now() });
     if (dragSamples.length > 6) dragSamples.shift();
     px = nx;
@@ -311,15 +363,13 @@
     snapToEdge();
     saveState();
     if (dragMoved < 6) {
-      // 原地点击：弹一下反馈
       pet.classList.remove('xsdoi-pet-bounce');
-      void pet.offsetWidth; // 重启动画
+      void pet.offsetWidth;
       pet.classList.add('xsdoi-pet-bounce');
       pet.classList.add('xsdoi-pet-idle');
       waitUntil = Date.now() + 1200;
     } else {
       waitUntil = 0;
-      // 判断是否在空中（未贴底）：松手时 y < 地面线则启动抛物线
       var ground = groundY();
       if (py < ground - PET_SIZE / 2) {
         startParabolicFall();
@@ -327,66 +377,54 @@
         pickTarget();
       }
     }
-    dragSamples = []; // 清空采样（放在所有分支之后）
+    dragSamples = [];
   }
 
-  // 启动抛物线自由落体
   function startParabolicFall() {
     flying = true;
     vxFly = flyVx;
     vyFly = flyVy;
     pet.classList.remove('xsdoi-pet-idle', 'xsdoi-pet-walking');
     pet.classList.add('xsdoi-pet-flying');
-    // 从拖拽采样估算初速度（最后两帧平均，转为 px/frame）
     if (dragSamples.length >= 2) {
       var a = dragSamples[dragSamples.length - 2];
       var b = dragSamples[dragSamples.length - 1];
       var dt = b.t - a.t;
       if (dt > 0) {
-        flyVx = (b.x - a.x) / dt * 16;  // 归一化到 ~60fps
+        flyVx = (b.x - a.x) / dt * 16;
         flyVy = (b.y - a.y) / dt * 16;
       }
     }
-    // 向左甩 → 正向 vx；向上甩 → vy 为负（屏幕坐标 y 向下为正）
-    // 根据实际拖拽方向决定初速，不强制向上
-    flyVy = flyVy * 0.6; // 阻尼：保留原方向，衰减到 60%
-    // 幅度限制：防止小幅拖动产生过大的初速
+    flyVy = flyVy * 0.6;
     flyVy = Math.max(-8, Math.min(8, flyVy));
     flyVx = Math.max(-4, Math.min(4, flyVx));
     vxFly = flyVx;
     vyFly = flyVy;
   }
 
-  // 抛物线物理模拟，每帧调用；返回 true 表示已落地
   function updateParabola() {
     if (!flying) return false;
-    // 应用重力
-    vxFly += 0; // 水平无阻力
+    vxFly += 0;
     vyFly += G;
     px += vxFly;
     py += vyFly;
-    // 边界处理（碰撞反弹）
     var bounds = clampToViewport();
     if (bounds.left || bounds.right) vxFly = -vxFly * BOUNCE_DAMPING;
     if (bounds.top) vyFly = -vyFly * BOUNCE_DAMPING;
     applyPos();
-    // 检查轨迹碰撞
     checkTrailCollision();
-    // 检查是否落地
     var ground = groundY();
     if (py >= ground) {
       py = ground;
       applyPos();
       flying = false;
       pet.classList.remove('xsdoi-pet-flying');
-      // 落地弹跳反馈
       pet.classList.remove('xsdoi-pet-bounce');
       void pet.offsetWidth;
       pet.classList.add('xsdoi-pet-bounce');
       setTimeout(function () {
         pet.classList.remove('xsdoi-pet-bounce');
       }, 400);
-      // 落地后重新选目标散步
       pickTarget();
       return true;
     }
@@ -396,14 +434,12 @@
   // ============================================
   // 轨迹碰撞检测与响应
   // ============================================
-  // 获取宠物中心坐标
   function petCenter() {
     return { x: px + PET_SIZE / 2, y: py + PET_SIZE / 2 };
   }
 
-  // 圆点模式：检测与活跃圆点的碰撞
   function checkDotCollision() {
-    if (collisionCooldown > 0) return; // 冷却中跳过
+    if (collisionCooldown > 0) return;
     var dots = window.__xsdoiTrail && window.__xsdoiTrail.dots || [];
     var c = petCenter();
     for (var i = 0; i < dots.length; i++) {
@@ -416,24 +452,19 @@
       var dy = c.y - dotY;
       var dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < COLLISION_RADIUS + dotRadius) {
-        // 碰撞！计算反弹方向
         var nx = dx / dist;
         var ny = dy / dist;
-        // 弹出宠物到碰撞位置外（沿法线正方向推出）
         var pushDist = COLLISION_RADIUS + dotRadius + 1;
         px = c.x - PET_SIZE / 2 + nx * pushDist;
         py = c.y - PET_SIZE / 2 + ny * pushDist;
         clampToViewport();
         applyPos();
-        // 反弹速度：沿法线方向，保留切线分量（只在速度朝向碰撞面时反弹）
         var vDot = vxFly * nx + vyFly * ny;
         if (vDot < 0) {
           vxFly = (vxFly - 2 * vDot * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
           vyFly = (vyFly - 2 * vDot * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
         }
-        // 限制最大向上速度
         vyFly = Math.max(MAX_BOUNCE_VY, vyFly);
-        // 确保至少有一些速度（避免完全静止）
         var speed = Math.sqrt(vxFly * vxFly + vyFly * vyFly);
         if (speed < 0.5) {
           vxFly = nx * 3;
@@ -441,7 +472,6 @@
         }
         pet.classList.add('xsdoi-pet-bounce');
         setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
-        // 启动冷却
         collisionCooldown = COLLISION_COOLDOWN;
         return true;
       }
@@ -449,21 +479,18 @@
     return false;
   }
 
-  // 带状模式：检测与轨迹线的碰撞（线段-圆碰撞）
   function checkRibbonCollision() {
-    if (collisionCooldown > 0) return; // 冷却中跳过
+    if (collisionCooldown > 0) return;
     var pts = window.__xsdoiTrail && window.__xsdoiTrail.points || [];
     if (pts.length < 2) return false;
     var c = petCenter();
     var minDist = Infinity;
     var closestPoint = null;
 
-    // 找到最近的轨迹段
     for (var i = 1; i < pts.length; i++) {
       var p0 = pts[i - 1];
       var p1 = pts[i];
       if (!p0._alpha || !p1._alpha || p0._alpha < 0.1 || p1._alpha < 0.1) continue;
-      // 点到线段的距离
       var dx = p1.x - p0.x;
       var dy = p1.y - p0.y;
       var lenSq = dx * dx + dy * dy;
@@ -479,27 +506,22 @@
 
     if (!closestPoint || minDist > COLLISION_RADIUS) return false;
 
-    // 碰撞！计算响应
     var nx = (c.x - closestPoint.x) / minDist || 0;
     var ny = (c.y - closestPoint.y) / minDist || 1;
 
-    // 推送宠物到碰撞位置外（沿法线正方向推出，避免穿模）
     var pushDist = COLLISION_RADIUS + 1;
     px = c.x - PET_SIZE / 2 + nx * pushDist;
     py = c.y - PET_SIZE / 2 + ny * pushDist;
     clampToViewport();
     applyPos();
 
-    // 统一法线反弹：只在速度朝向碰撞面时反弹，避免"背向碰撞"时被错误反弹
     var vDotN = vxFly * nx + vyFly * ny;
     if (vDotN < 0) {
       vxFly = (vxFly - 2 * vDotN * nx) * BOUNCE_DAMPING * BOUNCE_FORCE;
       vyFly = (vyFly - 2 * vDotN * ny) * BOUNCE_DAMPING * BOUNCE_FORCE;
     }
 
-    // 限制最大向上速度（防止飞到顶部）
     vyFly = Math.max(MAX_BOUNCE_VY, vyFly);
-    // 确保至少有一些速度
     var newSpeed = Math.sqrt(vxFly * vxFly + vyFly * vyFly);
     if (newSpeed < 0.5) {
       vxFly = nx * 3;
@@ -508,12 +530,10 @@
 
     pet.classList.add('xsdoi-pet-bounce');
     setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
-    // 启动冷却
     collisionCooldown = COLLISION_COOLDOWN;
     return true;
   }
 
-  // 主碰撞检测入口
   function checkTrailCollision() {
     if (!window.__xsdoiTrail) return;
     var mode = window.__xsdoiTrail.mode;
@@ -524,7 +544,6 @@
     }
   }
 
-  // 松手时靠近屏幕边缘则吸附贴边
   function snapToEdge() {
     var snapped = false;
     if (px < SNAP) { px = MARGIN; snapped = true; }
@@ -532,6 +551,400 @@
     if (py < SNAP) { py = MARGIN; snapped = true; }
     else if (py > vh - PET_SIZE - SNAP) { py = vh - PET_SIZE - MARGIN; snapped = true; }
     if (snapped) applyPos();
+  }
+
+  // ============================================================
+  // 聊天系统
+  // ============================================================
+
+  // 加载会话数据
+  function loadSessions(callback) {
+    chrome.storage.sync.get([SESSIONS_KEY, CURRENT_SESSION_KEY, SYSTEM_PROMPT_KEY, API_CONFIG_KEYS[0], API_CONFIG_KEYS[1], API_CONFIG_KEYS[2]], function (items) {
+      sessions = items[SESSIONS_KEY] || {};
+      currentSessionId = items[CURRENT_SESSION_KEY] || null;
+      systemPrompt = items[SYSTEM_PROMPT_KEY] || DEFAULT_SYSTEM_PROMPT;
+      chatCfg = {
+        apiUrl: (items[API_CONFIG_KEYS[0]] && items[API_CONFIG_KEYS[0]].trim()) || 'https://api.deepseek.com',
+        model: (items[API_CONFIG_KEYS[1]] && items[API_CONFIG_KEYS[1]].trim()) || 'deepseek-chat',
+        apiKey: (items[API_CONFIG_KEYS[2]] && items[API_CONFIG_KEYS[2]].trim()) || ''
+      };
+      // 如果当前会话不存在，创建新会话
+      if (!currentSessionId || !sessions[currentSessionId]) {
+        createNewSession();
+      }
+      if (callback) callback();
+    });
+  }
+
+  // 创建新会话
+  function createNewSession() {
+    var id = 'session_' + Date.now();
+    var now = new Date().toLocaleString('zh-CN');
+    sessions[id] = {
+      id: id,
+      name: '新会话 ' + Object.keys(sessions).length,
+      createdAt: now,
+      updatedAt: now,
+      messages: []
+    };
+    currentSessionId = id;
+    chrome.storage.sync.set({
+      [SESSIONS_KEY]: sessions,
+      [CURRENT_SESSION_KEY]: id
+    });
+    return id;
+  }
+
+  // 保存会话
+  function saveCurrentSession() {
+    if (!currentSessionId || !sessions[currentSessionId]) return;
+    sessions[currentSessionId].updatedAt = new Date().toLocaleString('zh-CN');
+    chrome.storage.sync.set({
+      [SESSIONS_KEY]: sessions,
+      [CURRENT_SESSION_KEY]: currentSessionId
+    });
+  }
+
+  // 生成 Markdown + LaTeX 渲染的 HTML
+  function renderMessage(text) {
+    if (!loadedMarked || !loadedKaTeX) return text;
+    // 先用 marked 渲染 Markdown
+    var html = marked.parse(text);
+    // 再用 KaTeX 渲染 LaTeX
+    html = html.replace(/\$\$([^$]+)\$\$/g, function (_, math) {
+      try {
+        return '<span class="katex-display">' + katex.renderToString(math.trim(), { displayMode: true }) + '</span>';
+      } catch (e) {
+        return '<code>' + math + '</code>';
+      }
+    });
+    html = html.replace(/\$([^$]+)\$/g, function (_, math) {
+      try {
+        return katex.renderToString(math.trim(), { displayMode: false });
+      } catch (e) {
+        return '<code>' + math + '</code>';
+      }
+    });
+    return html;
+  }
+
+  // 加载 marked 和 KaTeX
+  function loadChatLibraries(callback) {
+    if (loadedMarked && loadedKaTeX) {
+      callback();
+      return;
+    }
+
+    // 加载 marked
+    if (!loadedMarked) {
+      var markedScript = document.createElement('script');
+      markedScript.src = 'https://cdn.jsdelivr.net/npm/marked@12/marked.min.js';
+      markedScript.onload = function () {
+        loadedMarked = true;
+        // marked 需要配置无风险模式
+        if (typeof marked.setOptions === 'function') {
+          marked.setOptions({ breaks: true, gfm: true });
+        }
+        if (loadedKaTeX) callback();
+      };
+      markedScript.onerror = function () {
+        console.warn('[XSDOI] Failed to load marked');
+        loadedMarked = true; // 标记为已尝试，避免重复加载
+        if (loadedKaTeX) callback();
+      };
+      document.head.appendChild(markedScript);
+    }
+
+    // 加载 KaTeX CSS
+    if (!loadedKaTeX) {
+      var katexCSS = document.createElement('link');
+      katexCSS.rel = 'stylesheet';
+      katexCSS.href = 'https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css';
+      katexCSS.onerror = function () {
+        console.warn('[XSDOI] Failed to load KaTeX CSS');
+      };
+      document.head.appendChild(katexCSS);
+
+      // 加载 KaTeX JS
+      var katexScript = document.createElement('script');
+      katexScript.src = 'https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js';
+      katexScript.onload = function () {
+        loadedKaTeX = true;
+        if (loadedMarked) callback();
+      };
+      katexScript.onerror = function () {
+        console.warn('[XSDOI] Failed to load KaTeX JS');
+        loadedKaTeX = true;
+        if (loadedMarked) callback();
+      };
+      document.head.appendChild(katexScript);
+    }
+  }
+
+  // 打开聊天窗口
+  function openChat() {
+    if (document.getElementById('xsdoi-deepseek-overlay')) return;
+
+    loadSessions(function () {
+      var overlay = document.createElement('div');
+      overlay.id = 'xsdoi-deepseek-overlay';
+
+      // 构建会话列表 HTML
+      var sessionListHtml = '';
+      var sessionOrder = Object.keys(sessions).sort(function (a, b) {
+        return sessions[b].updatedAt.localeCompare(sessions[a].updatedAt);
+      });
+      for (var i = 0; i < sessionOrder.length; i++) {
+        var sid = sessionOrder[i];
+        var s = sessions[sid];
+        var isActive = sid === currentSessionId ? ' active' : '';
+        var preview = '';
+        if (s.messages.length > 0) {
+          var lastMsg = s.messages[s.messages.length - 1];
+          preview = lastMsg.content.substring(0, 30) + (lastMsg.content.length > 30 ? '...' : '');
+        }
+        sessionListHtml += '<div class="xsdoi-ds-session-item' + isActive + '" data-session-id="' + sid + '">' +
+          '<span class="session-name">' + escapeHtml(s.name) + '</span>' +
+          (preview ? '<span class="session-preview">' + escapeHtml(preview) + '</span>' : '') +
+          '</div>';
+      }
+
+      overlay.innerHTML = [
+        '<div class="xsdoi-ds-backdrop"></div>',
+        '<div class="xsdoi-ds-card">',
+          '<button class="xsdoi-ds-close" title="关闭">×</button>',
+          '<div class="xsdoi-ds-sidebar">',
+            '<div class="xsdoi-ds-sidebar-header">',
+              '<span class="xsdoi-ds-sidebar-title">会话</span>',
+              '<button class="xsdoi-ds-new-btn" title="新建会话">+</button>',
+            '</div>',
+            '<div class="xsdoi-ds-session-list">' + sessionListHtml + '</div>',
+          '</div>',
+          '<div class="xsdoi-ds-main">',
+            '<div class="xsdoi-ds-header">',
+              '<span class="xsdoi-ds-title">聊天</span>',
+              '<div class="xsdoi-ds-header-actions">',
+                '<button class="xsdoi-ds-icon-btn" id="xsdoi-ds-prompt-btn" title="编辑系统提示词">⚙</button>',
+              '</div>',
+            '</div>',
+            '<div class="xsdoi-ds-messages" id="xsdoi-ds-messages"></div>',
+            '<div class="xsdoi-ds-input">',
+              '<input id="xsdoi-ds-input" type="text" placeholder="输入消息... (Enter 发送)" autocomplete="off">',
+              '<button id="xsdoi-ds-send">发送</button>',
+            '</div>',
+          '</div>',
+        '</div>',
+      ].join('');
+
+      document.body.appendChild(overlay);
+
+      var messagesDiv = overlay.querySelector('.xsdoi-ds-messages');
+      var input = overlay.querySelector('#xsdoi-ds-input');
+      var sendBtn = overlay.querySelector('#xsdoi-ds-send');
+      var closeBtn = overlay.querySelector('.xsdoi-ds-close');
+      var newBtn = overlay.querySelector('.xsdoi-ds-new-btn');
+      var promptBtn = overlay.querySelector('#xsdoi-ds-prompt-btn');
+      var sessionList = overlay.querySelector('.xsdoi-ds-session-list');
+
+      // 加载标记和 KaTeX
+      loadChatLibraries(function () {
+        // 渲染当前会话的消息
+        renderCurrentSession(messagesDiv);
+      });
+
+      // 关闭按钮
+      closeBtn.addEventListener('click', function () {
+        overlay.remove();
+      });
+      overlay.querySelector('.xsdoi-ds-backdrop').addEventListener('click', function () {
+        overlay.remove();
+      });
+
+      // 新建会话
+      newBtn.addEventListener('click', function () {
+        createNewSession();
+        renderSessionList(sessionList);
+        renderCurrentSession(messagesDiv);
+      });
+
+      // 会话切换
+      sessionList.addEventListener('click', function (e) {
+        var item = e.target.closest('.xsdoi-ds-session-item');
+        if (!item) return;
+        currentSessionId = item.dataset.sessionId;
+        renderSessionList(sessionList);
+        renderCurrentSession(messagesDiv);
+      });
+
+      // 系统提示词编辑
+      promptBtn.addEventListener('click', function () {
+        showPromptEditor(overlay, messagesDiv);
+      });
+
+      // 发送消息
+      sendBtn.addEventListener('click', sendMessage);
+      input.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      // 输入框自动聚焦
+      input.focus();
+
+      function sendMessage() {
+        var text = input.value.trim();
+        if (!text) return;
+
+        // 检查 API Key
+        if (!chatCfg.apiKey) {
+          appendMessage(messagesDiv, '请先在 popup「网页桌宠」中设置 API Key', 'bot');
+          return;
+        }
+
+        // 添加用户消息
+        appendMessage(messagesDiv, text, 'user');
+        input.value = '';
+        sendBtn.disabled = true;
+        sendBtn.textContent = '...';
+
+        // 保存到会话
+        var session = sessions[currentSessionId];
+        session.messages.push({ role: 'user', content: text });
+        saveCurrentSession();
+        renderSessionList(sessionList);
+
+        // 构建消息列表（包含历史上下文）
+        var messages = [
+          { role: 'system', content: systemPrompt }
+        ];
+        // 只保留最近 20 条消息作为上下文（避免 token 过多）
+        var recentMessages = session.messages.slice(-20);
+        messages = messages.concat(recentMessages);
+
+        var apiBase = chatCfg.apiUrl.trim().replace(/\/v1\/?$/, '');
+
+        fetch(apiBase + '/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + chatCfg.apiKey
+          },
+          body: JSON.stringify({
+            model: chatCfg.model.trim() || 'deepseek-chat',
+            messages: messages,
+            temperature: 0.7
+          })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data.error) {
+            appendMessage(messagesDiv, '错误: ' + data.error.message, 'bot');
+          } else {
+            var reply = data.choices[0].message.content;
+            appendMessage(messagesDiv, reply, 'bot');
+            // 保存到会话
+            session.messages.push({ role: 'assistant', content: reply });
+            saveCurrentSession();
+            renderSessionList(sessionList);
+          }
+        })
+        .catch(function(err) {
+          appendMessage(messagesDiv, '请求失败: ' + err.message, 'bot');
+        })
+        .finally(function() {
+          sendBtn.disabled = false;
+          sendBtn.textContent = '发送';
+          input.focus();
+        });
+      }
+
+      function appendMessage(container, text, role) {
+        var div = document.createElement('div');
+        div.className = 'xsdoi-ds-msg ' + (role === 'user' ? 'user' : 'bot');
+        div.innerHTML = renderMessage(text.trim().replace(/\n{2,}/g, '\n\n'));
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      function renderCurrentSession(container) {
+        container.innerHTML = '';
+        var session = sessions[currentSessionId];
+        if (!session || session.messages.length === 0) {
+          container.innerHTML = '<div id="xsdoi-ds-empty">发送消息开始对话</div>';
+          return;
+        }
+        for (var i = 0; i < session.messages.length; i++) {
+          var msg = session.messages[i];
+          appendMessage(container, msg.content, msg.role);
+        }
+      }
+
+      function renderSessionList(container) {
+        container.innerHTML = '';
+        var sessionOrder = Object.keys(sessions).sort(function (a, b) {
+          return sessions[b].updatedAt.localeCompare(sessions[a].updatedAt);
+        });
+        for (var i = 0; i < sessionOrder.length; i++) {
+          var sid = sessionOrder[i];
+          var s = sessions[sid];
+          var isActive = sid === currentSessionId ? ' active' : '';
+          var preview = '';
+          if (s.messages.length > 0) {
+            var lastMsg = s.messages[s.messages.length - 1];
+            preview = lastMsg.content.substring(0, 30) + (lastMsg.content.length > 30 ? '...' : '');
+          }
+          var item = document.createElement('div');
+          item.className = 'xsdoi-ds-session-item' + isActive;
+          item.dataset.sessionId = sid;
+          item.innerHTML = '<span class="session-name">' + escapeHtml(s.name) + '</span>' +
+            (preview ? '<span class="session-preview">' + escapeHtml(preview) + '</span>' : '');
+          item.addEventListener('click', function () {
+            currentSessionId = this.dataset.sessionId;
+            renderSessionList(container);
+            renderCurrentSession(messagesDiv);
+          });
+          container.appendChild(item);
+        }
+      }
+
+      function showPromptEditor(card, messagesDiv) {
+        var modal = document.createElement('div');
+        modal.id = 'xsdoi-ds-prompt-modal';
+        modal.innerHTML = [
+          '<div class="ds-prompt-box">',
+            '<div class="ds-prompt-title">编辑系统提示词</div>',
+            '<textarea id="xsdoi-ds-prompt-text">' + escapeHtml(systemPrompt) + '</textarea>',
+            '<div class="ds-prompt-actions">',
+              '<button class="ds-prompt-btn cancel" id="xsdoi-ds-prompt-cancel">取消</button>',
+              '<button class="ds-prompt-btn save" id="xsdoi-ds-prompt-save">保存</button>',
+            '</div>',
+          '</div>',
+        ].join('');
+        card.appendChild(modal);
+
+        modal.querySelector('#xsdoi-ds-prompt-cancel').addEventListener('click', function () {
+          modal.remove();
+        });
+        modal.querySelector('#xsdoi-ds-prompt-save').addEventListener('click', function () {
+          var newPrompt = modal.querySelector('#xsdoi-ds-prompt-text').value.trim();
+          if (newPrompt) {
+            systemPrompt = newPrompt;
+            chrome.storage.sync.set({ [SYSTEM_PROMPT_KEY]: systemPrompt });
+          }
+          modal.remove();
+        });
+        modal.querySelector('textarea').focus();
+        modal.querySelector('textarea').select();
+      }
+    });
+  }
+
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
   }
 
   // ---------- 初始化 ----------
@@ -550,7 +963,6 @@
       clampToViewport();
       applyPos();
       applyVisibility();
-      // 读取自定义图片（storage.local）
       chrome.storage.local.get([IMG_KEY], function (loc) {
         if (typeof loc[IMG_KEY] === 'string' && loc[IMG_KEY]) {
           customImg = loc[IMG_KEY];
@@ -584,111 +996,6 @@
     clampToViewport();
     applyPos();
   });
-
-  // 双击宠物弹出 DeepSeek 聊天窗口
-  function openDeepSeek() {
-    if (document.getElementById('xsdoi-deepseek-overlay')) return;
-    var overlay = document.createElement('div');
-    overlay.id = 'xsdoi-deepseek-overlay';
-    overlay.innerHTML = [
-      '<div class="xsdoi-ds-backdrop"></div>',
-      '<div class="xsdoi-ds-card">',
-        '<div class="xsdoi-ds-header">',
-          '<span class="xsdoi-ds-title">聊天</span>',
-          '<button class="xsdoi-ds-close" title="关闭">×</button>',
-        '</div>',
-        '<div class="xsdoi-ds-messages"></div>',
-        '<div class="xsdoi-ds-input">',
-          '<input id="xsdoi-ds-input" type="text" placeholder="输入消息..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;">',
-          '<button id="xsdoi-ds-send" style="padding:10px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;">发送</button>',
-        '</div>',
-      '</div>',
-    ].join('');
-    document.body.appendChild(overlay);
-
-    var messagesDiv = overlay.querySelector('.xsdoi-ds-messages');
-    var input = overlay.querySelector('#xsdoi-ds-input');
-    var sendBtn = overlay.querySelector('#xsdoi-ds-send');
-    var closeBtn = overlay.querySelector('.xsdoi-ds-close');
-
-    // 从 storage.sync 读取 API 配置（在 popup 的桌宠面板中设置）
-    chrome.storage.sync.get(['webPetApiUrl', 'webPetModel', 'webPetApiKey'], function (cfg) {
-      window.__xsdoiChatCfg = {
-        apiUrl: (cfg.webPetApiUrl && cfg.webPetApiUrl.trim()) || 'https://api.deepseek.com',
-        model: (cfg.webPetModel && cfg.webPetModel.trim()) || 'deepseek-chat',
-        apiKey: (cfg.webPetApiKey && cfg.webPetApiKey.trim()) || ''
-      };
-      if (!window.__xsdoiChatCfg.apiKey) {
-        messagesDiv.innerHTML = '<div style="align-self:flex-start;background:rgba(255,255,255,0.1);padding:10px 14px;border-radius:12px 12px 12px 4px;max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);">请先在 popup「网页桌宠」中设置 API Key</div>';
-      }
-    });
-
-    closeBtn.addEventListener('click', function () {
-      overlay.remove();
-    });
-    overlay.querySelector('.xsdoi-ds-backdrop').addEventListener('click', function () {
-      overlay.remove();
-    });
-
-    sendBtn.addEventListener('click', sendMessage);
-    input.addEventListener('keypress', function (e) {
-      if (e.key === 'Enter') sendMessage();
-    });
-
-    function sendMessage() {
-      var text = input.value.trim();
-      if (!text) return;
-      var cfg = window.__xsdoiChatCfg || { apiUrl: 'https://api.deepseek.com', model: 'deepseek-chat', apiKey: '' };
-      var apiKey = cfg.apiKey;
-      if (!apiKey) {
-        appendMessage('请先在 popup「网页桌宠」中设置 API Key', 'bot');
-        return;
-      }
-      appendMessage(text, 'user');
-      input.value = '';
-      sendBtn.disabled = true;
-      sendBtn.textContent = '...';
-
-      var apiBase = cfg.apiUrl.trim().replace(/\/v1\/?$/, ''); // 去掉末尾的 /v1，避免重复
-      fetch(apiBase + '/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + apiKey
-        },
-        body: JSON.stringify({
-          model: cfg.model.trim() || 'deepseek-chat',
-          messages: [
-            {role: 'system', content: '你是一个有用的助手。'},
-            {role: 'user', content: text}
-          ]
-        })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        if (data.error) {
-          appendMessage('错误: ' + data.error.message, 'bot');
-        } else {
-          appendMessage(data.choices[0].message.content, 'bot');
-        }
-      })
-      .catch(function(err) {
-        appendMessage('请求失败: ' + err.message, 'bot');
-      })
-      .finally(function() {
-        sendBtn.disabled = false;
-        sendBtn.textContent = '发送';
-      });
-    }
-
-    function appendMessage(text, role) {
-      var div = document.createElement('div');
-      div.style.cssText = 'align-self:' + (role === 'user' ? 'flex-end' : 'flex-start') + ';background:' + (role === 'user' ? 'rgba(96,165,250,0.6)' : 'rgba(255,255,255,0.1)') + ';padding:10px 14px;border-radius:' + (role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px') + ';max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);white-space:pre-wrap;word-break:break-word;';
-      div.textContent = text.trim().replace(/\n{2,}/g, '\n\n');
-      messagesDiv.appendChild(div);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-  }
 
   var style = document.createElement('style');
   style.id = STYLE_ID;
