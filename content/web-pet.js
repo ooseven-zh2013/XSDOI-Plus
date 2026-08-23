@@ -597,22 +597,8 @@
           '<span class="xsdoi-ds-title">聊天</span>',
           '<button class="xsdoi-ds-close" title="关闭">×</button>',
         '</div>',
-        '<div class="xsdoi-ds-config">',
-          '<div style="margin-bottom:8px;">',
-            '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API地址:</label>',
-            '<input id="xsdoi-ds-api-url" type="text" value="https://api.deepseek.com" placeholder="https://api.deepseek.com" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;" title="支持任意 OpenAI 兼容接口：DeepSeek、智谱、Agnes 等">',
-          '</div>',
-          '<div>',
-            '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">模型名:</label>',
-            '<input id="xsdoi-ds-model" type="text" value="deepseek-chat" placeholder="deepseek-chat / glm-4 / agnes 等" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
-          '</div>',
-          '<div>',
-            '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API Key:</label>',
-            '<input id="xsdoi-ds-api-key" type="password" placeholder="输入你的API Key" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
-          '</div>',
-        '</div>',
         '<div class="xsdoi-ds-messages">',
-          '<div style="align-self:flex-start;background:rgba(255,255,255,0.1);padding:10px 14px;border-radius:12px 12px 12px 4px;max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);">发送消息开始对话（需要API Key）</div>',
+          '<div style="align-self:flex-start;background:rgba(255,255,255,0.1);padding:10px 14px;border-radius:12px 12px 12px 4px;max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);">发送消息开始对话</div>',
         '</div>',
         '<div class="xsdoi-ds-input">',
           '<input id="xsdoi-ds-input" type="text" placeholder="输入消息..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;">',
@@ -622,13 +608,22 @@
     ].join('');
     document.body.appendChild(overlay);
 
-    var apiUrlInput = overlay.querySelector('#xsdoi-ds-api-url');
-    var apiKeyInput = overlay.querySelector('#xsdoi-ds-api-key');
-    var modelInput = overlay.querySelector('#xsdoi-ds-model');
     var messagesDiv = overlay.querySelector('.xsdoi-ds-messages');
     var input = overlay.querySelector('#xsdoi-ds-input');
     var sendBtn = overlay.querySelector('#xsdoi-ds-send');
     var closeBtn = overlay.querySelector('.xsdoi-ds-close');
+
+    // 从 storage.sync 读取 API 配置（在 popup 的桌宠面板中设置）
+    chrome.storage.sync.get(['webPetApiUrl', 'webPetModel', 'webPetApiKey'], function (cfg) {
+      window.__xsdoiChatCfg = {
+        apiUrl: (cfg.webPetApiUrl && cfg.webPetApiUrl.trim()) || 'https://api.deepseek.com',
+        model: (cfg.webPetModel && cfg.webPetModel.trim()) || 'deepseek-chat',
+        apiKey: (cfg.webPetApiKey && cfg.webPetApiKey.trim()) || ''
+      };
+      if (!window.__xsdoiChatCfg.apiKey) {
+        messagesDiv.innerHTML = '<div style="align-self:flex-start;background:rgba(255,255,255,0.1);padding:10px 14px;border-radius:12px 12px 12px 4px;max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);">请先在 popup「网页桌宠」中设置 API Key</div>';
+      }
+    });
 
     closeBtn.addEventListener('click', function () {
       overlay.remove();
@@ -645,9 +640,10 @@
     function sendMessage() {
       var text = input.value.trim();
       if (!text) return;
-      var apiKey = apiKeyInput.value.trim();
+      var cfg = window.__xsdoiChatCfg || { apiUrl: 'https://api.deepseek.com', model: 'deepseek-chat', apiKey: '' };
+      var apiKey = cfg.apiKey;
       if (!apiKey) {
-        appendMessage('请先填写 API Key', 'bot');
+        appendMessage('请先在 popup「网页桌宠」中设置 API Key', 'bot');
         return;
       }
       appendMessage(text, 'user');
@@ -655,14 +651,14 @@
       sendBtn.disabled = true;
       sendBtn.textContent = '...';
 
-      fetch(apiUrlInput.value.trim() + '/v1/chat/completions', {
+      fetch(cfg.apiUrl.trim() + '/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + apiKey
         },
         body: JSON.stringify({
-          model: modelInput.value.trim() || 'deepseek-chat',
+          model: cfg.model.trim() || 'deepseek-chat',
           messages: [
             {role: 'system', content: '你是一个有用的助手。'},
             {role: 'user', content: text}

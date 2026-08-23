@@ -1,4 +1,3 @@
-// ============================================================
 // 网页桌宠设置面板 - popup
 //
 // 控制 storage.sync 的 webPetEnabled（显隐）与 webPetCrop（裁剪参数），
@@ -6,13 +5,8 @@
 // 开关与裁剪为草稿模式：界面调整不写 storage，点「保存配置」立即应用并持久化；
 // 选择 / 清除图片仍立即生效。
 //
-// 裁剪交互：原图上套一个可拖动、可缩放的圆，
-//   - 拖动圆内部 → 移动裁剪中心
-//   - 拖动右下角小点 → 缩放圆（裁剪范围）
-// 圆即表示圆形裁剪区域，换算为 { scale, cx, cy } 存储：
-//   scale = 放大倍数（圆直径 = 圆球容器 / scale）
-//   cx/cy = 裁剪中心在图片上的位置（0-1）
-// 图片上限 2MB（与点击特效一致，避免撑爆 storage.local 配额）。
+// API 配置存于 storage.sync（webPetApiUrl / webPetModel / webPetApiKey），
+// 由 popup 写入，content/web-pet.js 的聊天窗口直接读取，无需在聊天窗口内编辑。
 // ============================================================
 
 (function () {
@@ -21,6 +15,9 @@
   var ENABLE_KEY = 'webPetEnabled';
   var IMG_KEY = 'webPetImg';
   var CROP_KEY = 'webPetCrop';
+  var API_URL_KEY = 'webPetApiUrl';
+  var API_MODEL_KEY = 'webPetModel';
+  var API_KEY_KEY = 'webPetApiKey';
   var IMG_MAX_BYTES = 2 * 1024 * 1024;
   var DEFAULT_CROP = { scale: 2, cx: 0.5, cy: 0.5 };
   var SCALE_MIN = 1;
@@ -36,6 +33,13 @@
   var mask = document.getElementById('pet-crop-mask');
   var circle = document.getElementById('pet-crop-circle');
   var handle = document.getElementById('pet-crop-handle');
+  var saveBtn = document.getElementById('pet-save');
+
+  // API 设置输入框
+  var apiUrlInput = document.getElementById('pet-api-url');
+  var apiModelInput = document.getElementById('pet-model');
+  var apiKeyInput = document.getElementById('pet-api-key');
+  var apiSaveBtn = document.getElementById('pet-api-save');
 
   var currentCrop = Object.assign({}, DEFAULT_CROP); // 界面草稿值（保存时才应用）
   var savedCrop = Object.assign({}, DEFAULT_CROP);   // 已持久化值
@@ -69,6 +73,12 @@
       } else {
         showEmpty();
       }
+    });
+    // 加载 API 配置
+    chrome.storage.sync.get([API_URL_KEY, API_MODEL_KEY, API_KEY_KEY], function (cfg) {
+      if (cfg[API_URL_KEY]) apiUrlInput.value = cfg[API_URL_KEY];
+      if (cfg[API_MODEL_KEY]) apiModelInput.value = cfg[API_MODEL_KEY];
+      if (cfg[API_KEY_KEY]) apiKeyInput.value = cfg[API_KEY_KEY];
     });
   }
 
@@ -236,6 +246,23 @@
       currentCrop = Object.assign({}, next);
       updateSaveState();
       flashSaveBtn('saved', '已保存 ✓');
+    });
+  });
+
+  // ---------- API 设置保存 ----------
+  apiSaveBtn.addEventListener('click', function () {
+    chrome.storage.sync.set({
+      [API_URL_KEY]: apiUrlInput.value.trim(),
+      [API_MODEL_KEY]: apiModelInput.value.trim(),
+      [API_KEY_KEY]: apiKeyInput.value.trim()
+    }, function () {
+      if (chrome.runtime.lastError) {
+        apiSaveBtn.textContent = '保存失败，请重试';
+        setTimeout(function () { apiSaveBtn.textContent = '保存 API 设置'; }, 1500);
+        return;
+      }
+      apiSaveBtn.textContent = '已保存 ✓';
+      setTimeout(function () { apiSaveBtn.textContent = '保存 API 设置'; }, 1500);
     });
   });
 

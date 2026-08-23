@@ -675,6 +675,24 @@
           <button id="pet-save" class="save-btn">保存配置</button>
         </div>
         <p class="tip">开关与裁剪调整好后，点击「保存配置」立即生效并持久化；选择 / 清除图片则立即生效。</p>
+
+        <hr class="section-hr" style="margin:16px 0 12px;border:none;border-top:1px solid var(--border-soft);">
+
+        <div class="label" style="margin-bottom:8px;">聊天 API 设置</div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:12px;color:var(--text-2);">API 地址</label>
+          <input type="text" id="pet-api-url" placeholder="https://api.deepseek.com" style="width:100%;padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;outline:none;">
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:12px;color:var(--text-2);">模型名</label>
+          <input type="text" id="pet-model" placeholder="deepseek-chat / glm-4 / agnes 等" style="width:100%;padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;outline:none;">
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:12px;color:var(--text-2);">API Key</label>
+          <input type="password" id="pet-api-key" placeholder="输入你的 API Key" style="width:100%;padding:7px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;outline:none;">
+        </div>
+        <button class="bg-btn primary" id="pet-api-save" style="width:100%;margin-top:4px;">保存 API 设置</button>
+        <p class="tip">设置保存后，双击宠物打开聊天窗口时会自动填入，无需手动填写。</p>
       </section>
 
       <!-- ============ 代码备份 ============ -->
