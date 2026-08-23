@@ -72,6 +72,7 @@
   var pointerId = null;
   var dragDX = 0, dragDY = 0;
   var dragMoved = 0;
+  var lastClickTime = 0;  // 上次点击时间戳，用于双击检测
 
   var targetX = 0, targetY = 0;
   var waitUntil = 0;
@@ -126,7 +127,6 @@
     pet.addEventListener('pointercancel', function (e) {
       if (e.pointerId === pointerId) onPointerUp(e);
     });
-    pet.addEventListener('dblclick', openDeepSeek);
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
   }
@@ -258,6 +258,14 @@
   // ---------- 拖动 ----------
   function onPointerDown(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    var now = Date.now();
+    // 双击检测：两次点击间隔 < 300ms 且移动距离小
+    if (now - lastClickTime < 300) {
+      openDeepSeek();
+      lastClickTime = 0;
+      return;
+    }
+    lastClickTime = now;
     dragging = true;
     pointerId = e.pointerId;
     dragMoved = 0;
