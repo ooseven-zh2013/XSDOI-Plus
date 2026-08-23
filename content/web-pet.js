@@ -82,11 +82,13 @@
     '#xsdoi-deepseek-overlay .xsdoi-ds-new-btn{width:24px;height:24px;border:none;background:rgba(96,165,250,0.8);color:#fff;border-radius:6px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-new-btn:hover{background:rgba(96,165,250,1);}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-session-list{flex:1;overflow-y:auto;padding:8px;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item{padding:8px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.7);font-size:13px;margin-bottom:4px;word-break:break-all;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item{padding:8px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,0.7);font-size:13px;margin-bottom:4px;word-break:break-all;display:flex;justify-content:space-between;align-items:center;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-session-item:hover{background:rgba(255,255,255,0.1);}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-session-item.active{background:rgba(96,165,250,0.3);color:#fff;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:8px;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-preview{display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-delete{width:20px;height:20px;border:none;background:transparent;color:rgba(255,255,255,0.4);border-radius:4px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-delete:hover{background:rgba(243,139,168,0.3);color:#f38ba8;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-main{flex:1;display:flex;flex-direction:column;min-width:0;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-title{color:#fff;font-size:15px;font-weight:600;}',
@@ -745,11 +747,22 @@
       var newBtn = overlay.querySelector('.xsdoi-ds-new-btn');
       var promptBtn = overlay.querySelector('#xsdoi-ds-prompt-btn');
       var sessionList = overlay.querySelector('.xsdoi-ds-session-list');
+      var newBtn = overlay.querySelector('.xsdoi-ds-new-btn');
+
+      // 更新新建按钮状态（空会话时禁用）
+      function updateNewBtnState() {
+        var session = sessions[currentSessionId];
+        var isEmpty = !session || session.messages.length === 0;
+        newBtn.disabled = isEmpty;
+        newBtn.style.opacity = isEmpty ? '0.4' : '1';
+        newBtn.title = isEmpty ? '当前会话为空，请先发送消息' : '新建会话';
+      }
 
       // 加载标记和 KaTeX
       loadChatLibraries(function () {
         // 渲染当前会话的消息
         renderCurrentSession(messagesDiv);
+        updateNewBtnState();
       });
 
       // 关闭按钮
@@ -765,15 +778,47 @@
         createNewSession();
         renderSessionList(sessionList);
         renderCurrentSession(messagesDiv);
+        updateNewBtnState();
       });
 
       // 会话切换
       sessionList.addEventListener('click', function (e) {
+        // 删除按钮
+        var deleteBtn = e.target.closest('.session-delete');
+        if (deleteBtn) {
+          e.stopPropagation();
+          var sid = deleteBtn.closest('.xsdoi-ds-session-item').dataset.sessionId;
+          if (Object.keys(sessions).length <= 1) {
+            // 最后一个会话，清空消息而不是删除
+            sessions[sid].messages = [];
+            saveCurrentSession();
+            renderSessionList(sessionList);
+            renderCurrentSession(messagesDiv);
+            updateNewBtnState();
+            return;
+          }
+          delete sessions[sid];
+          if (currentSessionId === sid) {
+            // 切换到第一个存在的会话
+            var remaining = Object.keys(sessions);
+            currentSessionId = remaining.length > 0 ? remaining[0] : null;
+            if (!currentSessionId) {
+              createNewSession();
+            }
+          }
+          saveCurrentSession();
+          renderSessionList(sessionList);
+          renderCurrentSession(messagesDiv);
+          updateNewBtnState();
+          return;
+        }
+        // 切换会话
         var item = e.target.closest('.xsdoi-ds-session-item');
         if (!item) return;
         currentSessionId = item.dataset.sessionId;
         renderSessionList(sessionList);
         renderCurrentSession(messagesDiv);
+        updateNewBtnState();
       });
 
       // 系统提示词编辑
@@ -898,8 +943,35 @@
           var item = document.createElement('div');
           item.className = 'xsdoi-ds-session-item' + isActive;
           item.dataset.sessionId = sid;
-          item.innerHTML = '<span class="session-name">' + escapeHtml(s.name) + '</span>' +
-            (preview ? '<span class="session-preview">' + escapeHtml(preview) + '</span>' : '');
+          item.innerHTML = '<div style="flex:1;min-width:0;">' +
+            '<span class="session-name">' + escapeHtml(s.name) + '</span>' +
+            (preview ? '<span class="session-preview">' + escapeHtml(preview) + '</span>' : '') +
+            '</div>' +
+            '<button class="session-delete" title="删除会话">×</button>';
+          item.querySelector('.session-delete').addEventListener('click', function (e) {
+            e.stopPropagation();
+            var sid = item.dataset.sessionId;
+            if (Object.keys(sessions).length <= 1) {
+              sessions[sid].messages = [];
+              saveCurrentSession();
+              renderSessionList(sessionList);
+              renderCurrentSession(messagesDiv);
+              updateNewBtnState();
+              return;
+            }
+            delete sessions[sid];
+            if (currentSessionId === sid) {
+              var remaining = Object.keys(sessions);
+              currentSessionId = remaining.length > 0 ? remaining[0] : null;
+              if (!currentSessionId) {
+                createNewSession();
+              }
+            }
+            saveCurrentSession();
+            renderSessionList(sessionList);
+            renderCurrentSession(messagesDiv);
+            updateNewBtnState();
+          });
           item.addEventListener('click', function () {
             currentSessionId = this.dataset.sessionId;
             renderSessionList(container);
