@@ -119,6 +119,11 @@
     '#xsdoi-deepseek-overlay .xsdoi-ds-input button:disabled{opacity:0.5;cursor:not-allowed;}',
     '#xsdoi-deepseek-overlay .ds-typing{display:inline-block;animation:xsdoiDsBlink 1s steps(2) infinite;color:rgba(255,255,255,0.6);}',
     '@keyframes xsdoiDsBlink{0%,100%{opacity:1;}50%{opacity:0;}}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-status{align-self:flex-start;max-width:85%;margin:2px 0;padding:6px 12px;border-radius:12px 12px 12px 4px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.55);font-size:12px;display:flex;align-items:center;gap:8px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#60a5fa;animation:xsdoiDsPulse 1s infinite ease-in-out;flex-shrink:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-status.error{background:rgba(243,139,168,0.15);color:#f38ba8;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-status.error::before{background:#f38ba8;animation:none;}',
+    '@keyframes xsdoiDsPulse{0%,100%{opacity:0.3;transform:scale(0.8);}50%{opacity:1;transform:scale(1.2);}}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-close{position:absolute;top:12px;right:12px;width:32px;height:32px;z-index:10;}',
     '#xsdoi-deepseek-overlay .katex{font-size:1em;}',
     '#xsdoi-deepseek-overlay .katex-display{margin:8px 0;overflow-x:auto;}',
@@ -797,7 +802,7 @@
           appendMessage(messagesDiv, text, 'user');
           input.value = '';
           sendBtn.disabled = true;
-          sendBtn.textContent = '...';
+          sendBtn.textContent = '发送中';
 
           // 保存到会话
           var session = sessions[currentSessionId];
@@ -814,8 +819,27 @@
           messages = messages.concat(recentMessages);
 
           var apiBase = chatCfg.apiUrl.trim().replace(/\/v1\/?$/, '');
+
+          // 步骤状态：正在连接模型
+          setStatus('🔄 正在连接模型...');
           var botDiv = null;    // 流式输出的 bot 消息（懒创建）
           var fullReply = '';   // 完整回复（流结束后保存）
+
+          // 步骤状态指示器：连接中 → 等待响应 → 思考中 → 完成/出错
+          var statusEl = null;
+          function setStatus(text, isError) {
+            if (!statusEl) {
+              statusEl = document.createElement('div');
+              statusEl.className = 'xsdoi-ds-status';
+              messagesDiv.appendChild(statusEl);
+            }
+            statusEl.textContent = text;
+            statusEl.classList.toggle('error', !!isError);
+            scrollIfNearBottom();
+          }
+          function clearStatus() {
+            if (statusEl) { statusEl.remove(); statusEl = null; }
+          }
 
           // 滚动：仅在用户接近底部时自动跟随
           function scrollIfNearBottom() {
@@ -850,6 +874,7 @@
               });
             }
             // 服务端不支持流式时降级为 JSON 一次性返回
+            setStatus('⏳ 等待模型响应...');
             var ct = res.headers.get('content-type') || '';
             if (ct.indexOf('text/event-stream') === -1) {
               return res.json().then(function (data) {
@@ -861,6 +886,7 @@
                   messagesDiv.appendChild(botDiv);
                   botDiv.innerHTML = renderMessage(fullReply.trim().replace(/\n{2,}/g, '\n\n'));
                   scrollIfNearBottom();
+                  clearStatus();
                 }
               });
             }
@@ -884,12 +910,13 @@
                     var delta = json.choices && json.choices[0] && json.choices[0].delta;
                     var content = delta && delta.content;
                     if (content) {
-                      fullReply += content;
                       if (!botDiv) {
                         botDiv = document.createElement('div');
                         botDiv.className = 'xsdoi-ds-msg bot';
                         messagesDiv.appendChild(botDiv);
+                        setStatus('💭 思考中...');
                       }
+                      fullReply += content;
                       renderBotStream();
                     }
                   } catch (e) { /* 忽略不完整的 JSON 行 */ }
@@ -900,7 +927,8 @@
             return pump();
           })
           .then(function () {
-            // 流结束：保存完整回复到会话
+            // 流结束：清除状态指示，保存完整回复到会话
+            clearStatus();
             if (fullReply) {
               session.messages.push({ role: 'assistant', content: fullReply });
               saveCurrentSession();
@@ -909,6 +937,7 @@
           })
           .catch(function (err) {
             console.error('[XSDOI] chat error:', err);
+            setStatus('⚠️ ' + err.message, true);
             if (fullReply) {
               // 已有部分内容：附上错误提示
               fullReply += '\n\n> ⚠️ ' + err.message;
@@ -925,6 +954,8 @@
             if (botDiv && fullReply) {
               botDiv.innerHTML = renderMessage(fullReply.trim().replace(/\n{2,}/g, '\n\n'));
             }
+            // 错误态状态行保留给用户看；正常态在此清除
+            if (statusEl && !statusEl.classList.contains('error')) clearStatus();
             sendBtn.disabled = false;
             sendBtn.textContent = '发送';
             input.focus();
