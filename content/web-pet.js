@@ -56,7 +56,17 @@
     '#' + CONTAINER_ID + '.xsdoi-pet-bounce .xsdoi-pet-body{animation:xsdoiPetBounce .4s ease;}',
     '@keyframes xsdoiPetBounce{0%{transform:scale(1);}40%{transform:scale(.86);}100%{transform:scale(1);}}',
     '#' + CONTAINER_ID + '.xsdoi-pet-flying .xsdoi-pet-body{animation:xsdoiPetFly .55s ease-in;}',
-    '@keyframes xsdoiPetFly{0%{transform:scale(1) rotate(0deg);}50%{transform:scale(.88,1.14) rotate(-8deg);}100%{transform:scale(1) rotate(0deg);}}'
+    '@keyframes xsdoiPetFly{0%{transform:scale(1) rotate(0deg);}50%{transform:scale(.88,1.14) rotate(-8deg);}100%{transform:scale(1) rotate(0deg);}}',
+    '#xsdoi-deepseek-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-card{position:relative;width:min(520px,90vw);max-height:80vh;margin:auto;background:rgba(15,15,25,0.92);border:1px solid rgba(255,255,255,0.15);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-title{color:#fff;font-size:15px;font-weight:600;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-close{width:32px;height:32px;border:none;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);border-radius:8px;cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-close:hover{background:rgba(255,255,255,0.2);color:#fff;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-config{padding:14px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-input{padding:12px;border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px;flex-shrink:0;}'
   ].join('\n');
 
   // ---------- 状态 ----------
@@ -581,31 +591,34 @@
     var overlay = document.createElement('div');
     overlay.id = 'xsdoi-deepseek-overlay';
     overlay.innerHTML = [
-      '<div class="xsdoi-ds-header">',
-        '<span class="xsdoi-ds-title">聊天</span>',
-        '<button class="xsdoi-ds-close" title="关闭">×</button>',
-      '</div>',
-      '<div class="xsdoi-ds-config" style="padding:12px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.1);">',
-        '<div style="margin-bottom:8px;">',
-          '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API地址:</label>',
-          '<input id="xsdoi-ds-api-url" type="text" value="https://api.deepseek.com" placeholder="https://api.deepseek.com" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;" title="支持任意 OpenAI 兼容接口：DeepSeek、智谱、Agnes 等">',
+      '<div class="xsdoi-ds-backdrop"></div>',
+      '<div class="xsdoi-ds-card">',
+        '<div class="xsdoi-ds-header">',
+          '<span class="xsdoi-ds-title">聊天</span>',
+          '<button class="xsdoi-ds-close" title="关闭">×</button>',
         '</div>',
-        '<div>',
-          '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">模型名:</label>',
-          '<input id="xsdoi-ds-model" type="text" value="deepseek-chat" placeholder="deepseek-chat / glm-4 / agnes 等" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
+        '<div class="xsdoi-ds-config">',
+          '<div style="margin-bottom:8px;">',
+            '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API地址:</label>',
+            '<input id="xsdoi-ds-api-url" type="text" value="https://api.deepseek.com" placeholder="https://api.deepseek.com" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;" title="支持任意 OpenAI 兼容接口：DeepSeek、智谱、Agnes 等">',
+          '</div>',
+          '<div>',
+            '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">模型名:</label>',
+            '<input id="xsdoi-ds-model" type="text" value="deepseek-chat" placeholder="deepseek-chat / glm-4 / agnes 等" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
+          '</div>',
+          '<div>',
+            '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API Key:</label>',
+            '<input id="xsdoi-ds-api-key" type="password" placeholder="输入你的API Key" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
+          '</div>',
         '</div>',
-        '<div>',
-          '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API Key:</label>',
-          '<input id="xsdoi-ds-api-key" type="password" placeholder="输入你的API Key" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
+        '<div class="xsdoi-ds-messages">',
+          '<div style="align-self:flex-start;background:rgba(255,255,255,0.1);padding:10px 14px;border-radius:12px 12px 12px 4px;max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);">发送消息开始对话（需要API Key）</div>',
+        '</div>',
+        '<div class="xsdoi-ds-input">',
+          '<input id="xsdoi-ds-input" type="text" placeholder="输入消息..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;">',
+          '<button id="xsdoi-ds-send" style="padding:10px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;">发送</button>',
         '</div>',
       '</div>',
-      '<div class="xsdoi-ds-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">',
-        '<div style="align-self:flex-start;background:rgba(255,255,255,0.1);padding:10px 14px;border-radius:12px 12px 12px 4px;max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);">发送消息开始对话（需要API Key）</div>',
-      '</div>',
-      '<div class="xsdoi-ds-input" style="padding:12px;background:rgba(0,0,0,0.2);border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px;">',
-        '<input id="xsdoi-ds-input" type="text" placeholder="输入消息..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;">',
-        '<button id="xsdoi-ds-send" style="padding:10px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;">发送</button>',
-      '</div>'
     ].join('');
     document.body.appendChild(overlay);
 
@@ -618,6 +631,9 @@
     var closeBtn = overlay.querySelector('.xsdoi-ds-close');
 
     closeBtn.addEventListener('click', function () {
+      overlay.remove();
+    });
+    overlay.querySelector('.xsdoi-ds-backdrop').addEventListener('click', function () {
       overlay.remove();
     });
 
