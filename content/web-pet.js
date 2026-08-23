@@ -49,8 +49,6 @@
     '#' + CONTAINER_ID + ' .xsdoi-pet-body svg{display:block;width:100%;height:100%;}',
     '#' + CONTAINER_ID + '.xsdoi-pet-walking .xsdoi-pet-body{animation:xsdoiPetWalk .45s ease-in-out infinite;}',
     '@keyframes xsdoiPetWalk{0%,100%{transform:translateY(0);}40%{transform:translateY(-6px);}70%{transform:translateY(-1px);}}',
-    '#' + CONTAINER_ID + '.xsdoi-pet-jumping .xsdoi-pet-body{animation:xsdoiPetJump .5s ease;}',
-    '@keyframes xsdoiPetJump{0%{transform:translateY(0) scale(1);}30%{transform:translateY(-22px) scale(1.06,.94);}55%{transform:translateY(0) scale(.94,1.06);}70%{transform:translateY(-5px) scale(1);}100%{transform:translateY(0) scale(1);}}',
     '#' + CONTAINER_ID + '.xsdoi-pet-idle .xsdoi-pet-body svg{animation:xsdoiPetBreathe 2.6s ease-in-out infinite;}',
     '@keyframes xsdoiPetBreathe{0%,100%{transform:scale(1);}50%{transform:scale(1.04);}}',
     '#' + CONTAINER_ID + ' .xsdoi-pet-eye{transform-box:fill-box;transform-origin:center;animation:xsdoiPetBlink 3.6s infinite;}',
@@ -77,7 +75,6 @@
 
   var targetX = 0, targetY = 0;
   var waitUntil = 0;
-  var nextJumpAt = 0;  // 下次随机跳跃时间戳
   var raf = 0;
   var customImg = null; // 自定义图片 dataURL（storage.local webPetImg）
   // 圆形裁剪参数：scale = 放大倍数（圆直径 = 容器/scale），cx/cy = 裁剪中心（图片坐标 0-1）
@@ -86,8 +83,7 @@
   // 抛物线飞行状态
   var flying = false;
   var flyVx = 0, flyVy = 0;  // 飞行初速度（px/frame）
-  var G = 0.15;              // 重力加速度（px/frame²，~60fps，降低让跳跃更轻盈）
-  var MIN_JUMP_VY = -15;     // 地面跳跃初速（向上为负）
+  var G = 0.15;              // 重力加速度（px/frame²，~60fps）
   // 拖拽轨迹采样，用于估算松手速度
   var dragSamples = [];
   // 抛物线运动中的瞬时速度（updateParabola 内部使用，需先声明）
@@ -100,7 +96,6 @@
   var MAX_BOUNCE_VY = -18;               // 最大向上反弹速度
   var COLLISION_COOLDOWN = 6;            // 碰撞冷却帧数（避免反弹瞬移）
   var collisionCooldown = 0;             // 当前冷却计时器
-  var canJump = false;                   // 是否允许跳跃（碰撞时触发）
 
   // 规范化裁剪参数（兼容旧值/非法值）
   function normalizeCrop(v) {
@@ -220,18 +215,6 @@
     pet.classList.toggle('xsdoi-pet-left', targetX < px);
   }
 
-  // 走路过程中随机跳跃（蹦一下），不影响前进
-  function maybeJump(now) {
-    if (now < nextJumpAt) return;
-    pet.classList.remove('xsdoi-pet-jumping');
-    void pet.offsetWidth; // 重启动画
-    pet.classList.add('xsdoi-pet-jumping');
-    nextJumpAt = now + 1500 + Math.random() * 2000;
-    setTimeout(function () {
-      pet.classList.remove('xsdoi-pet-jumping');
-    }, 500);
-  }
-
   function step() {
     if (dragging) return;
     var now = Date.now();
@@ -246,15 +229,7 @@
     }
     // 散步时检测轨迹碰撞
     checkTrailCollision();
-    // 如果碰撞后设置了跳跃标志，启动抛物线
-    if (canJump) {
-      canJump = false;
-      startParabolicFall();
-      // 落地后重置为向上的跳跃初速（忽略飞行中的向下速度）
-      vxFly = (Math.random() - 0.5) * 4;
-      vyFly = MIN_JUMP_VY;
-      return;
-    }
+    // 继续散步逻辑
     var dx = targetX - px;
     var dy = targetY - py;
     var dist = Math.sqrt(dx * dx + dy * dy);
@@ -271,7 +246,6 @@
     py += dy / dist * s;
     pet.classList.add('xsdoi-pet-walking');
     pet.classList.remove('xsdoi-pet-idle');
-    maybeJump(now);
     applyPos();
   }
 
@@ -514,12 +488,6 @@
     setTimeout(function() { pet.classList.remove('xsdoi-pet-bounce'); }, 300);
     // 启动冷却
     collisionCooldown = COLLISION_COOLDOWN;
-    // 如果在地面附近碰撞，标记为可跳跃
-    var ground = groundY();
-    if (py >= ground - 10) {
-      canJump = true;
-    }
-    return true;
     return true;
   }
 
@@ -566,7 +534,6 @@
           customImg = loc[IMG_KEY];
         }
         renderFace();
-        nextJumpAt = Date.now() + 1000;
         pickTarget();
         loop();
       });
