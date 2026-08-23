@@ -32,7 +32,8 @@
   var DEFAULT_SYSTEM_PROMPT = [
     '你是一名编程助手，你需要用简体中文回答用户的消息（哪怕用户说的是英文）。',
     '你的回答需要遵循 Markdown 格式。',
-    '公式格式用 LaTeX：行内公式用 $...$，独立公式用 $$...$$。',
+    '所有数学公式（无论长短）都必须用 LaTeX 定界符包裹：行内公式用 $...$，独立公式用 $$...$$。',
+    '即使是简短的数学表达式（如 Re(z)、Γ(z)、x > 0）也必须用 $...$ 包裹，绝对不要用反引号 ` 包裹公式——反引号只用于代码，不用于数学。',
     '代码块用 ``` 包裹，并注明编程语言，例如：\n```cpp\n// 代码\n```\n当用户没有指明编程语言时，默认使用 C++14。',
     '回答要清晰、简洁、有帮助。'
   ].join(' ');
@@ -629,7 +630,15 @@
     // 先用 marked 渲染 Markdown
     var html = marked.parse(text);
     // 再用 KaTeX 渲染 LaTeX
+    // 定界符优先级：先处理独立公式（$$...$$ / \[...\]），再处理行内公式（$...$ / \(...\)）
     html = html.replace(/\$\$([^$]+)\$\$/g, function (_, math) {
+      try {
+        return '<span class="katex-display">' + katex.renderToString(math.trim(), { displayMode: true }) + '</span>';
+      } catch (e) {
+        return '<code>' + math + '</code>';
+      }
+    });
+    html = html.replace(/\\\[([\s\S]+?)\\\]/g, function (_, math) {
       try {
         return '<span class="katex-display">' + katex.renderToString(math.trim(), { displayMode: true }) + '</span>';
       } catch (e) {
@@ -643,6 +652,41 @@
         return '<code>' + math + '</code>';
       }
     });
+    html = html.replace(/\\\(([\s\S]+?)\\\)/g, function (_, math) {
+      try {
+        return katex.renderToString(math.trim(), { displayMode: false });
+      } catch (e) {
+        return '<code>' + math + '</code>';
+      }
+    });
+
+    // 兜底：有些模型会把简短公式用反引号 ` 包裹（当作行内代码），
+    // 此时 marked 输出 <code>...</code> 而不会被上面的 $...$ 命中。
+    // 若 <code> 内容是数学（含反斜杠命令或数学符号），也尝试用 KaTeX 渲染；
+    // 失败则保留原样（不会破坏真正的代码）。
+    // 先把 <pre> 块级代码隔离，避免其内部被误当成数学。
+    var preBlocks = [];
+    html = html.replace(/<pre>[\s\S]*?<\/pre>/g, function (m) {
+      preBlocks.push(m);
+      return ' PRE' + (preBlocks.length - 1) + ' ';
+    });
+    html = html.replace(/<code>([\s\S]*?)<\/code>/g, function (m, inner) {
+      if (!/\\/.test(inner) && !/[∈∉⊂⊃⊆⊇∪∩∀∃√∑∫∏∂∇∞±×÷⋅≤≥≠≈≡αβγδθπσφψω]/u.test(inner)) {
+        return m; // 不含 LaTeX 特征，保持原样
+      }
+      var decoded = inner
+        .replace(/&gt;/g, '>')
+        .replace(/&lt;/g, '<')
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&');
+      try {
+        return katex.renderToString(decoded.trim(), { displayMode: false });
+      } catch (e) {
+        return m;
+      }
+    });
+    html = html.replace(/ PRE(\d+) /g, function (_, i) { return preBlocks[+i]; });
+
     return html;
   }
 
