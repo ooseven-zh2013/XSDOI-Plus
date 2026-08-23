@@ -651,7 +651,8 @@
       sendBtn.disabled = true;
       sendBtn.textContent = '...';
 
-      fetch(cfg.apiUrl.trim() + '/v1/chat/completions', {
+      var apiBase = cfg.apiUrl.trim().replace(/\/v1\/?$/, ''); // 去掉末尾的 /v1，避免重复
+      fetch(apiBase + '/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
