@@ -571,7 +571,7 @@
     overlay.id = 'xsdoi-deepseek-overlay';
     overlay.innerHTML = [
       '<div class="xsdoi-ds-header">',
-        '<span class="xsdoi-ds-title">DeepSeek Chat</span>',
+        '<span class="xsdoi-ds-title">聊天</span>',
         '<button class="xsdoi-ds-close" title="关闭">×</button>',
       '</div>',
       '<div class="xsdoi-ds-config" style="padding:12px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.1);">',
