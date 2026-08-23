@@ -122,13 +122,21 @@
     pet.innerHTML = '<div class="xsdoi-pet-body"></div>';
     body = pet.querySelector('.xsdoi-pet-body');
     document.body.appendChild(pet);
-    pet.addEventListener('pointerdown', onPointerDown);
+    // 双击检测（pointerdown 时间戳，避开 setPointerCapture 拦截 dblclick）
+    var lastDownTime = 0;
+    pet.addEventListener('pointerdown', function (e) {
+      var now = Date.now();
+      if (now - lastDownTime < 350 && e.pointerType === 'mouse') {
+        // 双击：打开聊天窗口
+        lastDownTime = 0;
+        openDeepSeek();
+        return; // 不执行拖动逻辑
+      }
+      lastDownTime = now;
+      onPointerDown(e);
+    });
     pet.addEventListener('pointercancel', function (e) {
       if (e.pointerId === pointerId) onPointerUp(e);
-    });
-    pet.addEventListener('dblclick', function (e) {
-      e.preventDefault();
-      openDeepSeek();
     });
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
