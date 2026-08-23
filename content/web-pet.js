@@ -56,13 +56,7 @@
     '#' + CONTAINER_ID + '.xsdoi-pet-bounce .xsdoi-pet-body{animation:xsdoiPetBounce .4s ease;}',
     '@keyframes xsdoiPetBounce{0%{transform:scale(1);}40%{transform:scale(.86);}100%{transform:scale(1);}}',
     '#' + CONTAINER_ID + '.xsdoi-pet-flying .xsdoi-pet-body{animation:xsdoiPetFly .55s ease-in;}',
-    '@keyframes xsdoiPetFly{0%{transform:scale(1) rotate(0deg);}50%{transform:scale(.88,1.14) rotate(-8deg);}100%{transform:scale(1) rotate(0deg);}}',
-    '#xsdoi-deepseek-overlay{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80vw;max-width:900px;height:70vh;max-height:700px;background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.12);border-radius:16px;z-index:2147483647;box-shadow:0 8px 32px rgba(0,0,0,0.3);display:flex;flex-direction:column;overflow:hidden;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.1);}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-title{color:#fff;font-size:14px;font-weight:500;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-close{background:none;border:none;color:rgba(255,255,255,0.7);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;}',
-    '#xsdoi-deepseek-overlay .xsdoi-ds-close:hover{color:#fff;}',
-    '#xsdoi-deepseek-overlay iframe{flex:1;border:none;width:100%;height:100%;background:#fff;}'
+    '@keyframes xsdoiPetFly{0%{transform:scale(1) rotate(0deg);}50%{transform:scale(.88,1.14) rotate(-8deg);}100%{transform:scale(1) rotate(0deg);}}'
   ].join('\n');
 
   // ---------- 状态 ----------
@@ -570,61 +564,103 @@
     applyPos();
   });
 
-  // 双击宠物弹出 DeepSeek 对话窗口
+  // 双击宠物弹出 DeepSeek 聊天窗口
   function openDeepSeek() {
-    if (document.getElementById('xsdoi-deepseek-overlay')) return; // 已打开则不重复
+    if (document.getElementById('xsdoi-deepseek-overlay')) return;
     var overlay = document.createElement('div');
     overlay.id = 'xsdoi-deepseek-overlay';
     overlay.innerHTML = [
       '<div class="xsdoi-ds-header">',
-        '<span class="xsdoi-ds-title">DeepSeek</span>',
+        '<span class="xsdoi-ds-title">DeepSeek Chat</span>',
         '<button class="xsdoi-ds-close" title="关闭">×</button>',
       '</div>',
-      '<div class="xsdoi-ds-content" style="flex:1;position:relative;overflow:hidden;">',
-        '<div class="xsdoi-ds-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.5);font-size:14px;">加载中...</div>',
-        '<div class="xsdoi-ds-error" style="position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:rgba(255,255,255,0.7);font-size:14px;">',
-          '<div>无法内嵌 DeepSeek（网站限制）</div>',
-          '<button class="xsdoi-ds-open-btn" style="padding:8px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">在新标签页打开</button>',
+      '<div class="xsdoi-ds-config" style="padding:12px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(255,255,255,0.1);">',
+        '<div style="margin-bottom:8px;">',
+          '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API地址:</label>',
+          '<input id="xsdoi-ds-api-url" type="text" value="https://api.deepseek.com" placeholder="https://api.deepseek.com" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
         '</div>',
-        '<iframe class="xsdoi-ds-iframe" src="https://chat.deepseek.com" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:#fff;"></iframe>',
+        '<div>',
+          '<label style="color:rgba(255,255,255,0.6);font-size:12px;margin-right:8px;">API Key:</label>',
+          '<input id="xsdoi-ds-api-key" type="password" placeholder="输入你的API Key" style="flex:1;padding:6px 10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#fff;font-size:12px;outline:none;">',
+        '</div>',
+      '</div>',
+      '<div class="xsdoi-ds-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">',
+        '<div style="align-self:flex-start;background:rgba(255,255,255,0.1);padding:10px 14px;border-radius:12px 12px 12px 4px;max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);">发送消息开始对话（需要API Key）</div>',
+      '</div>',
+      '<div class="xsdoi-ds-input" style="padding:12px;background:rgba(0,0,0,0.2);border-top:1px solid rgba(255,255,255,0.1);display:flex;gap:8px;">',
+        '<input id="xsdoi-ds-input" type="text" placeholder="输入消息..." style="flex:1;padding:10px 14px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:14px;outline:none;">',
+        '<button id="xsdoi-ds-send" style="padding:10px 20px;background:rgba(96,165,250,0.8);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;">发送</button>',
       '</div>'
     ].join('');
+    document.body.appendChild(overlay);
+
+    var apiUrlInput = overlay.querySelector('#xsdoi-ds-api-url');
+    var apiKeyInput = overlay.querySelector('#xsdoi-ds-api-key');
+    var messagesDiv = overlay.querySelector('.xsdoi-ds-messages');
+    var input = overlay.querySelector('#xsdoi-ds-input');
+    var sendBtn = overlay.querySelector('#xsdoi-ds-send');
     var closeBtn = overlay.querySelector('.xsdoi-ds-close');
-    var loading = overlay.querySelector('.xsdoi-ds-loading');
-    var error = overlay.querySelector('.xsdoi-ds-error');
-    var iframe = overlay.querySelector('.xsdoi-ds-iframe');
-    var openBtn = overlay.querySelector('.xsdoi-ds-open-btn');
+
     closeBtn.addEventListener('click', function () {
       overlay.remove();
     });
-    openBtn.addEventListener('click', function () {
-      overlay.remove();
-      window.open('https://chat.deepseek.com', '_blank');
+
+    sendBtn.addEventListener('click', sendMessage);
+    input.addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') sendMessage();
     });
-    // iframe 加载完成后隐藏 loading
-    iframe.addEventListener('load', function () {
-      setTimeout(function () {
-        if (overlay.parentNode) {
-          loading.style.display = 'none';
-        }
-      }, 1500);
-    });
-    // 如果 iframe 被阻止，显示错误提示
-    setTimeout(function () {
-      if (!overlay || !overlay.parentNode) return;
-      // 检查 iframe 是否可见（如果 display:none 说明被阻止）
-      try {
-        if (iframe.contentDocument && iframe.contentDocument.body.innerHTML === '') {
-          loading.style.display = 'none';
-          error.style.display = 'flex';
-        }
-      } catch (e) {
-        // 跨域无法访问，显示错误
-        loading.style.display = 'none';
-        error.style.display = 'flex';
+
+    function sendMessage() {
+      var text = input.value.trim();
+      if (!text) return;
+      var apiKey = apiKeyInput.value.trim();
+      if (!apiKey) {
+        appendMessage('请先填写 API Key', 'bot');
+        return;
       }
-    }, 3000);
-    document.body.appendChild(overlay);
+      appendMessage(text, 'user');
+      input.value = '';
+      sendBtn.disabled = true;
+      sendBtn.textContent = '...';
+
+      fetch(apiUrlInput.value.trim() + '/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + apiKey
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: [
+            {role: 'system', content: '你是一个有用的助手。'},
+            {role: 'user', content: text}
+          ]
+        })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.error) {
+          appendMessage('错误: ' + data.error.message, 'bot');
+        } else {
+          appendMessage(data.choices[0].message.content, 'bot');
+        }
+      })
+      .catch(function(err) {
+        appendMessage('请求失败: ' + err.message, 'bot');
+      })
+      .finally(function() {
+        sendBtn.disabled = false;
+        sendBtn.textContent = '发送';
+      });
+    }
+
+    function appendMessage(text, role) {
+      var div = document.createElement('div');
+      div.style.cssText = 'align-self:' + (role === 'user' ? 'flex-end' : 'flex-start') + ';background:' + (role === 'user' ? 'rgba(96,165,250,0.6)' : 'rgba(255,255,255,0.1)') + ';padding:10px 14px;border-radius:' + (role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px') + ';max-width:80%;font-size:14px;color:rgba(255,255,255,0.9);white-space:pre-wrap;word-break:break-word;';
+      div.textContent = text;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
   }
 
   var style = document.createElement('style');
