@@ -89,6 +89,9 @@
     '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-preview{display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-delete{width:20px;height:20px;border:none;background:transparent;color:rgba(255,255,255,0.4);border-radius:4px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-delete:hover{background:rgba(243,139,168,0.3);color:#f38ba8;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-rename{width:20px;height:20px;border:none;background:transparent;color:rgba(255,255,255,0.4);border-radius:4px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-rename:hover{background:rgba(96,165,250,0.3);color:#60a5fa;}',
+    '#xsdoi-deepseek-overlay .xsdoi-ds-session-item .session-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-main{flex:1;display:flex;flex-direction:column;min-width:0;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;}',
     '#xsdoi-deepseek-overlay .xsdoi-ds-title{color:#fff;font-size:15px;font-weight:600;}',
@@ -121,6 +124,8 @@
     '#xsdoi-ds-prompt-modal .ds-prompt-box{background:rgba(20,20,30,0.98);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:20px;width:90%;max-width:500px;display:flex;flex-direction:column;gap:12px;}',
     '#xsdoi-ds-prompt-modal .ds-prompt-title{color:#fff;font-size:16px;font-weight:600;}',
     '#xsdoi-ds-prompt-modal textarea{width:100%;height:200px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:12px;font-size:14px;resize:vertical;outline:none;font-family:monospace;}',
+    '#xsdoi-ds-prompt-modal .ds-prompt-input{width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;padding:10px 12px;font-size:14px;outline:none;}',
+    '#xsdoi-ds-prompt-modal .ds-prompt-input:focus{border-color:rgba(96,165,250,0.7);}',
     '#xsdoi-ds-prompt-modal .ds-prompt-actions{display:flex;justify-content:flex-end;gap:8px;}',
     '#xsdoi-ds-prompt-modal .ds-prompt-btn{padding:8px 16px;border-radius:6px;border:none;cursor:pointer;font-size:14px;}',
     '#xsdoi-ds-prompt-modal .ds-prompt-btn.cancel{background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7);}',
@@ -307,7 +312,7 @@
       applyPos();
       return;
     }
-    checkTrailCollision();
+    // 散步时不响应鼠标尾迹（避免贴底走动时被尾迹弹跳）
     var dx = targetX - px;
     var dy = targetY - py;
     var dist = Math.sqrt(dx * dx + dy * dy);
@@ -691,26 +696,6 @@
       var overlay = document.createElement('div');
       overlay.id = 'xsdoi-deepseek-overlay';
 
-      // 构建会话列表 HTML
-      var sessionListHtml = '';
-      var sessionOrder = Object.keys(sessions).sort(function (a, b) {
-        return sessions[b].updatedAt.localeCompare(sessions[a].updatedAt);
-      });
-      for (var i = 0; i < sessionOrder.length; i++) {
-        var sid = sessionOrder[i];
-        var s = sessions[sid];
-        var isActive = sid === currentSessionId ? ' active' : '';
-        var preview = '';
-        if (s.messages.length > 0) {
-          var lastMsg = s.messages[s.messages.length - 1];
-          preview = lastMsg.content.substring(0, 30) + (lastMsg.content.length > 30 ? '...' : '');
-        }
-        sessionListHtml += '<div class="xsdoi-ds-session-item' + isActive + '" data-session-id="' + sid + '">' +
-          '<span class="session-name">' + escapeHtml(s.name) + '</span>' +
-          (preview ? '<span class="session-preview">' + escapeHtml(preview) + '</span>' : '') +
-          '</div>';
-      }
-
       overlay.innerHTML = [
         '<div class="xsdoi-ds-backdrop"></div>',
         '<div class="xsdoi-ds-card">',
@@ -720,7 +705,7 @@
               '<span class="xsdoi-ds-sidebar-title">会话</span>',
               '<button class="xsdoi-ds-new-btn" title="新建会话">+</button>',
             '</div>',
-            '<div class="xsdoi-ds-session-list">' + sessionListHtml + '</div>',
+            '<div class="xsdoi-ds-session-list"></div>',
           '</div>',
           '<div class="xsdoi-ds-main">',
             '<div class="xsdoi-ds-header">',
@@ -744,6 +729,9 @@
       var closeBtn = overlay.querySelector('.xsdoi-ds-close');
       var newBtn = overlay.querySelector('.xsdoi-ds-new-btn');
       var sessionList = overlay.querySelector('.xsdoi-ds-session-list');
+
+      // 统一渲染会话列表（含重命名/删除按钮）
+      renderSessionList(sessionList);
 
       // 更新新建按钮状态（空会话时禁用）
       function updateNewBtnState() {
@@ -938,7 +926,14 @@
             '<span class="session-name">' + escapeHtml(s.name) + '</span>' +
             (preview ? '<span class="session-preview">' + escapeHtml(preview) + '</span>' : '') +
             '</div>' +
-            '<button class="session-delete" title="删除会话">×</button>';
+            '<div class="session-actions">' +
+              '<button class="session-rename" title="重命名会话">✎</button>' +
+              '<button class="session-delete" title="删除会话">×</button>' +
+            '</div>';
+          item.querySelector('.session-rename').addEventListener('click', function (e) {
+            e.stopPropagation();
+            renameSession(item.dataset.sessionId);
+          });
           item.querySelector('.session-delete').addEventListener('click', function (e) {
             e.stopPropagation();
             var sid = item.dataset.sessionId;
@@ -971,8 +966,47 @@
           container.appendChild(item);
         }
       }
+
+      // 重命名会话（弹窗输入新名称）
+      function renameSession(sid) {
+        var session = sessions[sid];
+        if (!session) return;
+        var modal = document.createElement('div');
+        modal.id = 'xsdoi-ds-prompt-modal';
+        modal.innerHTML =
+          '<div class="ds-prompt-box">' +
+            '<div class="ds-prompt-title">重命名会话</div>' +
+            '<input class="ds-prompt-input" type="text" value="' + escapeHtml(session.name) + '" maxlength="40" autocomplete="off" placeholder="输入新的会话名称...">' +
+            '<div class="ds-prompt-actions">' +
+              '<button class="ds-prompt-btn cancel">取消</button>' +
+              '<button class="ds-prompt-btn save">保存</button>' +
+            '</div>' +
+          '</div>';
+        overlay.appendChild(modal);
+        var input = modal.querySelector('.ds-prompt-input');
+        input.focus();
+        input.select();
+        function close() { modal.remove(); }
+        function save() {
+          var name = input.value.trim();
+          if (name) {
+            sessions[sid].name = name;
+            saveCurrentSession();
+            renderSessionList(sessionList);
+          }
+          close();
+        }
+        modal.querySelector('.cancel').addEventListener('click', close);
+        modal.querySelector('.save').addEventListener('click', save);
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) close();
+        });
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); save(); }
+          else if (e.key === 'Escape') close();
+        });
       }
-    }
+    });
   }
 
   function escapeHtml(text) {
