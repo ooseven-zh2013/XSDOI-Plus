@@ -60,6 +60,10 @@
       rules.push('@font-face { font-family: "' + CUSTOM_FAMILY + '"; src: url("' + cfg.customDataUrl + '")' + formatHint(cfg.customDataUrl) + '; }');
     }
     rules.push(editorSel + ', ' + subSel + ' { font-family: ' + stack + ' !important; }');
+    // 代码速打页（/typing）：直接覆盖 --ct-mono 变量，
+    // 编辑器代码区 + 顶部栏文件名/时钟/统计数字等所有等宽元素同步换字体
+    rules.push('.ct-code, .ct-code .ct-tx, .ct-code .ct-ln { font-family: ' + stack + ' !important; }');
+    rules.push('.code-typing { --ct-mono: ' + stack + ' !important; }');
     return rules.join('\n');
   }
 
@@ -227,7 +231,14 @@
       '.markdown-body.submission-detail .font-dropdown { top:44px; left:auto; right:8px; min-width:150px; background:#1f2329; border-color:#4b5563; }',
       '.markdown-body.submission-detail .font-option { color:#d0d3d9; }',
       '.markdown-body.submission-detail .font-option:hover { background:#2a2e36; }',
-      '.markdown-body.submission-detail .font-option.selected { color:#66a6ff; }'
+      '.markdown-body.submission-detail .font-option.selected { color:#66a6ff; }',
+      // 代码速打页（/typing）顶部栏字体按钮
+      '.ct-editor-bar .xsdoi-font-btn { display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 8px; margin-left:auto; border:none; border-radius:4px; background:rgba(255,255,255,.12); color:#fff; font-size:11px; font-weight:600; cursor:pointer; }',
+      '.ct-editor-bar .xsdoi-font-btn:hover { background:rgba(255,255,255,.22); }',
+      '.ct-editor-bar .font-dropdown { position:fixed; z-index:2147483000; min-width:150px; background:#1f2329; border-color:#4b5563; }',
+      '.ct-editor-bar .font-option { color:#d0d3d9; }',
+      '.ct-editor-bar .font-option:hover { background:#2a2e36; }',
+      '.ct-editor-bar .font-option.selected { color:#66a6ff; }'
     ].join('\n');
     document.head.appendChild(style);
   }
@@ -415,6 +426,55 @@
     }
   }
 
+  // ==================== 代码速打页（/typing）字体入口 ====================
+
+  // 在 .ct-editor-bar 顶部栏末尾注入「字体」按钮，点击弹出字体下拉
+  function injectTypingFontEntry() {
+    var bar = document.querySelector('.ct-editor-bar');
+    if (!bar) return;
+    if (bar.querySelector('[data-font-entry="typing"]')) return; // 已注入
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'xsdoi-font-btn';
+    btn.setAttribute('data-font-entry', 'typing');
+    btn.title = '更改代码字体';
+    btn.setAttribute('aria-label', '更改代码字体');
+    btn.innerHTML = '<i class="fa fa-font" aria-hidden="true"></i><span>默认</span>';
+
+    var dropdown = createFontDropdown(function () {
+      updateFontBtnText(btn);
+    });
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (dropdown.style.display === 'none') {
+        positionDropdownFixed(dropdown, btn);
+        dropdown.style.display = 'block';
+      } else {
+        dropdown.style.display = 'none';
+        resetDropdownPosition(dropdown);
+      }
+    });
+
+    // 点击下拉内部不收起（选项自身会收起）
+    dropdown.addEventListener('click', function (e) {
+      e.stopPropagation();
+    });
+
+    // 点击外部收起下拉
+    document.addEventListener('click', function (e) {
+      if (!bar.contains(e.target)) {
+        dropdown.style.display = 'none';
+        resetDropdownPosition(dropdown);
+      }
+    });
+
+    bar.appendChild(btn);
+    bar.appendChild(dropdown);
+    updateFontBtnText(btn);
+  }
+
   // ==================== 初始化 ====================
 
   injectStyles();
@@ -426,7 +486,7 @@
     if (area !== 'local') return;
     if (changes.editorFontType || changes.editorFontPreset || changes.editorFontCustomDataUrl) {
       loadAndApply();
-      var btns = document.querySelectorAll('.xsdoi-font-btn[data-font-entry="1"]');
+      var btns = document.querySelectorAll('.xsdoi-font-btn[data-font-entry="1"], .xsdoi-font-btn[data-font-entry="typing"]');
       for (var i = 0; i < btns.length; i++) updateFontBtnText(btns[i]);
     }
   });
@@ -435,5 +495,6 @@
   setInterval(function () {
     injectFontSetting();
     injectSubmissionFontEntry();
+    injectTypingFontEntry();
   }, 500);
 })();
