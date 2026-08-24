@@ -153,7 +153,7 @@
   var pet = null;      // 容器
   var body = null;     // 圆球本体
   var enabled = true;  // 是否显示（webPetEnabled）
-  var pos = { x: 80, y: 85 }; // 视口百分比（容器左上角）
+  var pos = { x: 80, y: 100 }; // 视口百分比（容器左上角）；y=100 默认贴底，首次生成即在下方散步，无下落动画
 
   var vw = 0, vh = 0;
   var px = 0, py = 0;
@@ -1266,12 +1266,15 @@
       crop = normalizeCrop(items[CROP_KEY]);
       var sp = items[STORAGE_KEY];
       if (sp) {
+        // 只恢复水平位置；垂直位置强制贴底——桌宠每次生成直接出现在底部散步，
+        // 不再从旧存储位置/随机高度"落"到地面。
         if (typeof sp.x === 'number') pos.x = sp.x;
-        if (typeof sp.y === 'number') pos.y = sp.y;
+        pos.y = 100;
       }
       ensureContainer();
       measure();
       toPx();
+      py = groundY();   // 强制贴底：一出现就在地面，无下落过渡
       clampToViewport();
       applyPos();
       applyVisibility();
