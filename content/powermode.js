@@ -52,7 +52,7 @@
           config.solidColor = stored.solidColor;
         }
       }
-      console.log('[Powermode] 配置加载完成:', config);
+      console.log('[XSDOI-Plus:Powermode] 配置加载完成:', config);
       if (cb) cb();
     });
   }
@@ -116,14 +116,14 @@
     // 绑定 CodeMirror 内部真实接收输入的 textarea（源 textarea 为隐藏 Vue 源，不触发 input）
     var ta = document.querySelector('.vue-codemirror-wrap .CodeMirror textarea');
     if (!ta) {
-      console.log('[Powermode] 找不到 .vue-codemirror-wrap .CodeMirror textarea');
+      console.log('[XSDOI-Plus:Powermode] 找不到 .vue-codemirror-wrap .CodeMirror textarea');
       return false;
     }
     // 避免重复绑定
     if (ta === textareaInstance) return true;
     textareaInstance = ta;
     ta.addEventListener('input', handleTextareaInput);
-    console.log('[Powermode] textarea 已绑定');
+    console.log('[XSDOI-Plus:Powermode] textarea 已绑定');
     return true;
   }
 
@@ -266,14 +266,14 @@
   // Textarea input 事件处理
   // ==========================================
   function handleTextareaInput(e) {
-    console.log('[Powermode] input 事件触发');
+    console.log('[XSDOI-Plus:Powermode] input 事件触发');
     if (!config.enabled) {
-      console.log('[Powermode] 配置未启用，跳过');
+      console.log('[XSDOI-Plus:Powermode] 配置未启用，跳过');
       return;
     }
     // 过滤掉非输入类型的事件（如程序设置的 value）
     if (e.isTrusted === false) {
-      console.log('[Powermode] 非用户输入，跳过');
+      console.log('[XSDOI-Plus:Powermode] 非用户输入，跳过');
       return;
     }
     // 获取光标坐标（尝试从 CodeMirror DOM 读取）
@@ -293,10 +293,10 @@
       x = rect.left;
       y = rect.top;
     }
-    console.log('[Powermode] 粒子坐标:', x, y);
+    console.log('[XSDOI-Plus:Powermode] 粒子坐标:', x, y);
     // 独立开关：粒子动画
     if (config.particlesEnabled) {
-      console.log('[Powermode] 生成', config.particleCount, '个粒子');
+      console.log('[XSDOI-Plus:Powermode] 生成', config.particleCount, '个粒子');
       spawnParticles(x, y);
     }
     // 独立开关：combo 计数

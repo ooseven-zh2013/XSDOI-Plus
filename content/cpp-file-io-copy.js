@@ -90,7 +90,7 @@
     btn.addEventListener('click', async () => {
       const files = extractFileNames(popover);
       if (!files) {
-        console.warn('[新赛道OI扩展] 未识别到输入/输出文件名');
+        console.warn('[XSDOI-Plus:FileIOCopy] 未识别到输入/输出文件名');
         return;
       }
       const text = 'freopen("' + files.inputFile + '", "r", stdin);\nfreopen("' + files.outputFile + '", "w", stdout);';

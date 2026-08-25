@@ -44,7 +44,7 @@
           config.intervalMs = stored.intervalMs;
         }
       }
-      console.log('[MouseTrail] 配置加载完成:', config);
+      console.log('[XSDOI-Plus:MouseTrail] 配置加载完成:', config);
       if (cb) cb();
     });
   }
@@ -350,7 +350,7 @@
       // passive 避免阻塞滚动/交互
       document.addEventListener('mousemove', onMouseMove, { passive: true });
       applyMode();
-      console.log('[MouseTrail] 已初始化');
+      console.log('[XSDOI-Plus:MouseTrail] 已初始化');
     });
   }
 

@@ -1043,7 +1043,7 @@
             }
           })
           .catch(function (err) {
-            console.error('[XSDOI] chat error:', err);
+            console.error('[XSDOI-Plus:Pet] chat error:', err);
             setStatus('⚠️ ' + err.message, true);
             if (fullReply) {
               // 已有部分内容：附上错误提示
@@ -1069,7 +1069,7 @@
           });
         } catch (err) {
           // 兜底：任何同步异常都显示出来，避免「点了没反应」
-          console.error('[XSDOI] sendMessage:', err);
+          console.error('[XSDOI-Plus:Pet] sendMessage:', err);
           sendBtn.disabled = false;
           sendBtn.textContent = '发送';
           appendMessage(messagesDiv, '发送出错: ' + (err && err.message ? err.message : err), 'bot');

@@ -67,18 +67,18 @@
   function save(reason) {
     var code = getCode();
     if (!code) {
-      console.warn('[自动保存] 未取到代码，跳过');
+      console.warn('[XSDOI-Plus:AutoSave] 未取到代码，跳过');
       return;
     }
     var pid = getProblemId() || 'unknown';
     var filename = pid + '-' + getTimestampStr() + '-' + reason + '.cpp.backup';
     chrome.runtime.sendMessage({ type: 'SAVE_CODE', code: code, filename: filename }, function (resp) {
       if (chrome.runtime.lastError) {
-        console.error('[自动保存] 发送失败: ' + chrome.runtime.lastError.message);
+        console.error('[XSDOI-Plus:AutoSave] 发送失败: ' + chrome.runtime.lastError.message);
       } else if (resp && !resp.ok) {
-        console.error('[自动保存] 保存失败: ' + (resp.error || '未知错误'));
+        console.error('[XSDOI-Plus:AutoSave] 保存失败: ' + (resp.error || '未知错误'));
       } else {
-        console.log('[自动保存] 已保存: ' + filename);
+        console.log('[XSDOI-Plus:AutoSave] 已保存: ' + filename);
       }
     });
   }
@@ -90,11 +90,11 @@
     if (!pid || !code) return;
     chrome.runtime.sendMessage({ type: 'AUTO_BACKUP', problemId: pid, code: code }, function (resp) {
       if (chrome.runtime.lastError) {
-        console.error('[自动保存] 自动备份失败: ' + chrome.runtime.lastError.message);
+        console.error('[XSDOI-Plus:AutoSave] 自动备份失败: ' + chrome.runtime.lastError.message);
       } else if (resp && !resp.ok) {
-        console.error('[自动保存] 自动备份失败: ' + (resp.error || '未知错误'));
+        console.error('[XSDOI-Plus:AutoSave] 自动备份失败: ' + (resp.error || '未知错误'));
       } else {
-        console.log('[自动保存] 自动备份完成: ' + (resp && resp.filename));
+        console.log('[XSDOI-Plus:AutoSave] 自动备份完成: ' + (resp && resp.filename));
       }
     });
   }
@@ -559,13 +559,13 @@
             if (!confirm('确定删除这个备份吗？')) return;
             chrome.runtime.sendMessage({ type: 'DELETE_BACKUP', filename: filename }, function (resp) {
               if (chrome.runtime.lastError) {
-                console.error('[自动保存] 删除失败: ' + chrome.runtime.lastError.message);
+                console.error('[XSDOI-Plus:AutoSave] 删除失败: ' + chrome.runtime.lastError.message);
                 return;
               }
               if (resp && resp.ok) {
                 loadList();
               } else {
-                console.error('[自动保存] 删除失败: ' + (resp && resp.error ? resp.error : '未知错误'));
+                console.error('[XSDOI-Plus:AutoSave] 删除失败: ' + (resp && resp.error ? resp.error : '未知错误'));
               }
             });
           });
@@ -599,13 +599,13 @@
       if (!confirm('确定清除该题目的所有备份吗？此操作不可恢复。')) return;
       chrome.runtime.sendMessage({ type: 'CLEAR_ALL_BACKUPS', problemId: pid }, function (resp) {
         if (chrome.runtime.lastError) {
-          console.error('[自动保存] 一键清除失败: ' + chrome.runtime.lastError.message);
+          console.error('[XSDOI-Plus:AutoSave] 一键清除失败: ' + chrome.runtime.lastError.message);
           return;
         }
         if (resp && resp.ok) {
           loadList();
         } else {
-          console.error('[自动保存] 一键清除失败: ' + (resp && resp.error ? resp.error : '未知错误'));
+          console.error('[XSDOI-Plus:AutoSave] 一键清除失败: ' + (resp && resp.error ? resp.error : '未知错误'));
         }
       });
     });
