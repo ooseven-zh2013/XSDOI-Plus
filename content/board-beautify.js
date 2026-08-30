@@ -426,9 +426,9 @@
       '  border: 1px solid rgba(255, 255, 255, 0.12) !important;',
       '}',
       /* 紫色卡片 ct-hero 暗色：品牌渐变半透明版（rgba 从 theme-dark 的 --brand-gradient 换算），
-         alpha 0.55 让深色背景下也能透出可见的 backdrop-filter 模糊 */
+         alpha 0.40/0.36 让深色背景下透出明显 backdrop-filter 模糊，白字在深紫底上仍可读 */
       'html.theme-dark .ct-hero {',
-      '  background: linear-gradient(120deg, rgba(74, 82, 204, 0.55), rgba(106, 79, 208, 0.50) 52%, rgba(138, 63, 174, 0.50)) !important;',
+      '  background: linear-gradient(120deg, rgba(74, 82, 204, 0.40), rgba(106, 79, 208, 0.36) 52%, rgba(138, 63, 174, 0.36)) !important;',
       '  border: 1px solid rgba(255, 255, 255, 0.12) !important;',
       '}',
       'html.theme-dark .ct-card .el-radio-button__inner {',
