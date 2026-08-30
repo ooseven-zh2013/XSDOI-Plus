@@ -398,8 +398,8 @@
       '.ct-card {',
       '  border: 1px solid rgba(255, 255, 255, 0.5) !important;',
       '}',
-      /* 紫色卡片 ct-hero：品牌渐变改半透明（rgba 版，alpha 0.72 兼顾白字对比度与可见模糊），
-         透出页面背景 + backdrop-filter 模糊；补亚克力白边框 */
+      /* 紫色卡片 ct-hero：品牌渐变改半透明（rgba 版）。亮色 alpha 0.72 保证白字对比度；
+         暗色 alpha 0.55（背景深，低 alpha 才能透出可见模糊，白字在深底上仍可读） */
       '.ct-hero {',
       '  background: linear-gradient(120deg, rgba(79, 70, 229, 0.72), rgba(124, 92, 240, 0.66) 52%, rgba(160, 75, 201, 0.66)) !important;',
       '  border: 1px solid rgba(255, 255, 255, 0.5) !important;',
@@ -425,9 +425,10 @@
       'html.theme-dark .ct-card {',
       '  border: 1px solid rgba(255, 255, 255, 0.12) !important;',
       '}',
-      /* 紫色卡片 ct-hero 暗色：品牌渐变半透明版（rgba 从 theme-dark 的 --brand-gradient 换算） */
+      /* 紫色卡片 ct-hero 暗色：品牌渐变半透明版（rgba 从 theme-dark 的 --brand-gradient 换算），
+         alpha 0.55 让深色背景下也能透出可见的 backdrop-filter 模糊 */
       'html.theme-dark .ct-hero {',
-      '  background: linear-gradient(120deg, rgba(74, 82, 204, 0.72), rgba(106, 79, 208, 0.66) 52%, rgba(138, 63, 174, 0.66)) !important;',
+      '  background: linear-gradient(120deg, rgba(74, 82, 204, 0.55), rgba(106, 79, 208, 0.50) 52%, rgba(138, 63, 174, 0.50)) !important;',
       '  border: 1px solid rgba(255, 255, 255, 0.12) !important;',
       '}',
       'html.theme-dark .ct-card .el-radio-button__inner {',

@@ -155,8 +155,15 @@
     }
     function unlock() {
       cleanup();
-      if (video && video.parentNode) {
-        video.muted = false; // 恢复声音
+      if (!video || !video.parentNode) return;
+      // 仅在有效用户手势下取消静音，避免浏览器打出 "Unmuting failed" 警告
+      if (navigator.userActivation && !navigator.userActivation.isActive) return;
+      video.muted = false;
+      var p = video.play();
+      if (p && p.catch) {
+        p.catch(function () {
+          video.muted = true; // 播放被拦截则回退静音，保证画面
+        });
       }
     }
     document.addEventListener('click', unlock, true);
