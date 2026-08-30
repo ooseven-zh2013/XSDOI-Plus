@@ -205,3 +205,24 @@
     IMG_MAX_BYTES: IMG_MAX_BYTES,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// ==================== 全局字体颜色 ====================
+// 覆盖 xsdoi.com 的文字 CSS 变量（--text-strong/main/second/muted 等），
+// 亮色默认黑、暗色默认白，可自定义；不影响彩色字体与编辑器（CodeMirror）字体。
+(function (global) {
+  'use strict';
+
+  // storage.sync key
+  var STORAGE_KEY = 'fontColor';
+
+  var DEFAULTS = {
+    enabled: false,
+    lightColor: '#1f2733', // 亮色模式默认文字色（站点原值 --text-strong）
+    darkColor: '#eef1f8',  // 暗色模式默认文字色（站点原值 --text-strong）
+  };
+
+  global.FONT_COLOR = {
+    DEFAULTS: DEFAULTS,
+    STORAGE_KEY: STORAGE_KEY,
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);

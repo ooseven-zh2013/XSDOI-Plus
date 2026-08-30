@@ -11,6 +11,7 @@
       <div class="nav-item active" data-view="logo">图标替换</div>
       <div class="nav-item" data-view="ac">AC 动画</div>
       <div class="nav-item" data-view="board">板块美化</div>
+      <div class="nav-item" data-view="fontcolor">字体颜色</div>
       <div class="nav-item" data-view="bg">背景替换</div>
       <div class="nav-item" data-view="powermode">打字特效</div>
       <div class="nav-item" data-view="mousetrail">鼠标尾迹</div>
@@ -212,6 +213,48 @@
 
         <div class="save-row">
           <button id="board-save" class="save-btn">保存并应用</button>
+        </div>
+        <p class="tip">调整后请点击「保存并应用」才会生效并持久化。</p>
+      </section>
+
+      <!-- ============ 字体颜色 ============ -->
+      <section class="view" id="view-fontcolor">
+        <h2 class="view-title">字体颜色</h2>
+        <p class="view-sub">自定义全局默认文字颜色（黑白字体），亮色默认黑、暗色默认白</p>
+
+        <div class="board-row">
+          <div class="board-label">
+            <div class="name">启用自定义字体颜色</div>
+            <div class="desc">关闭后恢复站点默认文字颜色</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="fc-enabled">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="fc-color-block">
+          <div class="label">亮色模式文字颜色</div>
+          <div class="bg-row bg-color-row">
+            <input type="color" id="fc-light-picker" value="#1f2733" title="点击选色">
+            <input type="text" id="fc-light-input" placeholder="#1f2733 或 rgba(...)">
+          </div>
+          <p class="bg-color-tip">浅色背景下正文 / 标题 / 次要文字的颜色，默认黑</p>
+        </div>
+
+        <div class="fc-color-block">
+          <div class="label">暗色模式文字颜色</div>
+          <div class="bg-row bg-color-row">
+            <input type="color" id="fc-dark-picker" value="#eef1f8" title="点击选色">
+            <input type="text" id="fc-dark-input" placeholder="#eef1f8 或 rgba(...)">
+          </div>
+          <p class="bg-color-tip">深色背景下正文 / 标题 / 次要文字的颜色，默认白</p>
+        </div>
+
+        <p class="tip">仅作用于全局黑白字体（正文/标题/次要文字等），不影响彩色字体（品牌色/等级色等）与编辑器（CodeMirror）代码字体。</p>
+
+        <div class="save-row">
+          <button id="fc-save" class="save-btn">保存并应用</button>
         </div>
         <p class="tip">调整后请点击「保存并应用」才会生效并持久化。</p>
       </section>
@@ -734,6 +777,7 @@
   <script src="logo-panel.js"></script>
   <script src="ac-panel.js"></script>
   <script src="board-panel.js"></script>
+  <script src="font-color-panel.js"></script>
   <script src="bg-panel.js"></script>
   <script src="powermode-panel.js"></script>
   <script src="mouse-trail-panel.js"></script>

@@ -415,6 +415,15 @@ input[type="text"]:disabled, input[type="number"]:disabled { opacity: .5; cursor
 #pet-save.save-btn.saved { background: #10b981; color: #fff; }
 #pet-save.save-btn.save-error { background: #e5484d; color: #fff; }
 
+/* 字体颜色面板：颜色块 */
+.fc-color-block { margin-top: 12px; }
+.fc-color-block .label { font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
+
+/* 字体颜色面板：保存按钮默认用品牌色，与其他模块一致 */
+#fc-save.save-btn { background: var(--brand); color: #fff; }
+#fc-save.save-btn.saved { background: #10b981; color: #fff; }
+#fc-save.save-btn.save-error { background: #e5484d; color: #fff; }
+
 /* 点击特效：自定义图片预览 */
 .cfx-img-preview {
   display: block;
