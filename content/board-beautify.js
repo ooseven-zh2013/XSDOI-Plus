@@ -385,8 +385,8 @@
       'html.theme-dark .el-table:before {',
       '  background-color: transparent !important;',
       '}',
-      /* 代码速打页（/typing）：左侧题库 ct-lib、右侧设置卡 ct-card 透明化，透出统一玻璃层背景；
-         紫色卡片 ct-hero 改半透明品牌渐变 + 亚克力模糊（白字保留）。
+      /* 代码速打页（/typing）：左侧题库 ct-lib、右侧设置卡 ct-card 透明化 + 亚克力白边框，
+         透出统一玻璃层背景；紫色卡片 ct-hero 改半透明品牌渐变 + 亚克力模糊（白字保留）。
          编辑区 ct-editor/.ct-code 是代码工作区，保持不透明保证可读性，不做美化 */
       '.ct-lib,',
       '.ct-card,',
@@ -394,9 +394,15 @@
       '.ct-err-key {',
       '  background: transparent !important;',
       '}',
-      /* 紫色卡片 ct-hero：品牌渐变改半透明（rgba 版），亮色下透出玻璃层与页面背景 */
+      '.ct-lib,',
+      '.ct-card {',
+      '  border: 1px solid rgba(255, 255, 255, 0.5) !important;',
+      '}',
+      /* 紫色卡片 ct-hero：品牌渐变改半透明（rgba 版，alpha 0.72 兼顾白字对比度与可见模糊），
+         透出页面背景 + backdrop-filter 模糊；补亚克力白边框 */
       '.ct-hero {',
-      '  background: linear-gradient(120deg, rgba(79, 70, 229, 0.85), rgba(124, 92, 240, 0.80) 52%, rgba(160, 75, 201, 0.80)) !important;',
+      '  background: linear-gradient(120deg, rgba(79, 70, 229, 0.72), rgba(124, 92, 240, 0.66) 52%, rgba(160, 75, 201, 0.66)) !important;',
+      '  border: 1px solid rgba(255, 255, 255, 0.5) !important;',
       '}',
       /* ct-card 内 el-radio-button：未选中项透明 + 亚克力边框（选中态 is-active 保留品牌色白字） */
       '.ct-card .el-radio-button__inner {',
@@ -415,9 +421,14 @@
       'html.theme-dark .ct-err-key {',
       '  background: transparent !important;',
       '}',
+      'html.theme-dark .ct-lib,',
+      'html.theme-dark .ct-card {',
+      '  border: 1px solid rgba(255, 255, 255, 0.12) !important;',
+      '}',
       /* 紫色卡片 ct-hero 暗色：品牌渐变半透明版（rgba 从 theme-dark 的 --brand-gradient 换算） */
       'html.theme-dark .ct-hero {',
-      '  background: linear-gradient(120deg, rgba(74, 82, 204, 0.85), rgba(106, 79, 208, 0.80) 52%, rgba(138, 63, 174, 0.80)) !important;',
+      '  background: linear-gradient(120deg, rgba(74, 82, 204, 0.72), rgba(106, 79, 208, 0.66) 52%, rgba(138, 63, 174, 0.66)) !important;',
+      '  border: 1px solid rgba(255, 255, 255, 0.12) !important;',
       '}',
       'html.theme-dark .ct-card .el-radio-button__inner {',
       '  background: transparent !important;',
