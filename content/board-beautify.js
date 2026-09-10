@@ -1,16 +1,24 @@
-// content.js —— 在新赛道OI页面注入/移除亚克力毛玻璃样式
-// 与 popup 通过 chrome.storage.sync 通信，开关与透明度变化实时生效
-// 语义：透明度(alpha)始终生效；开关(enabled)只控制「模糊」。
-//   关掉开关 → 元素仍半透明（玻璃效果），仅去掉 backdrop-filter 模糊。
-// 作用范围：卡片 .el-card、左侧菜单栏 #nav、顶部栏 .oj-topbar
+// content.js —— 在新赛道OI页面注入/移除玻璃美化样式
+// 与 popup 通过 chrome.storage.sync 通信，模式 / 透明度 / 折射变化实时生效
+// 语义：透明度(alpha)三模式共有；玻璃效果三选一（mode，互斥且均含玻璃层半透明底色）：
+//   'none'    仅透明化：只保留玻璃层半透明底色，无模糊
+//   'acrylic' 毛玻璃  ：玻璃层 + backdrop-filter blur
+//   'liquid'  液态玻璃：毛玻璃增强 + 边缘高光 + 伪折射；可选实验性真折射(refract)
+// 作用范围：见 content/acrylic-config.js 的选择器列表
 (function () {
   'use strict';
 
   var STYLE_ID = 'xsdoi-acrylic';
-  var DEFAULT_ENABLED = true;
+  var MODES = ['none', 'acrylic', 'liquid'];
+  var DEFAULT_MODE = 'none';    // 新用户默认不开启
   var DEFAULT_ALPHA = 0.55;
+  var DEFAULT_REFRACT = false;  // 实验性真折射（仅 liquid 模式生效），默认关
 
-  var state = { enabled: DEFAULT_ENABLED, alpha: DEFAULT_ALPHA };
+  var state = { mode: DEFAULT_MODE, alpha: DEFAULT_ALPHA, refract: DEFAULT_REFRACT };
+
+  function sanitizeMode(v) {
+    return MODES.indexOf(v) >= 0 ? v : DEFAULT_MODE;
+  }
 
   function sanitizeAlpha(v) {
     var a = parseFloat(v);
@@ -45,14 +53,24 @@
     }
   }
 
-  function buildCSS(alpha, enabled) {
+  function buildCSS(alpha, mode) {
     var a = alpha.toFixed(2);
+    var liquid = mode === 'liquid';
+    // 元素专属毛玻璃模糊（滑块/进度条玻璃棒、深色标签、AI 横幅）：非「仅透明化」模式才生成
+    var bf = function (px) {
+      return mode !== 'none'
+        ? ['  -webkit-backdrop-filter: blur(' + px + 'px) saturate(160%);',
+           '  backdrop-filter: blur(' + px + 'px) saturate(160%);']
+        : [];
+    };
+    var BF5 = bf(5), BF8 = bf(8), BF12 = bf(12);
     var rules = [];
 
     // ---- 从配置读取选择器列表（集中维护于 content/acrylic-config.js）----
     var CFG = (typeof globalThis !== 'undefined' ? globalThis : self).XSDOI_ACRYLIC || {};
-    var acrylicList = (CFG.acrylic || []).concat(CFG.glassOnly || []); // 玻璃层：完整亚克力 + 仅玻璃层
-    var blurList = (CFG.acrylic || []).concat(CFG.blurOnly || []);     // 模糊：完整亚克力 + 仅模糊
+    var acrylicOnly = CFG.acrylic || [];                        // 完整亚克力（玻璃层 + 模糊）
+    var acrylicList = acrylicOnly.concat(CFG.glassOnly || []);  // 玻璃层：完整亚克力 + 仅玻璃层
+    var blurList = acrylicOnly.concat(CFG.blurOnly || []);      // 模糊：完整亚克力 + 仅模糊
 
     // 拼亮色选择器行：'.a, .b, ... {'
     function selLine(sels) { return sels.join(', ') + ' {'; }
@@ -495,16 +513,14 @@
       '  background:',
       '    linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.18) 28%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0) 100%),',
       '    rgba(255, 255, 255, 0.18) !important;',
-      '  -webkit-backdrop-filter: blur(5px) saturate(160%);',
-      '  backdrop-filter: blur(5px) saturate(160%);',
+      ...BF5,
       '  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14) !important;',
       '}',
       'html.theme-dark .el-slider .el-slider__bar {',
       '  background:',
       '    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.14) 28%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0) 100%),',
       '    rgba(255, 255, 255, 0.08) !important;',
-      '  -webkit-backdrop-filter: blur(5px) saturate(160%);',
-      '  backdrop-filter: blur(5px) saturate(160%);',
+      ...BF5,
       '  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28) !important;',
       '}',
       /* el-tag--dark 深色标签（倒计时等，无内联 style）：与其他卡片一致的亚克力。
@@ -513,14 +529,12 @@
       '.el-tag--dark:not([style]) {',
       '  background-color: transparent !important;',
       '  border-color: rgba(255, 255, 255, 0.5) !important;',
-      '  -webkit-backdrop-filter: blur(8px) saturate(160%);',
-      '  backdrop-filter: blur(8px) saturate(160%);',
+      ...BF8,
       '}',
       'html.theme-dark .el-tag--dark:not([style]) {',
       '  background-color: transparent !important;',
       '  border-color: rgba(255, 255, 255, 0.12) !important;',
-      '  -webkit-backdrop-filter: blur(8px) saturate(160%);',
-      '  backdrop-filter: blur(8px) saturate(160%);',
+      ...BF8,
       '}',
       /* 带内联彩色背景的 el-tag--dark（用户头衔「神犇/DALAO」、提交状态「Accepted」等）：
          只用圆角，保留内联彩色背景，不透明/不亚克力 */
@@ -536,13 +550,11 @@
       '.ai-banner {',
       '  background: transparent !important;',
       '  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.12) !important;',
-      '  -webkit-backdrop-filter: blur(12px) saturate(160%);',
-      '  backdrop-filter: blur(12px) saturate(160%);',
+      ...BF12,
       '}',
       'html.theme-dark .ai-banner {',
       '  background: transparent !important;',
-      '  -webkit-backdrop-filter: blur(12px) saturate(160%);',
-      '  backdrop-filter: blur(12px) saturate(160%);',
+      ...BF12,
       '}',
       /* 代码编辑器工具栏（语言选择输入框 + 按钮 + 设置弹窗） */
       '.left-adjust .el-input__inner, #js-right-header .el-button, .el-popover {',
@@ -1415,16 +1427,14 @@
       '  background:',
       '    linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.18) 28%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0) 100%),',
       '    rgba(255, 255, 255, 0.18) !important;',
-      '  -webkit-backdrop-filter: blur(5px) saturate(160%);',
-      '  backdrop-filter: blur(5px) saturate(160%);',
+      ...BF5,
       '  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14) !important;',
       '}',
       'html.theme-dark .cc-progress-bar {',
       '  background:',
       '    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.14) 28%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0) 100%),',
       '    rgba(255, 255, 255, 0.08) !important;',
-      '  -webkit-backdrop-filter: blur(5px) saturate(160%);',
-      '  backdrop-filter: blur(5px) saturate(160%);',
+      ...BF5,
       '  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28) !important;',
       '}'
     );
@@ -1488,12 +1498,16 @@
       '}'
     );
 
-    /* ===== 模糊（仅开关开启时）===== */
-    if (enabled) {
+    /* ===== 模糊（acrylic / liquid 模式；none 模式无模糊）=====
+       liquid 用更强的 saturate/brightness/contrast，接近液态玻璃的通透观感 */
+    if (mode !== 'none') {
+      var BLUR = liquid
+        ? 'blur(24px) saturate(200%) brightness(1.08) contrast(1.05)'
+        : 'blur(20px) saturate(180%)';
       rules.push(
         selLine(blurList),
-        '  -webkit-backdrop-filter: blur(20px) saturate(180%);',
-        '  backdrop-filter: blur(20px) saturate(180%);',
+        '  -webkit-backdrop-filter: ' + BLUR + ';',
+        '  backdrop-filter: ' + BLUR + ';',
         '}',
         /* popover 的毛玻璃改用 ::before 伪元素承载：若直接给 .el-popover 设 backdrop-filter，
            会形成 backdrop root，使嵌在它内部的下拉框（如 auto-backup-dropdown）的 backdrop-filter 失效；
@@ -1506,10 +1520,34 @@
         '  right: 0;',
         '  bottom: 0;',
         '  border-radius: inherit;',
-        '  -webkit-backdrop-filter: blur(20px) saturate(180%);',
-        '  backdrop-filter: blur(20px) saturate(180%);',
+        '  -webkit-backdrop-filter: ' + BLUR + ';',
+        '  backdrop-filter: ' + BLUR + ';',
         '  z-index: -1;',
         '  pointer-events: none;',
+        '}'
+      );
+    }
+
+    /* ===== 液态玻璃增强（仅 liquid）：边缘高光 + 伪折射 =====
+       作用在完整亚克力元素（acrylicOnly）上，不含 glassOnly / blurOnly 的特殊元素。
+       伪折射：用多层 inset box-shadow 模拟光在玻璃边缘聚集的折射观感（顶部高光条 +
+       一圈细亮边 + 底部内侧反光 + 整体内侧柔光）——纯 CSS、零定位风险；
+       真正的几何扭曲（背景透过玻璃变形）需 canvas 采样，见 applyRefract()。 */
+    if (liquid) {
+      rules.push(
+        selLine(acrylicOnly),
+        '  box-shadow:',
+        '    inset 0 1px 1px rgba(255, 255, 255, 0.50),',
+        '    inset 0 0 0 1px rgba(255, 255, 255, 0.14),',
+        '    inset 0 -8px 14px -8px rgba(255, 255, 255, 0.12),',
+        '    inset 0 0 18px rgba(255, 255, 255, 0.07) !important;',
+        '}',
+        darkSelLine(acrylicOnly),
+        '  box-shadow:',
+        '    inset 0 1px 1px rgba(255, 255, 255, 0.22),',
+        '    inset 0 0 0 1px rgba(255, 255, 255, 0.09),',
+        '    inset 0 -8px 14px -8px rgba(255, 255, 255, 0.06),',
+        '    inset 0 0 18px rgba(255, 255, 255, 0.04) !important;',
         '}'
       );
     }
@@ -1517,17 +1555,152 @@
     return rules.join('\n');
   }
 
-  function apply() {
-    var el = document.getElementById(STYLE_ID);
+  // ============================================================
+  // 实验性「真折射」：canvas 采样页面背景 + 边缘环几何位移
+  // 仅在「液态玻璃(mode=liquid) + 开启 refract」时生效。
+  // 原理：取 body 的背景图，按 cover 映射到视口；对每个亚克力元素的边缘环区域，
+  //       以元素中心放大绘制该处背景（模拟透镜使背景在边缘外扩/放大），
+  //       叠加在元素之上，形成几何扭曲的折射感（区别于纯高光的「伪折射」）。
+  // 局限：只能折射页面背景（有背景图时明显；纯色 / 渐变几乎不可见），
+  //       不折射背景之上的其他元素；滚动 / resize 需重绘，开销较大 → 默认关闭。
+  // ============================================================
+  var REFRACT_ID = 'xsdoi-refract-canvas';
+  var REFRACT_RING = 10;    // 边缘环宽度(px)
+  var REFRACT_ZOOM = 1.06;  // 边缘折射放大倍率
+  var refractCanvas = null, refractRaf = 0, refractImg = null, refractImgSrc = '';
 
-    // 完全无效果：不透明 + 无模糊 → 移除样式
-    if (!state.enabled && state.alpha >= 0.999) {
-      if (el) el.remove();
-      restoreLvBg();
+  function refractTargets() {
+    var CFG = (typeof globalThis !== 'undefined' ? globalThis : self).XSDOI_ACRYLIC || {};
+    var list = CFG.acrylic || [];
+    return list.length ? document.querySelectorAll(list.join(',')) : [];
+  }
+
+  function refractSchedule() {
+    if (refractRaf) return;
+    refractRaf = requestAnimationFrame(refractDraw);
+  }
+
+  function refractDraw() {
+    refractRaf = 0;
+    if (state.mode !== 'liquid' || !state.refract) return;
+
+    // 读取 body 背景图（无图片背景则无折射可画）
+    var src = '';
+    try {
+      var bi = getComputedStyle(document.body).backgroundImage || '';
+      var m = bi.match(/url\(["']?(.*?)["']?\)/);
+      src = (m && m[1] && m[1] !== 'none') ? m[1] : '';
+    } catch (e) { src = ''; }
+
+    if (src && src !== refractImgSrc) {
+      refractImgSrc = src;
+      var im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = function () { refractImg = im; refractSchedule(); };
+      im.onerror = function () { refractImg = null; };
+      im.src = src;
+    }
+
+    if (!src || !refractImg || !refractImg.complete || !refractImg.naturalWidth) {
+      if (refractCanvas && refractCanvas.parentNode) {
+        refractCanvas.parentNode.removeChild(refractCanvas);
+        refractCanvas = null;
+      }
       return;
     }
 
-    var css = buildCSS(state.alpha, state.enabled);
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (!refractCanvas) {
+      refractCanvas = document.createElement('canvas');
+      refractCanvas.id = REFRACT_ID;
+      refractCanvas.style.cssText =
+        'position:fixed;left:0;top:0;pointer-events:none;z-index:2147483000;';
+      (document.body || document.documentElement).appendChild(refractCanvas);
+    }
+    if (refractCanvas.width !== Math.round(vw * dpr) || refractCanvas.height !== Math.round(vh * dpr)) {
+      refractCanvas.width = Math.round(vw * dpr);
+      refractCanvas.height = Math.round(vh * dpr);
+      refractCanvas.style.width = vw + 'px';
+      refractCanvas.style.height = vh + 'px';
+    }
+    var ctx = refractCanvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, vw, vh);
+
+    // 背景按 cover 规则映射到视口
+    var iw = refractImg.naturalWidth, ih = refractImg.naturalHeight;
+    var scale = Math.max(vw / iw, vh / ih);
+    var dx0 = (vw - iw * scale) / 2, dy0 = (vh - ih * scale) / 2;
+
+    var els = refractTargets();
+    var ring = REFRACT_RING, zoom = REFRACT_ZOOM;
+    var alpha = Math.max(0, Math.min(1, state.alpha));
+
+    for (var i = 0; i < els.length; i++) {
+      var r = els[i].getBoundingClientRect();
+      if (r.width < ring * 2 + 4 || r.height < ring * 2 + 4) continue;
+      if (r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
+
+      ctx.save();
+      // clip 成「外矩形 − 内矩形」的环形（evenodd）
+      ctx.beginPath();
+      ctx.rect(r.left, r.top, r.width, r.height);
+      ctx.rect(r.left + ring, r.top + ring, r.width - ring * 2, r.height - ring * 2);
+      ctx.clip('evenodd');
+
+      // 以元素中心放大 zoom 倍绘制背景（模拟透镜边缘外扩）
+      var zw = r.width * zoom, zh = r.height * zoom;
+      var zx = r.left - (zw - r.width) / 2, zy = r.top - (zh - r.height) / 2;
+      var sx = (zx - dx0) / scale, sy = (zy - dy0) / scale;
+      var sw = zw / scale, sh = zh / scale;
+
+      // 源区域越界时按比例裁切，避免 drawImage 比例失真
+      var tx = r.left, ty = r.top, tw = r.width, th = r.height;
+      if (sx < 0) { var k1 = -sx / sw; tx += tw * k1; tw -= tw * k1; sx = 0; sw -= sw * k1; }
+      if (sy < 0) { var k2 = -sy / sh; ty += th * k2; th -= th * k2; sy = 0; sh -= sh * k2; }
+      if (sx + sw > iw) { var k3 = (sx + sw - iw) / sw; tw -= tw * k3; sw -= sw * k3; }
+      if (sy + sh > ih) { var k4 = (sy + sh - ih) / sh; th -= th * k4; sh -= sh * k4; }
+      if (sw > 0 && sh > 0 && tw > 0 && th > 0) {
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(refractImg, sx, sy, sw, sh, tx, ty, tw, th);
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+  }
+
+  // 真折射开关：创建 / 清理画布与监听；重复调用安全（同一处理器会被去重）
+  function applyRefract() {
+    var on = state.mode === 'liquid' && !!state.refract;
+    if (!on) {
+      if (refractRaf) { cancelAnimationFrame(refractRaf); refractRaf = 0; }
+      window.removeEventListener('scroll', refractSchedule, true);
+      window.removeEventListener('resize', refractSchedule);
+      if (refractCanvas && refractCanvas.parentNode) {
+        refractCanvas.parentNode.removeChild(refractCanvas);
+      }
+      refractCanvas = null;
+      refractImgSrc = '';
+      return;
+    }
+    window.addEventListener('scroll', refractSchedule, true);
+    window.addEventListener('resize', refractSchedule);
+    refractSchedule();
+  }
+
+  function apply() {
+    var el = document.getElementById(STYLE_ID);
+
+    // 完全无效果：仅透明模式 + 全不透明 → 移除样式
+    if (state.mode === 'none' && state.alpha >= 0.999) {
+      if (el) el.remove();
+      restoreLvBg();
+      applyRefract();
+      return;
+    }
+
+    var css = buildCSS(state.alpha, state.mode);
     if (el) {
       el.textContent = css;
     } else {
@@ -1537,28 +1710,43 @@
       (document.head || document.documentElement).appendChild(s);
     }
     applyLvBg(state.alpha);
+    applyRefract();
   }
 
   function loadAndApply() {
     try {
-      chrome.storage.sync.get({ enabled: DEFAULT_ENABLED, alpha: DEFAULT_ALPHA }, function (data) {
-        state.enabled = !!data.enabled;
+      chrome.storage.sync.get(['mode', 'enabled', 'alpha', 'refract'], function (data) {
+        var mode = data.mode;
+        if (!mode) {
+          // 迁移老配置：旧版只有 enabled（布尔），映射为 acrylic / none
+          mode = (typeof data.enabled === 'boolean')
+            ? (data.enabled ? 'acrylic' : 'none')
+            : DEFAULT_MODE;
+        }
+        state.mode = sanitizeMode(mode);
         state.alpha = sanitizeAlpha(data.alpha);
+        state.refract = !!data.refract;
         apply();
       });
     } catch (e) {
-      state.enabled = DEFAULT_ENABLED;
+      state.mode = DEFAULT_MODE;
       state.alpha = DEFAULT_ALPHA;
+      state.refract = DEFAULT_REFRACT;
       apply();
     }
   }
 
-  // 监听 popup 的开关 / 透明度变化，无需刷新页面即可生效
+  // 监听 popup 的模式 / 透明度 / 折射变化，无需刷新页面即可生效
   try {
     chrome.storage.onChanged.addListener(function (changes, area) {
       if (area !== 'sync') return;
-      if (changes.enabled) state.enabled = !!changes.enabled.newValue;
+      if (changes.mode) state.mode = sanitizeMode(changes.mode.newValue);
+      // 兼容老字段 enabled（旧版 popup 仍在写时）
+      if (!changes.mode && changes.enabled) {
+        state.mode = changes.enabled.newValue ? 'acrylic' : 'none';
+      }
       if (changes.alpha) state.alpha = sanitizeAlpha(changes.alpha.newValue);
+      if (changes.refract) state.refract = !!changes.refract.newValue;
       apply();
     });
   } catch (e) { /* 忽略 */ }
@@ -1570,7 +1758,7 @@
   (function watchLvCard() {
     if (typeof MutationObserver === 'undefined') return;
     var observer = new MutationObserver(function () {
-      if (!(state.enabled === false && state.alpha >= 0.999)) {
+      if (!(state.mode === 'none' && state.alpha >= 0.999)) {
         applyLvBg(state.alpha);
       }
     });

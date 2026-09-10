@@ -187,20 +187,17 @@
       <!-- ============ 板块美化 ============ -->
       <section class="view" id="view-board">
         <h2 class="view-title">板块美化</h2>
-        <p class="view-sub">亚克力毛玻璃外观，亮色/暗色自适应</p>
+        <p class="view-sub">玻璃外观三选一，亮色/暗色自适应</p>
 
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">背景模糊</div>
-            <div class="desc">关闭后仅去掉模糊，仍保留透明</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="board-toggle">
-            <span class="slider"></span>
-          </label>
+        <div class="label" style="margin-bottom:8px;">玻璃效果</div>
+        <div class="bg-fits" id="board-mode">
+          <button class="bg-fit" data-mode="acrylic">亚克力（毛玻璃）</button>
+          <button class="bg-fit" data-mode="liquid">液态玻璃</button>
+          <button class="bg-fit" data-mode="none">仅透明化</button>
         </div>
+        <p class="tip" id="board-mode-tip"></p>
 
-        <div class="board-row">
+        <div class="board-row" style="margin-top:10px;">
           <div class="board-label">
             <div class="name">卡片透明度</div>
             <div class="desc">0 = 全透明，1 = 不透明</div>
@@ -209,6 +206,17 @@
             <input type="range" id="board-alpha" class="alpha-slider" min="0" max="1" step="0.01" value="0.55">
             <input type="number" id="board-alpha-value" class="alpha-value" min="0" max="1" step="0.01" value="0.55">
           </div>
+        </div>
+
+        <div class="board-row" id="board-refract-row" style="display:none;">
+          <div class="board-label">
+            <div class="name">实验性：真折射</div>
+            <div class="desc">玻璃边缘背景几何扭曲；需页面有背景图才明显，性能开销较大</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="board-refract">
+            <span class="slider"></span>
+          </label>
         </div>
 
         <div class="save-row">

@@ -1,17 +1,26 @@
 // ============================================================
-// 板块美化面板逻辑（移植自原「板块显示美化」popup.js）
-// 变更点：控件 id 加 board- 前缀，避免与其它面板冲突。
-// 其余逻辑（草稿模式 + 保存并应用）原样保留。
+// 板块美化面板逻辑
+// 玻璃效果三选一（互斥）：acrylic 亚克力(毛玻璃) / liquid 液态玻璃 / none 仅透明化
+// + 透明度滑块（三模式共有）+ 实验性真折射开关（仅液态玻璃显示）
+// 兼容迁移：旧版只有 enabled 布尔 → true 映射 acrylic、false 映射 none
 // ============================================================
 (function () {
   'use strict';
 
+  var DEFAULT_MODE = 'none';
   var DEFAULT_ALPHA = 0.55;
-  var DEFAULT_ENABLED = true;
+  var DEFAULT_REFRACT = false;
+  var MODES = ['none', 'acrylic', 'liquid'];
+
+  var MODE_TIPS = {
+    none: '仅透明化：卡片半透明透出背景，不做模糊。',
+    acrylic: '亚克力（毛玻璃）：半透明 + 背景模糊，经典毛玻璃质感。',
+    liquid: '液态玻璃：更通透的模糊 + 边缘高光 / 伪折射；可另开下方实验性真折射。'
+  };
 
   // saved = 已持久化到 storage 的值；draft = 当前界面正在编辑的值
-  var saved = { enabled: DEFAULT_ENABLED, alpha: DEFAULT_ALPHA };
-  var draft = { enabled: DEFAULT_ENABLED, alpha: DEFAULT_ALPHA };
+  var saved = { mode: DEFAULT_MODE, alpha: DEFAULT_ALPHA, refract: DEFAULT_REFRACT };
+  var draft = { mode: DEFAULT_MODE, alpha: DEFAULT_ALPHA, refract: DEFAULT_REFRACT };
 
   function clamp(v) {
     v = parseFloat(v);
@@ -19,23 +28,40 @@
     return Math.min(1, Math.max(0, v));
   }
 
-  var toggle = document.getElementById('board-toggle');
+  function sanitizeMode(v) {
+    return MODES.indexOf(v) >= 0 ? v : DEFAULT_MODE;
+  }
+
+  var modeGroup = document.getElementById('board-mode');
+  var modeTip = document.getElementById('board-mode-tip');
   var alpha = document.getElementById('board-alpha');
   var alphaValue = document.getElementById('board-alpha-value');
+  var refractRow = document.getElementById('board-refract-row');
+  var refract = document.getElementById('board-refract');
   var saveBtn = document.getElementById('board-save');
 
   // 把 draft 同步到界面控件
   function syncUI() {
-    if (toggle) toggle.checked = draft.enabled;
+    if (modeGroup) {
+      var btns = modeGroup.querySelectorAll('.bg-fit');
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.toggle('active', btns[i].getAttribute('data-mode') === draft.mode);
+      }
+    }
+    if (modeTip) modeTip.textContent = MODE_TIPS[draft.mode] || '';
     if (alpha) alpha.value = draft.alpha;
     if (alphaValue) alphaValue.value = draft.alpha.toFixed(2);
+    if (refract) refract.checked = draft.refract;
+    // 实验性真折射仅在液态玻璃下可选
+    if (refractRow) refractRow.style.display = draft.mode === 'liquid' ? '' : 'none';
   }
 
   // 判断 draft 与 saved 是否有差异，据此高亮「保存」按钮
   function updateSaveState() {
     if (!saveBtn) return;
-    var dirty = (draft.enabled !== saved.enabled) ||
-                (Math.abs(draft.alpha - saved.alpha) > 0.0001);
+    var dirty = (draft.mode !== saved.mode) ||
+                (Math.abs(draft.alpha - saved.alpha) > 0.0001) ||
+                (draft.refract !== saved.refract);
     saveBtn.classList.toggle('dirty', dirty);
     saveBtn.classList.remove('saved');
   }
@@ -51,14 +77,22 @@
     }, 1200);
   }
 
-  // 读取已保存配置，填充草稿与界面
+  // 读取已保存配置，填充草稿与界面（含旧版 enabled 迁移）
   function load() {
     try {
-      chrome.storage.sync.get({ enabled: DEFAULT_ENABLED, alpha: DEFAULT_ALPHA }, function (data) {
-        saved.enabled = !!data.enabled;
+      chrome.storage.sync.get(['mode', 'enabled', 'alpha', 'refract'], function (data) {
+        var mode = data.mode;
+        if (!mode) {
+          mode = (typeof data.enabled === 'boolean')
+            ? (data.enabled ? 'acrylic' : 'none')
+            : DEFAULT_MODE;
+        }
+        saved.mode = sanitizeMode(mode);
         saved.alpha = clamp(data.alpha);
-        draft.enabled = saved.enabled;
+        saved.refract = !!data.refract;
+        draft.mode = saved.mode;
         draft.alpha = saved.alpha;
+        draft.refract = saved.refract;
         syncUI();
         updateSaveState();
       });
@@ -68,10 +102,10 @@
     }
   }
 
-  // 保存并应用：一次性写入 storage（content.js 监听 onChanged 自动应用）
+  // 保存并应用：一次性写入 storage（content script 监听 onChanged 自动应用）
   function save() {
     try {
-      chrome.storage.sync.set({ enabled: draft.enabled, alpha: draft.alpha }, function () {
+      chrome.storage.sync.set({ mode: draft.mode, alpha: draft.alpha, refract: draft.refract }, function () {
         if (chrome.runtime.lastError) {
           if (saveBtn) {
             saveBtn.classList.remove('dirty');
@@ -85,17 +119,21 @@
           }
           return;
         }
-        saved.enabled = draft.enabled;
+        saved.mode = draft.mode;
         saved.alpha = draft.alpha;
+        saved.refract = draft.refract;
         flashSaved();
       });
     } catch (e) { /* 忽略 */ }
   }
 
-  // ===== 开关：只改草稿，不写 storage =====
-  if (toggle) {
-    toggle.addEventListener('change', function () {
-      draft.enabled = toggle.checked;
+  // ===== 玻璃效果三选一：只改草稿，不写 storage =====
+  if (modeGroup) {
+    modeGroup.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('.bg-fit') : null;
+      if (!btn) return;
+      draft.mode = sanitizeMode(btn.getAttribute('data-mode'));
+      syncUI();
       updateSaveState();
     });
   }
@@ -125,6 +163,14 @@
       draft.alpha = v;
       alpha.value = v;
       alphaValue.value = v.toFixed(2);
+      updateSaveState();
+    });
+  }
+
+  // ===== 实验性真折射开关：只改草稿 =====
+  if (refract) {
+    refract.addEventListener('change', function () {
+      draft.refract = refract.checked;
       updateSaveState();
     });
   }
