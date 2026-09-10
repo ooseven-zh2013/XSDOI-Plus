@@ -150,6 +150,39 @@
         : [];
     };
     var BF5 = bf(5), BF8 = bf(8), BF12 = bf(12);
+
+    /* 滑块小球的内部滤镜行（按模式决定），dark=true 生成暗色版。
+       亚克力 = 毛玻璃模糊；液态玻璃 = 不模糊（伪折射靠边缘高光表现），
+       开真折射时叠 SVG 边缘折射；仅透明化 = 显式清空滤镜。
+       useRefract=true 时强制生成折射行（仅在 liquid+refract 下调用）。 */
+    function beadFilterLine(dark, useRefract) {
+      var sel = (dark ? 'html.theme-dark ' : 'html ') + '.el-slider .el-slider__button';
+      var head = sel + ' {';
+      if (useRefract) {
+        return [head,
+          '  -webkit-backdrop-filter: url("#' + REFRACT_FILTER_ID + '") blur(1px) !important;',
+          '  backdrop-filter: url("#' + REFRACT_FILTER_ID + '") blur(1px) !important;',
+          '}'];
+      }
+      if (mode === 'acrylic') {
+        return [head,
+          '  -webkit-backdrop-filter: blur(8px) saturate(180%) !important;',
+          '  backdrop-filter: blur(8px) saturate(180%) !important;',
+          '}'];
+      }
+      if (liquid) {
+        /* 液态玻璃不模糊：只留 1px 极轻模糊抹掉 backdrop 噪点，绝不是毛玻璃 */
+        return [head,
+          '  -webkit-backdrop-filter: blur(1px) saturate(160%) !important;',
+          '  backdrop-filter: blur(1px) saturate(160%) !important;',
+          '}'];
+      }
+      /* 仅透明化：清空滤镜 */
+      return [head,
+        '  -webkit-backdrop-filter: none !important;',
+        '  backdrop-filter: none !important;',
+        '}'];
+    }
     var rules = [];
 
     // ---- 从配置读取选择器列表（集中维护于 content/acrylic-config.js）----
@@ -592,13 +625,21 @@
       'html.theme-dark .el-slider__runway {',
       '  background: transparent !important;',
       '}',
-      /* 滑块按钮：玻璃珠效果（半透明 + 左上高光 + 玻璃边缘 + 立体阴影） */
+      /* 滑块按钮（小球）：随玻璃模式变化 + 拖拽时放大
+         - 亚克力：珠子内部 backdrop-filter 模糊，实心毛玻璃珠
+         - 液态玻璃：珠子内部折射（走 backdrop-filter url），不模糊；未开真折射时
+           只保留边缘白带 + 高光的「伪折射」观感
+         - 仅透明化：珠子不模糊不折射，只做透明度
+         拖拽放大：::after 补充一圈发光环 + scale(1.25)，pointer-events:none 不挡拖动 */
       'html .el-slider .el-slider__button {',
       '  background:',
       '    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.30) 40%, rgba(255, 255, 255, 0.06) 58%, rgba(255, 255, 255, 0) 78%),',
       '    rgba(255, 255, 255, 0.40) !important;',
       '  border: 1.5px solid rgba(255, 255, 255, 0.75) !important;',
       '  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.22), inset 0 -2px 4px rgba(0, 0, 0, 0.08) !important;',
+      /* 拖拽放大：transition 让放大/回弹有动画；transform-origin 居中 */
+      '  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease !important;',
+      '  transform-origin: 50% 50% !important;',
       '}',
       'html.theme-dark .el-slider .el-slider__button {',
       '  background:',
@@ -606,13 +647,52 @@
       '    rgba(255, 255, 255, 0.16) !important;',
       '  border: 1.5px solid rgba(255, 255, 255, 0.35) !important;',
       '  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5), inset 0 -2px 5px rgba(0, 0, 0, 0.25) !important;',
+      '  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease !important;',
+      '  transform-origin: 50% 50% !important;',
       '}',
-      /* 滑块进度条：玻璃棒（映出背景色：主体更透明 + backdrop-filter 毛玻璃 + 去内阴影） */
+      /* 被拖拽/悬停时放大：Element UI 拖拽时给 button 加 draggable 状态，
+         同时 wrapper 上有 is-dragging；两种状态都覆盖，保证一定生效 */
+      'html .el-slider .el-slider__button.dragging,',
+      'html .el-slider .el-slider__button-wrapper.is-dragging .el-slider__button,',
+      'html .el-slider .el-slider__button-wrapper:hover .el-slider__button {',
+      '  transform: scale(1.25) !important;',
+      '  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3), 0 0 0 6px rgba(255, 255, 255, 0.16), inset 0 -2px 4px rgba(0, 0, 0, 0.08) !important;',
+      '}',
+      'html.theme-dark .el-slider .el-slider__button.dragging,',
+      'html.theme-dark .el-slider .el-slider__button-wrapper.is-dragging .el-slider__button,',
+      'html.theme-dark .el-slider .el-slider__button-wrapper:hover .el-slider__button {',
+      '  transform: scale(1.25) !important;',
+      '  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 0 6px rgba(255, 255, 255, 0.10), inset 0 -2px 5px rgba(0, 0, 0, 0.25) !important;',
+      '}',
+      /* 珠子内部按模式承载模糊 / 折射。
+         ⚠️ 必须挂在 ::before 且 z-index:-1 之下的「独立层」不可行（会沉到父背景后），
+         所以直接给 button 本体加 backdrop-filter —— button 自身没有子内容需要保护，
+         不会出现卡片那种「图标被拉伸」的问题。 */
+      /* 珠子内部滤镜：按模式生成唯一一份，避免多条同名规则互相打架。
+         ⚠️ 必须用展开运算符 —— beadFilterLine() 返回的是「行数组」，
+         直接 push 数组会被当成单个元素、join 时插进多余的逗号，导致整条
+         声明被拼坏（浏览器直接忽略）→ 小球滤镜全程失效。这是 V4.5.5 修的 bug。 */
+      ...beadFilterLine(false),
+      ...beadFilterLine(true),
+      /* 液态玻璃 + 真折射：珠子走 SVG 边缘折射（与卡片同一枚滤镜）。
+         放在上面之后以便覆盖，且带 !important 压过基础声明。 */
+      ...(liquid && refract ? beadFilterLine(false, true) : []),
+      ...(liquid && refract ? beadFilterLine(true, true) : []),
+      /* 滑块进度条：玻璃棒。滤镜随模式变化（与小球一致）：
+         亚克力=模糊 / 液态玻璃=折射（开真折射时）/ 仅透明化=无滤镜。
+         用 BF5 只在 acrylic 生效，其余模式显式清空，避免切模式后残留。 */
       'html .el-slider .el-slider__bar {',
       '  background:',
       '    linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.18) 28%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0) 100%),',
       '    rgba(255, 255, 255, 0.18) !important;',
       ...BF5,
+      ...(mode !== 'acrylic'
+        ? ['  -webkit-backdrop-filter: none !important;', '  backdrop-filter: none !important;']
+        : []),
+      ...(liquid && refract
+        ? ['  -webkit-backdrop-filter: url("#' + REFRACT_FILTER_ID + '") !important;',
+           '  backdrop-filter: url("#' + REFRACT_FILTER_ID + '") !important;']
+        : []),
       '  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14) !important;',
       '}',
       'html.theme-dark .el-slider .el-slider__bar {',
@@ -620,6 +700,13 @@
       '    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.14) 28%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0) 100%),',
       '    rgba(255, 255, 255, 0.08) !important;',
       ...BF5,
+      ...(mode !== 'acrylic'
+        ? ['  -webkit-backdrop-filter: none !important;', '  backdrop-filter: none !important;']
+        : []),
+      ...(liquid && refract
+        ? ['  -webkit-backdrop-filter: url("#' + REFRACT_FILTER_ID + '") !important;',
+           '  backdrop-filter: url("#' + REFRACT_FILTER_ID + '") !important;']
+        : []),
       '  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28) !important;',
       '}',
       /* el-tag--dark 深色标签（倒计时等，无内联 style）：与其他卡片一致的亚克力。
