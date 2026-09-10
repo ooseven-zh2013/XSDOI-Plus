@@ -168,6 +168,19 @@
         return 'html.theme-dark ' + s;
       }).join(', ') + ' {';
     }
+    /* ⚠️ 给「每个」选择器都挂伪元素。
+       不能用 selLine(sels).replace(' {', '::before {') —— 那只会在整行末尾
+       （即最后一个选择器）追加伪元素，其余 70 多个元素全都拿不到玻璃层，
+       液态玻璃/高光只作用在列表最后一项上。这正是 V4.5.5 修的 bug。 */
+    function pseudo(sels, pe) {
+      return sels.map(function (s) { return s + pe; }).join(', ') + ' {';
+    }
+    function darkPseudo(sels, pe) {
+      return sels.map(function (s) {
+        if (s === '.oj-topbar') return 'html.theme-dark .oj-topbar.oj-topbar' + pe;
+        return 'html.theme-dark ' + s + pe;
+      }).join(', ') + ' {';
+    }
 
     /* ===== 透明度（始终生效）===== */
     rules.push(
@@ -1625,14 +1638,21 @@
     if (liquid) {
       /* ① 折射层（::before）+ ② 高光层（::after） */
       rules.push(
-        selLine(acrylicOnly),
+        /* ⚠️ 绝不能给 #nav 覆盖 position！
+           站点自身是 `#nav{ position:fixed; z-index:5 }`；一旦被我们改成 relative，
+           #nav 就掉进普通文档流，而后面 DOM 里的 .full-height（主内容 flex 容器）
+           会盖在它上面 → 侧边栏每个菜单项（首页/AI/题目…）的点击都被 .full-height
+           吞掉，表现为「液态玻璃下侧边栏点不动」。
+           这正是 V4.5.4 修的 bug。折射层需要定位上下文，但 #nav 本身已有 fixed，
+           天然就是定位元素，无需我们再加 relative。 */
+        selLine(acrylicOnly.filter(function (s) { return s !== '#nav'; })),
         '  position: relative;',
         '}',
-        darkSelLine(acrylicOnly),
+        darkSelLine(acrylicOnly.filter(function (s) { return s !== '#nav'; })),
         '  position: relative;',
         '}',
 
-        selLine(acrylicOnly).replace(' {', '::before {'),
+        pseudo(acrylicOnly, '::before'),
         '  content: \'\';',
         /* inset: 0 —— 折射层与元素同尺寸，绝不做负 inset 外扩。
            （曾尝试 inset:-16px + clip-path 消除角落撕裂，但在真实站点的大卡片上
@@ -1640,6 +1660,8 @@
         '  position: absolute;',
         '  inset: 0;',
         '  border-radius: inherit;',
+        /* 双保险：pointer-events:none 保证伪元素不拦截点击。
+           注意 #nav 这类容器内部有可点击子元素，伪元素一旦能接收事件就会挡住它们。 */
         '  pointer-events: none;',
         /* z-index:0 且绝不能加 filter —— 只能走 backdrop-filter。
            filter 会栅格化伪元素所在层叠上下文内的一切（含卡片图标/文字），
@@ -1665,7 +1687,7 @@
         '      rgba(255, 255, 255, 0.26) 100%);',
         '  opacity: 0.9;',
         '}',
-        darkSelLine(acrylicOnly).replace(' {', '::before {'),
+        darkPseudo(acrylicOnly, '::before'),
         '  background: linear-gradient(',
         '      to right,',
         '      rgba(255, 255, 255, 0.16) 0%,',
@@ -1685,7 +1707,7 @@
         '}',
 
         /* ② 高光层（::after）：顶部亮弧 + 内侧一圈亮线（浮起感） */
-        selLine(acrylicOnly).replace(' {', '::after {'),
+        pseudo(acrylicOnly, '::after'),
         '  content: \'\';',
         '  position: absolute;',
         '  inset: 0;',
@@ -1699,7 +1721,7 @@
         '    inset 0 -1px 1px rgba(255, 255, 255, 0.16),',
         '    0 10px 28px -10px rgba(0, 0, 0, 0.30) !important;',
         '}',
-        darkSelLine(acrylicOnly).replace(' {', '::after {'),
+        darkPseudo(acrylicOnly, '::after'),
         '  box-shadow:',
         '    inset 0 1px 1px rgba(255, 255, 255, 0.28),',
         '    inset 0 2px 10px -2px rgba(255, 255, 255, 0.18),',
@@ -1720,8 +1742,8 @@
            负 inset 外扩 + clip-path 裁回来解决撕裂，见上方。）
        仅当 refract=on（实验性）时生成。 */
     if (liquid && refract) {
-      var fx = selLine(acrylicOnly).replace(' {', '::before {');
-      var fxDark = darkSelLine(acrylicOnly).replace(' {', '::before {');
+      var fx = pseudo(acrylicOnly, '::before');
+      var fxDark = darkPseudo(acrylicOnly, '::before');
       rules.push(
         fx,
         '  -webkit-backdrop-filter: url("#' + REFRACT_FILTER_ID + '");',
