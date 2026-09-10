@@ -44,6 +44,7 @@ XSDOI-Plus/
 ├── idb.js                 IndexedDB 封装
 ├── md-core.js             Markdown 转换纯函数（UMD，可单测）
 ├── content/               注入页面的脚本（按功能拆分，见上表）
+│   └── acrylic-config.js  板块美化选择器配置：亚克力元素集中列表（加选择器即生效）
 ├── popup/                 扩展设置面板（左侧菜单 + 右侧设置）
 ├── assets/  fonts/  icons/ 静态资源
 ```
