@@ -53,7 +53,87 @@
     }
   }
 
-  function buildCSS(alpha, mode) {
+  // ============================================================
+  // 液态玻璃 SVG 滤镜：边缘折射（feDisplacementMap）
+  // ------------------------------------------------------------
+  // 参考苹果 WWDC25 Liquid Glass：折射只发生在「边缘」，中间完全不变形。
+  // 做法：用一张位移图（data URI SVG）做置换图源 ——
+  //   水平方向：左右边缘红通道强（中心黑），驱动 x 轴位移
+  //   垂直方向：上下边缘绿通道强（中心黑），驱动 y 轴位移
+  // 中心为纯黑 → 位移量 0 → 中间不扭曲；边缘红/绿 → 位移最大 → 边缘外扩折射。
+  // 该滤镜注册在 <svg> 内，content script 可注入（CSP 只约束 JS 内联脚本，不拦 DOM 内 SVG）。
+  // ============================================================
+  var REFRACT_FILTER_ID = 'xsdoi-lg-refract';
+  var REFRACT_SCALE = 22;   // 置换最大位移(px)：越大边缘折射越明显，过大易撕裂 → 22 为观感与稳定性的平衡
+
+  // 位移图：两条渐变的叠加（截图语义即位移图本身）
+  var DISP_MAP_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<defs>' +
+        '<linearGradient id="Rx" x1="0" y1="0" x2="1" y2="0">' +
+          '<stop offset="0" stop-color="#000000"/>' +
+          '<stop offset="0.5" stop-color="#ff0000"/>' +
+          '<stop offset="1" stop-color="#000000"/>' +
+        '</linearGradient>' +
+        '<linearGradient id="Gy" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0" stop-color="#000000"/>' +
+          '<stop offset="0.5" stop-color="#00ff00"/>' +
+          '<stop offset="1" stop-color="#000000"/>' +
+        '</linearGradient>' +
+      '</defs>' +
+      '<rect width="100%" height="100%" fill="#000000"/>' +
+      '<rect width="100%" height="100%" fill="url(#Rx)" style="mix-blend-mode:screen"/>' +
+      '<rect width="100%" height="100%" fill="url(#Gy)" style="mix-blend-mode:screen"/>' +
+    '</svg>';
+
+  // 转 data URI（数据量极小，不做 base64，避免体积膨胀）
+  function toDataUri(svg) {
+    return 'data:image/svg+xml,' + encodeURIComponent(svg)
+      .replace(/%20/g, ' ')
+      .replace(/%3D/g, '=')
+      .replace(/%3A/g, ':')
+      .replace(/%2F/g, '/')
+      .replace(/%22/g, "'");
+  }
+
+  var DISP_MAP_URI = toDataUri(DISP_MAP_SVG);
+  var DISP_MAP_ID = 'xsdoi-lg-disp';
+
+  // 生成 <svg>：滤镜 + 位移图 <image>（用 <image> 承载 data URI，避免再开一个 data URI 引用）
+  function buildFilterSVG() {
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" ' +
+      'style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">' +
+        '<filter id="' + REFRACT_FILTER_ID + '" x="-20%" y="-20%" width="140%" height="140%" ' +
+          'filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">' +
+          '<feImage id="' + DISP_MAP_ID + '" result="map" preserveAspectRatio="none" ' +
+            'x="0" y="0" width="100%" height="100%" href="' + DISP_MAP_URI + '"/>' +
+          '<feDisplacementMap in="SourceGraphic" in2="map" scale="__SCALE__" ' +
+            'xChannelSelector="R" yChannelSelector="G"/>' +
+        '</filter>' +
+      '</svg>';
+  }
+
+  var FILTER_HOST_ID = 'xsdoi-lg-filter-host';
+
+  // 注册 / 移除 SVG 滤镜（同一文档常驻一份）
+  function ensureFilter(scale) {
+    var host = document.getElementById(FILTER_HOST_ID);
+    if (!host) {
+      host = document.createElement('div');
+      host.id = FILTER_HOST_ID;
+      host.setAttribute('aria-hidden', 'true');
+      host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;';
+      (document.body || document.documentElement).appendChild(host);
+    }
+    host.innerHTML = buildFilterSVG().replace('__SCALE__', String(scale));
+  }
+
+  function removeFilter() {
+    var host = document.getElementById(FILTER_HOST_ID);
+    if (host && host.parentNode) host.parentNode.removeChild(host);
+  }
+
+  function buildCSS(alpha, mode, refract) {
     var a = alpha.toFixed(2);
     var liquid = mode === 'liquid';
     // 元素专属毛玻璃模糊（滑块/进度条玻璃棒、深色标签、AI 横幅）：仅 acrylic 毛玻璃模式生成
@@ -1527,28 +1607,111 @@
       );
     }
 
-    /* ===== 液态玻璃增强（仅 liquid，且不做模糊）：边缘高光 + 伪折射 =====
-       作用在完整亚克力元素（acrylicOnly）上，不含 glassOnly / blurOnly 的特殊元素。
-       液态玻璃不模糊，边缘光与折射就是它区别于「仅透明化」的全部特征，故做足层次：
-       顶部高光条 + 边缘亮线 + 外扩淡光带（折射感）+ 底部内侧反光 + 整体内侧柔光。
-       纯 CSS、零定位风险；真正的几何扭曲（背景透过玻璃变形）需 canvas 采样，见 applyRefract()。 */
+    /* ===== 液态玻璃（仅 liquid，不做模糊）=====
+       设计依据（苹果 WWDC25 Liquid Glass 三要素）：
+         ① 边缘折射变形 —— 只在边缘，中间不变形  ② 边缘高光 + 浮动阴影  ③ 不模糊
+       实现：把 ::before 伪元素作为「折射层」——
+         - 有背景图折射(refract=on) 时：伪元素承载 SVG feDisplacementMap 滤镜，
+           背景透过玻璃在边缘被透镜式挤压；中间位移量 0，保持清晰不变形。
+         - 无背景图 / 关折射 时：退化为边缘白带 + 内白描边，仍明显强于「仅透明化」。
+       外层元素本身加「顶部亮弧（::after）+ 底部外投影」，营造浮起立体感。
+       注意：伪元素需父元素有定位上下文，用 position:absolute 时会以最近定位祖先为界，
+             故此处同时给父元素加 position:relative（不改 z-index，避免影响站点堆叠）。
+       ::before 承载 filter 还能规避 backdrop-filter 的 backdrop root 阻断问题。 */
     if (liquid) {
+      /* ① 折射层（::before）：承载 SVG 折射滤镜 + 边缘白带 */
       rules.push(
         selLine(acrylicOnly),
-        '  box-shadow:',
-        '    inset 0 1px 1px rgba(255, 255, 255, 0.55),',
-        '    inset 0 0 0 1px rgba(255, 255, 255, 0.18),',
-        '    inset 0 0 0 2px rgba(255, 255, 255, 0.05),',
-        '    inset 0 -10px 16px -10px rgba(255, 255, 255, 0.14),',
-        '    inset 0 0 20px rgba(255, 255, 255, 0.08) !important;',
+        '  position: relative;',
         '}',
         darkSelLine(acrylicOnly),
+        '  position: relative;',
+        '}',
+
+        selLine(acrylicOnly) .replace(' {', '::before {'),
+        '  content: \'\';',
+        '  position: absolute;',
+        '  inset: 0;',
+        '  border-radius: inherit;',
+        '  pointer-events: none;',
+        '  z-index: 0;',
+        /* 边缘白带：中心透明、四周亮，视觉上就是玻璃边缘被光弯折的痕迹 */
+        '  background: linear-gradient(',
+        '      to right,',
+        '      rgba(255, 255, 255, 0.30) 0%,',
+        '      rgba(255, 255, 255, 0.05) 6%,',
+        '      rgba(255, 255, 255, 0.00) 14%,',
+        '      rgba(255, 255, 255, 0.00) 86%,',
+        '      rgba(255, 255, 255, 0.05) 94%,',
+        '      rgba(255, 255, 255, 0.30) 100%),',
+        '    linear-gradient(',
+        '      to bottom,',
+        '      rgba(255, 255, 255, 0.34) 0%,',
+        '      rgba(255, 255, 255, 0.06) 6%,',
+        '      rgba(255, 255, 255, 0.00) 16%,',
+        '      rgba(255, 255, 255, 0.00) 84%,',
+        '      rgba(255, 255, 255, 0.06) 94%,',
+        '      rgba(255, 255, 255, 0.26) 100%);',
+        '  opacity: 0.9;',
+        '}',
+        darkSelLine(acrylicOnly).replace(' {', '::before {'),
+        '  background: linear-gradient(',
+        '      to right,',
+        '      rgba(255, 255, 255, 0.16) 0%,',
+        '      rgba(255, 255, 255, 0.02) 6%,',
+        '      rgba(255, 255, 255, 0.00) 14%,',
+        '      rgba(255, 255, 255, 0.00) 86%,',
+        '      rgba(255, 255, 255, 0.02) 94%,',
+        '      rgba(255, 255, 255, 0.16) 100%),',
+        '    linear-gradient(',
+        '      to bottom,',
+        '      rgba(255, 255, 255, 0.18) 0%,',
+        '      rgba(255, 255, 255, 0.03) 6%,',
+        '      rgba(255, 255, 255, 0.00) 16%,',
+        '      rgba(255, 255, 255, 0.00) 84%,',
+        '      rgba(255, 255, 255, 0.03) 94%,',
+        '      rgba(255, 255, 255, 0.14) 100%);',
+        '}',
+
+        /* ② 高光层（::after）：顶部亮弧 + 内侧一圈亮线（浮起感） */
+        selLine(acrylicOnly).replace(' {', '::after {'),
+        '  content: \'\';',
+        '  position: absolute;',
+        '  inset: 0;',
+        '  border-radius: inherit;',
+        '  pointer-events: none;',
+        '  z-index: 1;',
         '  box-shadow:',
-        '    inset 0 1px 1px rgba(255, 255, 255, 0.24),',
-        '    inset 0 0 0 1px rgba(255, 255, 255, 0.10),',
-        '    inset 0 0 0 2px rgba(255, 255, 255, 0.03),',
-        '    inset 0 -10px 16px -10px rgba(255, 255, 255, 0.07),',
-        '    inset 0 0 20px rgba(255, 255, 255, 0.05) !important;',
+        '    inset 0 1px 1px rgba(255, 255, 255, 0.62),',
+        '    inset 0 2px 10px -2px rgba(255, 255, 255, 0.42),',
+        '    inset 0 0 0 1px rgba(255, 255, 255, 0.22),',
+        '    inset 0 -1px 1px rgba(255, 255, 255, 0.16),',
+        '    0 10px 28px -10px rgba(0, 0, 0, 0.30) !important;',
+        '}',
+        darkSelLine(acrylicOnly).replace(' {', '::after {'),
+        '  box-shadow:',
+        '    inset 0 1px 1px rgba(255, 255, 255, 0.28),',
+        '    inset 0 2px 10px -2px rgba(255, 255, 255, 0.18),',
+        '    inset 0 0 0 1px rgba(255, 255, 255, 0.12),',
+        '    inset 0 -1px 1px rgba(255, 255, 255, 0.08),',
+        '    0 10px 28px -10px rgba(0, 0, 0, 0.55) !important;',
+        '}'
+      );
+    }
+
+    /* ===== 真折射：给 ::before 折射层挂 SVG 置换滤镜 =====
+       仅当 refract=on（实验性）。滤镜写在动态 <style> 里，因此是「真」边缘变形：
+       背景透过玻璃时在边缘被透镜式挤压，中心位移量 0 保持清晰。
+       scale 随元素尺寸自适应由同一值驱动（固定值足够，过大易撕裂）。 */
+    if (liquid && refract) {
+      var fx = selLine(acrylicOnly).replace(' {', '::before {');
+      var fxDark = darkSelLine(acrylicOnly).replace(' {', '::before {');
+      rules.push(
+        fx,
+        '  filter: url("#' + REFRACT_FILTER_ID + '");',
+        '}',
+        fxDark,
+        '  filter: url("#' + REFRACT_FILTER_ID + '");',
         '}'
       );
     }
@@ -1557,138 +1720,12 @@
   }
 
   // ============================================================
-  // 实验性「真折射」：canvas 采样页面背景 + 边缘环几何位移
-  // 仅在「液态玻璃(mode=liquid) + 开启 refract」时生效。
-  // 原理：取 body 的背景图，按 cover 映射到视口；对每个亚克力元素的边缘环区域，
-  //       以元素中心放大绘制该处背景（模拟透镜使背景在边缘外扩/放大），
-  //       叠加在元素之上，形成几何扭曲的折射感（区别于纯高光的「伪折射」）。
-  // 局限：只能折射页面背景（有背景图时明显；纯色 / 渐变几乎不可见），
-  //       不折射背景之上的其他元素；滚动 / resize 需重绘，开销较大 → 默认关闭。
   // ============================================================
-  var REFRACT_ID = 'xsdoi-refract-canvas';
-  var REFRACT_RING = 10;    // 边缘环宽度(px)
-  var REFRACT_ZOOM = 1.06;  // 边缘折射放大倍率
-  var refractCanvas = null, refractRaf = 0, refractImg = null, refractImgSrc = '';
-
-  function refractTargets() {
-    var CFG = (typeof globalThis !== 'undefined' ? globalThis : self).XSDOI_ACRYLIC || {};
-    var list = CFG.acrylic || [];
-    return list.length ? document.querySelectorAll(list.join(',')) : [];
-  }
-
-  function refractSchedule() {
-    if (refractRaf) return;
-    refractRaf = requestAnimationFrame(refractDraw);
-  }
-
-  function refractDraw() {
-    refractRaf = 0;
-    if (state.mode !== 'liquid' || !state.refract) return;
-
-    // 读取 body 背景图（无图片背景则无折射可画）
-    var src = '';
-    try {
-      var bi = getComputedStyle(document.body).backgroundImage || '';
-      var m = bi.match(/url\(["']?(.*?)["']?\)/);
-      src = (m && m[1] && m[1] !== 'none') ? m[1] : '';
-    } catch (e) { src = ''; }
-
-    if (src && src !== refractImgSrc) {
-      refractImgSrc = src;
-      var im = new Image();
-      im.crossOrigin = 'anonymous';
-      im.onload = function () { refractImg = im; refractSchedule(); };
-      im.onerror = function () { refractImg = null; };
-      im.src = src;
-    }
-
-    if (!src || !refractImg || !refractImg.complete || !refractImg.naturalWidth) {
-      if (refractCanvas && refractCanvas.parentNode) {
-        refractCanvas.parentNode.removeChild(refractCanvas);
-        refractCanvas = null;
-      }
-      return;
-    }
-
-    var vw = window.innerWidth, vh = window.innerHeight;
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    if (!refractCanvas) {
-      refractCanvas = document.createElement('canvas');
-      refractCanvas.id = REFRACT_ID;
-      refractCanvas.style.cssText =
-        'position:fixed;left:0;top:0;pointer-events:none;z-index:2147483000;';
-      (document.body || document.documentElement).appendChild(refractCanvas);
-    }
-    if (refractCanvas.width !== Math.round(vw * dpr) || refractCanvas.height !== Math.round(vh * dpr)) {
-      refractCanvas.width = Math.round(vw * dpr);
-      refractCanvas.height = Math.round(vh * dpr);
-      refractCanvas.style.width = vw + 'px';
-      refractCanvas.style.height = vh + 'px';
-    }
-    var ctx = refractCanvas.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, vw, vh);
-
-    // 背景按 cover 规则映射到视口
-    var iw = refractImg.naturalWidth, ih = refractImg.naturalHeight;
-    var scale = Math.max(vw / iw, vh / ih);
-    var dx0 = (vw - iw * scale) / 2, dy0 = (vh - ih * scale) / 2;
-
-    var els = refractTargets();
-    var ring = REFRACT_RING, zoom = REFRACT_ZOOM;
-    var alpha = Math.max(0, Math.min(1, state.alpha));
-
-    for (var i = 0; i < els.length; i++) {
-      var r = els[i].getBoundingClientRect();
-      if (r.width < ring * 2 + 4 || r.height < ring * 2 + 4) continue;
-      if (r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
-
-      ctx.save();
-      // clip 成「外矩形 − 内矩形」的环形（evenodd）
-      ctx.beginPath();
-      ctx.rect(r.left, r.top, r.width, r.height);
-      ctx.rect(r.left + ring, r.top + ring, r.width - ring * 2, r.height - ring * 2);
-      ctx.clip('evenodd');
-
-      // 以元素中心放大 zoom 倍绘制背景（模拟透镜边缘外扩）
-      var zw = r.width * zoom, zh = r.height * zoom;
-      var zx = r.left - (zw - r.width) / 2, zy = r.top - (zh - r.height) / 2;
-      var sx = (zx - dx0) / scale, sy = (zy - dy0) / scale;
-      var sw = zw / scale, sh = zh / scale;
-
-      // 源区域越界时按比例裁切，避免 drawImage 比例失真
-      var tx = r.left, ty = r.top, tw = r.width, th = r.height;
-      if (sx < 0) { var k1 = -sx / sw; tx += tw * k1; tw -= tw * k1; sx = 0; sw -= sw * k1; }
-      if (sy < 0) { var k2 = -sy / sh; ty += th * k2; th -= th * k2; sy = 0; sh -= sh * k2; }
-      if (sx + sw > iw) { var k3 = (sx + sw - iw) / sw; tw -= tw * k3; sw -= sw * k3; }
-      if (sy + sh > ih) { var k4 = (sy + sh - ih) / sh; th -= th * k4; sh -= sh * k4; }
-      if (sw > 0 && sh > 0 && tw > 0 && th > 0) {
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(refractImg, sx, sy, sw, sh, tx, ty, tw, th);
-        ctx.globalAlpha = 1;
-      }
-      ctx.restore();
-    }
-  }
-
-  // 真折射开关：创建 / 清理画布与监听；重复调用安全（同一处理器会被去重）
-  function applyRefract() {
-    var on = state.mode === 'liquid' && !!state.refract;
-    if (!on) {
-      if (refractRaf) { cancelAnimationFrame(refractRaf); refractRaf = 0; }
-      window.removeEventListener('scroll', refractSchedule, true);
-      window.removeEventListener('resize', refractSchedule);
-      if (refractCanvas && refractCanvas.parentNode) {
-        refractCanvas.parentNode.removeChild(refractCanvas);
-      }
-      refractCanvas = null;
-      refractImgSrc = '';
-      return;
-    }
-    window.addEventListener('scroll', refractSchedule, true);
-    window.addEventListener('resize', refractSchedule);
-    refractSchedule();
-  }
+  // 真折射已在 buildCSS() 中实现（SVG feDisplacementMap 边缘折射，
+  // 注册于 ensureFilter()），无需 canvas 采样 —— 该方案能同时折射
+  // 背景图与背景上的其他元素，且中间区域不变形（符合苹果 Liquid Glass 特征）。
+  // 旧版 canvas 边缘环位移方案已移除（只能折射 body 背景图、开销大）。
+  // ============================================================
 
   function apply() {
     var el = document.getElementById(STYLE_ID);
@@ -1696,12 +1733,12 @@
     // 完全无效果：仅透明模式 + 全不透明 → 移除样式
     if (state.mode === 'none' && state.alpha >= 0.999) {
       if (el) el.remove();
+      removeFilter();
       restoreLvBg();
-      applyRefract();
       return;
     }
 
-    var css = buildCSS(state.alpha, state.mode);
+    var css = buildCSS(state.alpha, state.mode, state.refract);
     if (el) {
       el.textContent = css;
     } else {
@@ -1710,8 +1747,13 @@
       s.textContent = css;
       (document.head || document.documentElement).appendChild(s);
     }
+    // 真折射：注册 / 更新 SVG 置换滤镜（关掉时移除，避免留下无用节点）
+    if (state.mode === 'liquid' && state.refract) {
+      ensureFilter(REFRACT_SCALE);
+    } else {
+      removeFilter();
+    }
     applyLvBg(state.alpha);
-    applyRefract();
   }
 
   function loadAndApply() {
