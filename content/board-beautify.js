@@ -64,7 +64,13 @@
   // 该滤镜注册在 <svg> 内，content script 可注入（CSP 只约束 JS 内联脚本，不拦 DOM 内 SVG）。
   // ============================================================
   var REFRACT_FILTER_ID = 'xsdoi-lg-refract';
-  var REFRACT_SCALE = 22;   // 置换最大位移(px)：越大边缘折射越明显，过大易撕裂 → 22 为观感与稳定性的平衡
+  /* 置换最大位移(px)。经验值：
+     - 4~8  ：边缘折射可感知，四角无撕裂伪影，图标不受影响 → 8 为最佳平衡
+     - ≥12  ：四角开始出现撕裂状（菱形）伪影
+     撕裂成因：置换需要采样元素边界之外的像素，而那里没有「背景」可采。
+     注意不要靠给折射层加负 inset 外扩来「补」边界 —— 在真实站点上大卡片会
+     互相重叠、整页发白（已实测踩过）。 */
+  var REFRACT_SCALE = 8;
 
   // 位移图：两条渐变的叠加（截图语义即位移图本身）
   var DISP_MAP_SVG =
@@ -103,7 +109,7 @@
   function buildFilterSVG() {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" ' +
       'style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">' +
-        '<filter id="' + REFRACT_FILTER_ID + '" x="-20%" y="-20%" width="140%" height="140%" ' +
+        '<filter id="' + REFRACT_FILTER_ID + '" x="-10%" y="-10%" width="120%" height="120%" ' +
           'filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">' +
           '<feImage id="' + DISP_MAP_ID + '" result="map" preserveAspectRatio="none" ' +
             'x="0" y="0" width="100%" height="100%" href="' + DISP_MAP_URI + '"/>' +
@@ -1611,15 +1617,13 @@
        设计依据（苹果 WWDC25 Liquid Glass 三要素）：
          ① 边缘折射变形 —— 只在边缘，中间不变形  ② 边缘高光 + 浮动阴影  ③ 不模糊
        实现：把 ::before 伪元素作为「折射层」——
-         - 有背景图折射(refract=on) 时：伪元素承载 SVG feDisplacementMap 滤镜，
+         - 关折射(refract=off) 时：只有边缘白带渐变，仍明显强于「仅透明化」。
+         - 开折射(refract=on) 时：折射层走 backdrop-filter 引 SVG feDisplacementMap，
            背景透过玻璃在边缘被透镜式挤压；中间位移量 0，保持清晰不变形。
-         - 无背景图 / 关折射 时：退化为边缘白带 + 内白描边，仍明显强于「仅透明化」。
-       外层元素本身加「顶部亮弧（::after）+ 底部外投影」，营造浮起立体感。
-       注意：伪元素需父元素有定位上下文，用 position:absolute 时会以最近定位祖先为界，
-             故此处同时给父元素加 position:relative（不改 z-index，避免影响站点堆叠）。
-       ::before 承载 filter 还能规避 backdrop-filter 的 backdrop root 阻断问题。 */
+       外层元素加「顶部亮弧（::after）+ 底部外投影」，营造浮起立体感。
+       注意：伪元素需父元素有定位上下文，故同时给父元素加 position:relative。 */
     if (liquid) {
-      /* ① 折射层（::before）：承载 SVG 折射滤镜 + 边缘白带 */
+      /* ① 折射层（::before）+ ② 高光层（::after） */
       rules.push(
         selLine(acrylicOnly),
         '  position: relative;',
@@ -1628,12 +1632,19 @@
         '  position: relative;',
         '}',
 
-        selLine(acrylicOnly) .replace(' {', '::before {'),
+        selLine(acrylicOnly).replace(' {', '::before {'),
         '  content: \'\';',
+        /* inset: 0 —— 折射层与元素同尺寸，绝不做负 inset 外扩。
+           （曾尝试 inset:-16px + clip-path 消除角落撕裂，但在真实站点的大卡片上
+             会导致相邻卡片的折射层互相重叠、整页发白，已回退。） */
         '  position: absolute;',
         '  inset: 0;',
         '  border-radius: inherit;',
         '  pointer-events: none;',
+        /* z-index:0 且绝不能加 filter —— 只能走 backdrop-filter。
+           filter 会栅格化伪元素所在层叠上下文内的一切（含卡片图标/文字），
+           配合 feDisplacementMap 就是「图标被拉伸变形」的根因；
+           backdrop-filter 只采样元素背后的内容，永远不动上层内容。 */
         '  z-index: 0;',
         /* 边缘白带：中心透明、四周亮，视觉上就是玻璃边缘被光弯折的痕迹 */
         '  background: linear-gradient(',
@@ -1699,19 +1710,26 @@
       );
     }
 
-    /* ===== 真折射：给 ::before 折射层挂 SVG 置换滤镜 =====
-       仅当 refract=on（实验性）。滤镜写在动态 <style> 里，因此是「真」边缘变形：
-       背景透过玻璃时在边缘被透镜式挤压，中心位移量 0 保持清晰。
-       scale 随元素尺寸自适应由同一值驱动（固定值足够，过大易撕裂）。 */
+    /* ===== 真折射：折射层走 backdrop-filter（绝不能走 filter！）=====
+       ⚠️ 这里是「图标被拉伸」bug 的修复点：
+         - `filter: url(#…)` 会把该元素所在层叠上下文内的像素整体栅格化重采样。
+           ::before 是覆盖整个卡片的浮层，一旦挂 filter，卡片内的图标 / 文字
+           会被一起卷进 feDisplacementMap 的置换计算 → 视觉上「图标被拉伸变形」。
+         - `backdrop-filter` 只采样元素**背后**的内容做滤镜，永远不会影响上层内容，
+           所以图标完好无损。（唯一代价：边缘处没有可采样的背景 → 靠 ::before 的
+           负 inset 外扩 + clip-path 裁回来解决撕裂，见上方。）
+       仅当 refract=on（实验性）时生成。 */
     if (liquid && refract) {
       var fx = selLine(acrylicOnly).replace(' {', '::before {');
       var fxDark = darkSelLine(acrylicOnly).replace(' {', '::before {');
       rules.push(
         fx,
-        '  filter: url("#' + REFRACT_FILTER_ID + '");',
+        '  -webkit-backdrop-filter: url("#' + REFRACT_FILTER_ID + '");',
+        '  backdrop-filter: url("#' + REFRACT_FILTER_ID + '");',
         '}',
         fxDark,
-        '  filter: url("#' + REFRACT_FILTER_ID + '");',
+        '  -webkit-backdrop-filter: url("#' + REFRACT_FILTER_ID + '");',
+        '  backdrop-filter: url("#' + REFRACT_FILTER_ID + '");',
         '}'
       );
     }
@@ -1720,10 +1738,10 @@
   }
 
   // ============================================================
-  // ============================================================
   // 真折射已在 buildCSS() 中实现（SVG feDisplacementMap 边缘折射，
-  // 注册于 ensureFilter()），无需 canvas 采样 —— 该方案能同时折射
-  // 背景图与背景上的其他元素，且中间区域不变形（符合苹果 Liquid Glass 特征）。
+  // 注册于 ensureFilter()），走 backdrop-filter 而非 filter —— 这是关键：
+  // filter 会栅格化层叠上下文内的内容（含图标），导致「图标被拉伸」；
+  // backdrop-filter 只采样元素背后内容，不影响上层内容。
   // 旧版 canvas 边缘环位移方案已移除（只能折射 body 背景图、开销大）。
   // ============================================================
 
