@@ -2,8 +2,8 @@
 // 与 popup 通过 chrome.storage.sync 通信，模式 / 透明度 / 折射变化实时生效
 // 语义：透明度(alpha)三模式共有；玻璃效果三选一（mode，互斥且均含玻璃层半透明底色）：
 //   'none'    仅透明化：只保留玻璃层半透明底色，无模糊
-//   'acrylic' 毛玻璃  ：玻璃层 + backdrop-filter blur
-//   'liquid'  液态玻璃：毛玻璃增强 + 边缘高光 + 伪折射；可选实验性真折射(refract)
+//   'acrylic' 毛玻璃  ：玻璃层 + backdrop-filter 模糊
+//   'liquid'  液态玻璃：不做模糊（背景保持清晰）+ 边缘高光 / 伪折射；可选实验性真折射(refract)
 // 作用范围：见 content/acrylic-config.js 的选择器列表
 (function () {
   'use strict';
@@ -56,9 +56,9 @@
   function buildCSS(alpha, mode) {
     var a = alpha.toFixed(2);
     var liquid = mode === 'liquid';
-    // 元素专属毛玻璃模糊（滑块/进度条玻璃棒、深色标签、AI 横幅）：非「仅透明化」模式才生成
+    // 元素专属毛玻璃模糊（滑块/进度条玻璃棒、深色标签、AI 横幅）：仅 acrylic 毛玻璃模式生成
     var bf = function (px) {
-      return mode !== 'none'
+      return mode === 'acrylic'
         ? ['  -webkit-backdrop-filter: blur(' + px + 'px) saturate(160%);',
            '  backdrop-filter: blur(' + px + 'px) saturate(160%);']
         : [];
@@ -1498,12 +1498,11 @@
       '}'
     );
 
-    /* ===== 模糊（acrylic / liquid 模式；none 模式无模糊）=====
-       liquid 用更强的 saturate/brightness/contrast，接近液态玻璃的通透观感 */
-    if (mode !== 'none') {
-      var BLUR = liquid
-        ? 'blur(24px) saturate(200%) brightness(1.08) contrast(1.05)'
-        : 'blur(20px) saturate(180%)';
+    /* ===== 模糊（仅 acrylic 毛玻璃模式）=====
+       液态玻璃刻意不做模糊：保持背景清晰，靠边缘高光 / 折射营造玻璃质感；
+       none 模式同样无模糊。 */
+    if (mode === 'acrylic') {
+      var BLUR = 'blur(20px) saturate(180%)';
       rules.push(
         selLine(blurList),
         '  -webkit-backdrop-filter: ' + BLUR + ';',
@@ -1528,26 +1527,28 @@
       );
     }
 
-    /* ===== 液态玻璃增强（仅 liquid）：边缘高光 + 伪折射 =====
+    /* ===== 液态玻璃增强（仅 liquid，且不做模糊）：边缘高光 + 伪折射 =====
        作用在完整亚克力元素（acrylicOnly）上，不含 glassOnly / blurOnly 的特殊元素。
-       伪折射：用多层 inset box-shadow 模拟光在玻璃边缘聚集的折射观感（顶部高光条 +
-       一圈细亮边 + 底部内侧反光 + 整体内侧柔光）——纯 CSS、零定位风险；
-       真正的几何扭曲（背景透过玻璃变形）需 canvas 采样，见 applyRefract()。 */
+       液态玻璃不模糊，边缘光与折射就是它区别于「仅透明化」的全部特征，故做足层次：
+       顶部高光条 + 边缘亮线 + 外扩淡光带（折射感）+ 底部内侧反光 + 整体内侧柔光。
+       纯 CSS、零定位风险；真正的几何扭曲（背景透过玻璃变形）需 canvas 采样，见 applyRefract()。 */
     if (liquid) {
       rules.push(
         selLine(acrylicOnly),
         '  box-shadow:',
-        '    inset 0 1px 1px rgba(255, 255, 255, 0.50),',
-        '    inset 0 0 0 1px rgba(255, 255, 255, 0.14),',
-        '    inset 0 -8px 14px -8px rgba(255, 255, 255, 0.12),',
-        '    inset 0 0 18px rgba(255, 255, 255, 0.07) !important;',
+        '    inset 0 1px 1px rgba(255, 255, 255, 0.55),',
+        '    inset 0 0 0 1px rgba(255, 255, 255, 0.18),',
+        '    inset 0 0 0 2px rgba(255, 255, 255, 0.05),',
+        '    inset 0 -10px 16px -10px rgba(255, 255, 255, 0.14),',
+        '    inset 0 0 20px rgba(255, 255, 255, 0.08) !important;',
         '}',
         darkSelLine(acrylicOnly),
         '  box-shadow:',
-        '    inset 0 1px 1px rgba(255, 255, 255, 0.22),',
-        '    inset 0 0 0 1px rgba(255, 255, 255, 0.09),',
-        '    inset 0 -8px 14px -8px rgba(255, 255, 255, 0.06),',
-        '    inset 0 0 18px rgba(255, 255, 255, 0.04) !important;',
+        '    inset 0 1px 1px rgba(255, 255, 255, 0.24),',
+        '    inset 0 0 0 1px rgba(255, 255, 255, 0.10),',
+        '    inset 0 0 0 2px rgba(255, 255, 255, 0.03),',
+        '    inset 0 -10px 16px -10px rgba(255, 255, 255, 0.07),',
+        '    inset 0 0 20px rgba(255, 255, 255, 0.05) !important;',
         '}'
       );
     }
