@@ -664,10 +664,9 @@
       '  transform: scale(1.25) !important;',
       '  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 0 6px rgba(255, 255, 255, 0.10), inset 0 -2px 5px rgba(0, 0, 0, 0.25) !important;',
       '}',
-      /* 珠子内部按模式承载模糊 / 折射。
-         ⚠️ 必须挂在 ::before 且 z-index:-1 之下的「独立层」不可行（会沉到父背景后），
-         所以直接给 button 本体加 backdrop-filter —— button 自身没有子内容需要保护，
-         不会出现卡片那种「图标被拉伸」的问题。 */
+      /* 珠子内部按模式承载模糊 / 折射：直接给 button 本体加 backdrop-filter。
+         button 内部没有子内容需要保护，不会出现卡片那种「文字被卷进置换」的问题；
+         也因此不必像卡片玻璃层那样绕道伪元素 + 负 z-index。 */
       /* 珠子内部滤镜：按模式生成唯一一份，避免多条同名规则互相打架。
          ⚠️ 必须用展开运算符 —— beadFilterLine() 返回的是「行数组」，
          直接 push 数组会被当成单个元素、join 时插进多余的逗号，导致整条
@@ -1721,22 +1720,51 @@
          - 开折射(refract=on) 时：折射层走 backdrop-filter 引 SVG feDisplacementMap，
            背景透过玻璃在边缘被透镜式挤压；中间位移量 0，保持清晰不变形。
        外层元素加「顶部亮弧（::after）+ 底部外投影」，营造浮起立体感。
-       注意：伪元素需父元素有定位上下文，故同时给父元素加 position:relative。 */
+       注意：伪元素需父元素有定位上下文，故同时给父元素加 position:relative
+            （但站点已定位的元素除外，见下方 needRelative）。 */
     if (liquid) {
+      /* 站点自身已定位的元素（来自对全部站点 CSS 的静态审计）：
+         既不能覆盖它们的 position，也不需要（它们本就是定位祖先）。 */
+      var SITE_POSITIONED = ['#nav', '.el-backtop', '.el-select-dropdown', '.el-dropdown-menu', '.ct-lib'];
+      var needRelative = acrylicOnly.filter(function (s) { return SITE_POSITIONED.indexOf(s) < 0; });
+      /* 需要 isolation 收容的：#nav 自身已是 fixed+z-index:5 的层叠上下文，排除掉不动它。 */
+      var needIsolation = acrylicOnly.filter(function (s) { return s !== '#nav'; });
+
       /* ① 折射层（::before）+ ② 高光层（::after） */
       rules.push(
-        /* ⚠️ 绝不能给 #nav 覆盖 position！
-           站点自身是 `#nav{ position:fixed; z-index:5 }`；一旦被我们改成 relative，
-           #nav 就掉进普通文档流，而后面 DOM 里的 .full-height（主内容 flex 容器）
-           会盖在它上面 → 侧边栏每个菜单项（首页/AI/题目…）的点击都被 .full-height
-           吞掉，表现为「液态玻璃下侧边栏点不动」。
-           这正是 V4.5.4 修的 bug。折射层需要定位上下文，但 #nav 本身已有 fixed，
-           天然就是定位元素，无需我们再加 relative。 */
-        selLine(acrylicOnly.filter(function (s) { return s !== '#nav'; })),
+        /* ⚠️ 绝不能给「站点已定位」的元素覆盖 position！
+           站点自身把 position 设成 fixed/absolute/sticky 的元素，一旦被我们改成
+           relative 就会掉出原有的定位/层叠行为，典型后果：
+             #nav        → fixed，改 relative 后掉进普通文档流，被后面的 .full-height
+                           盖住 → 侧边栏每个菜单项（首页/AI/题目…）点击全被吞掉
+                           （这正是 V4.5.4 修的 bug）
+             .el-backtop → fixed，改 relative 后「回到顶部」按钮不再悬浮，落到文档末尾
+           但这些元素本身就是定位元素，伪元素天然有定位祖先，无需我们再加 relative。
+           名单来自对「网页源码/」全部 67 个站点 CSS 的静态审计（_tmp_audit）：
+             #nav                → fixed
+             .el-backtop         → fixed
+             .el-select-dropdown → absolute（位置由 Popper 写在内联 style 上）
+             .el-dropdown-menu   → absolute（同上）
+             .ct-lib             → sticky（代码速打页左侧目录） */
+        selLine(needRelative),
         '  position: relative;',
         '}',
-        darkSelLine(acrylicOnly.filter(function (s) { return s !== '#nav'; })),
+        darkSelLine(needRelative),
         '  position: relative;',
+        '}',
+
+        /* 收容玻璃层：把 ::before/::after 关在元素自己的层叠上下文内。
+           玻璃层要压到内容之下（见下方 z-index:-2/-1），负 z-index 只有在
+           「父元素自成层叠上下文」时才会停在父元素背景之上、内容之下；
+           否则会一路沉到最近祖先层叠上下文的背景后面 → 玻璃层整个消失。
+           选 isolation 而不是 z-index:0 是因为它**不覆盖 z-index**：
+           .el-select-dropdown / .el-dropdown-menu / .el-popover 这些气泡靠
+           Element UI 写在内联 style 上的高 z-index 定位，被 !important 改小就会失效；
+           isolation 同时也不创建包含块，不影响绝对定位子元素的定位祖先。
+           #nav 已是 fixed+z-index:5（天然层叠上下文），无需也不应再声明。
+           isolation 与主题无关，只出一份。 */
+        selLine(needIsolation),
+        '  isolation: isolate;',
         '}',
 
         pseudo(acrylicOnly, '::before'),
@@ -1750,11 +1778,17 @@
         /* 双保险：pointer-events:none 保证伪元素不拦截点击。
            注意 #nav 这类容器内部有可点击子元素，伪元素一旦能接收事件就会挡住它们。 */
         '  pointer-events: none;',
-        /* z-index:0 且绝不能加 filter —— 只能走 backdrop-filter。
-           filter 会栅格化伪元素所在层叠上下文内的一切（含卡片图标/文字），
+        /* ⚠️ z-index 必须为负 —— 玻璃层要压在「内容之下」，不能用 0/1。
+           用 0/1 时伪元素盖在文字之上，它的 backdrop-filter 会把元素**自己的文字**
+           一起采样进 feDisplacementMap 做置换 → 文字出现错位重影
+           （首页「近期比赛」卡片最明显；hover 时 .cc-card 因 transform 临时变成
+            层叠上下文，置换范围变化，重影会诡异地"消失"，所以很难定位）。
+           压到内容之下后，backdrop 只剩「元素背景 + 页面背景」，
+           既保留边缘折射页面背景的效果，又完全不碰文字。
+           也绝不能加 filter —— filter 会栅格化层叠上下文内的一切（含图标/文字），
            配合 feDisplacementMap 就是「图标被拉伸变形」的根因；
-           backdrop-filter 只采样元素背后的内容，永远不动上层内容。 */
-        '  z-index: 0;',
+           backdrop-filter 只采样元素背后的内容。 */
+        '  z-index: -2;',
         /* 边缘白带：中心透明、四周亮，视觉上就是玻璃边缘被光弯折的痕迹 */
         '  background: linear-gradient(',
         '      to right,',
@@ -1793,14 +1827,16 @@
         '      rgba(255, 255, 255, 0.14) 100%);',
         '}',
 
-        /* ② 高光层（::after）：顶部亮弧 + 内侧一圈亮线（浮起感） */
+        /* ② 高光层（::after）：顶部亮弧 + 内侧一圈亮线（浮起感）
+           同样压到内容之下（z-index:-1，比折射层 -2 高一档，保证高光叠在折射之上），
+           否则顶部亮弧会盖在卡片首行文字上。 */
         pseudo(acrylicOnly, '::after'),
         '  content: \'\';',
         '  position: absolute;',
         '  inset: 0;',
         '  border-radius: inherit;',
         '  pointer-events: none;',
-        '  z-index: 1;',
+        '  z-index: -1;',
         '  box-shadow:',
         '    inset 0 1px 1px rgba(255, 255, 255, 0.62),',
         '    inset 0 2px 10px -2px rgba(255, 255, 255, 0.42),',
@@ -1820,13 +1856,16 @@
     }
 
     /* ===== 真折射：折射层走 backdrop-filter（绝不能走 filter！）=====
-       ⚠️ 这里是「图标被拉伸」bug 的修复点：
-         - `filter: url(#…)` 会把该元素所在层叠上下文内的像素整体栅格化重采样。
-           ::before 是覆盖整个卡片的浮层，一旦挂 filter，卡片内的图标 / 文字
-           会被一起卷进 feDisplacementMap 的置换计算 → 视觉上「图标被拉伸变形」。
-         - `backdrop-filter` 只采样元素**背后**的内容做滤镜，永远不会影响上层内容，
-           所以图标完好无损。（唯一代价：边缘处没有可采样的背景 → 靠 ::before 的
-           负 inset 外扩 + clip-path 裁回来解决撕裂，见上方。）
+       ⚠️ 两个已修 bug 的汇合点：
+         ① 「图标被拉伸」：`filter: url(#…)` 会把该元素所在层叠上下文内的像素
+            整体栅格化重采样。::before 是覆盖整个卡片的浮层，一旦挂 filter，
+            卡片内的图标 / 文字会被一起卷进 feDisplacementMap 的置换计算。
+            改用 `backdrop-filter` 只采样元素**背后**的内容，不影响上层内容。
+         ② 「文字错位重影」：光有 ① 还不够 —— 若 ::before 仍用 z-index:0/1
+            盖在文字之上，它的 backdrop 里就包含卡片的文字，于是文字照样被
+            feDisplacementMap 置换 → 重影。所以现在 ::before 压到 z-index:-2
+            （内容之下），backdrop 只剩「元素背景 + 页面背景」，
+            既保留折射页面背景的效果，又完全不碰文字。见上方 z-index 注释。
        仅当 refract=on（实验性）时生成。 */
     if (liquid && refract) {
       var fx = pseudo(acrylicOnly, '::before');
