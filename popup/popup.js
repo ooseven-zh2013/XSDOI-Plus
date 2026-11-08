@@ -10,6 +10,26 @@
   var nav = document.querySelector('.nav');
   var tabs = [].slice.call(document.querySelectorAll('.nav-item'));
   var views = [].slice.call(document.querySelectorAll('.view'));
+  var indicator = nav ? nav.querySelector('.nav-indicator') : null;
+
+  /* 指示块定位：offsetTop 是相对 .nav（定位祖先）的真实偏移，
+     已包含分组标签、组间距、各项 gap —— 跨组跳转也能连续滑动。
+     animate=false 用于首帧定位与字体加载后的重排，避免从 0 滑下来。 */
+  function moveIndicator(tab, animate) {
+    if (!indicator || !tab) return;
+    if (!animate) indicator.style.transition = 'none';
+    indicator.style.transform = 'translateY(' + tab.offsetTop + 'px)';
+    indicator.style.opacity = '1';
+    if (!animate) {
+      void indicator.offsetHeight;          // 强制 reflow，让无动画的位移先落地
+      indicator.style.transition = '';
+    }
+  }
+
+  function syncIndicator() {
+    var cur = document.querySelector('.nav-item.active');
+    if (cur) moveIndicator(cur, false);
+  }
 
   var sliders = [].slice.call(document.querySelectorAll('.alpha-slider'));
 
@@ -40,9 +60,18 @@
       views[j].classList.toggle('active', views[j].id === 'view-' + id);
     }
     if (moveFocus) tab.focus();
+    moveIndicator(tab, true);
     // 面板代码会在切面板/加载时直接写 input.value，这里补一次填充色
     refreshSliderFills();
   }
+
+  // 首帧：无动画定位到当前选中项
+  syncIndicator();
+  // 字体加载会改变行高/换行，完成后按新布局重定位（同样无动画）
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(syncIndicator);
+  }
+  window.addEventListener('resize', syncIndicator);
 
   for (var i = 0; i < tabs.length; i++) {
     tabs[i].addEventListener('click', function () { activate(this, false); });

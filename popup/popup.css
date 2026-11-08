@@ -54,6 +54,7 @@ body {
 }
 
 .nav {
+  position: relative;              /* 选中指示块的定位祖先 */
   width: 132px;
   flex: 0 0 132px;
   height: 100%;
@@ -63,6 +64,30 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* 共享选中指示块：单个绝对定位层，按每项真实 offsetTop 平滑滑动。
+   分组标签让各项间距不均匀，逐项淡入淡出没有「移动」感，必须是同一层。
+   与旧 .nav-item.active 的视觉完全一致（底色 + 3px 紫色左竖条）。 */
+.nav-indicator {
+  position: absolute;
+  left: 8px;
+  top: 0;
+  width: 116px;
+  height: 34px;
+  border-radius: 7px;
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--accent);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(0);
+  will-change: transform;
+  transition: transform .28s cubic-bezier(.22, .61, .36, 1), opacity .18s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-indicator { transition: none !important; }
 }
 
 .nav-group {
@@ -83,6 +108,8 @@ body {
 }
 
 .nav-item {
+  position: relative;              /* 让文字压在指示块之上 */
+  z-index: 1;
   width: 116px;
   height: 34px;
   display: flex;
@@ -98,14 +125,13 @@ body {
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
-  transition: background .15s, color .15s;
+  transition: color .18s;
 }
-.nav-item:hover { background: #232336; color: var(--text-1); }
+.nav-item:hover { color: var(--text-1); }
 .nav-item.active {
-  background: var(--surface);
   color: var(--text-1);
   font-weight: 500;
-  box-shadow: inset 3px 0 0 var(--accent);
+  /* 底色与紫色竖条由共享指示块绘制，这里保持透明，否则切栏时会有两张底重叠 */
 }
 
 .main {
