@@ -783,33 +783,6 @@ select.ac-select {
   touch-action: none;
 }
 
-/* ============ 新增功能提示条 / 徽标 ============ */
-.notice {
-  display: flex; align-items: center; gap: 8px;
-  margin: 0 0 10px; padding: 9px 10px;
-  border: 1px solid var(--border-2); border-radius: 8px;
-  background: var(--surface);
-  font-size: 11px; line-height: 15px; color: var(--text-2);
-}
-.notice[hidden] { display: none; }
-.notice-tag {
-  flex: 0 0 auto; padding: 1px 6px; border-radius: 4px;
-  background: var(--accent-soft); border: 1px solid var(--accent);
-  color: var(--accent); font-size: 10px; font-weight: 600;
-}
-.notice-text { flex: 1 1 auto; min-width: 0; }
-.notice-close {
-  flex: 0 0 auto; width: 20px; height: 20px; padding: 0;
-  border: 0; border-radius: 4px; background: transparent;
-  color: var(--text-3); font-size: 16px; line-height: 18px; cursor: pointer;
-}
-.notice-close:hover { background: var(--surface-2); color: var(--text-1); }
-.new-badge {
-  display: inline-block; margin-left: 4px; padding: 0 5px;
-  border-radius: 4px; background: var(--accent-soft);
-  color: var(--accent); font-size: 10px; font-weight: 600; vertical-align: 2px;
-}
-
 /* ============ 焦点可见（WCAG 2.4.7） ============
    白色 #CDD6F4 对页面底 #1E1E2E 为 11.34:1、对导航底 12.14:1；
    紫色柔环 rgba(203,166,247,.25) 在暗底只约 1.4:1，不合格。

@@ -121,36 +121,6 @@
             </div>
           </div>
 
-          <!-- 新增功能提示条：升级后一次性，可关闭，写 storage flag 不重复 -->
-          <div class="notice" id="caustic-notice" hidden>
-            <span class="notice-tag">新增</span>
-            <span class="notice-text">边缘焦散：在玻璃四个圆角加一层冷色折光，默认关闭</span>
-            <button type="button" class="notice-close" id="caustic-notice-close" aria-label="关闭提示">×</button>
-          </div>
-
-          <!-- 焦散开关置顶：默认关，必须让用户一进面板就看得见 -->
-          <div class="card card-row">
-            <div class="card-label">
-              <div class="name">边缘焦散 <span class="new-badge">新增</span></div>
-              <div class="desc wrap" id="ab-desc">在玻璃卡片的四个圆角模拟折光的冷色光晕，关闭后一点痕迹都不留。仅液态玻璃可用</div>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="board-caustic" role="switch" aria-checked="false" aria-label="边缘焦散">
-              <span class="slider"></span>
-            </label>
-          </div>
-
-          <div class="card card-stack" id="caustic-level-card">
-            <div class="card-label">
-              <div class="name">焦散强度</div>
-            </div>
-            <div class="seg" id="caustic-level" role="group" aria-label="焦散强度">
-              <button type="button" class="bg-fit" data-level="0">弱</button>
-              <button type="button" class="bg-fit" data-level="1">标准</button>
-              <button type="button" class="bg-fit" data-level="2">强</button>
-            </div>
-          </div>
-
           <div class="card card-slider">
             <div class="card-label">
               <div class="name">卡片透明度</div>
