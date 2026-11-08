@@ -7,781 +7,901 @@
 </head>
 <body>
   <div id="app">
-    <nav class="nav">
-      <div class="nav-item active" data-view="logo">图标替换</div>
-      <div class="nav-item" data-view="ac">AC 动画</div>
-      <div class="nav-item" data-view="board">板块美化</div>
-      <div class="nav-item" data-view="fontcolor">字体颜色</div>
-      <div class="nav-item" data-view="bg">背景替换</div>
-      <div class="nav-item" data-view="powermode">打字特效</div>
-      <div class="nav-item" data-view="mousetrail">鼠标尾迹</div>
-      <div class="nav-item" data-view="clickfx">点击特效</div>
-      <div class="nav-item" data-view="pet">网页桌宠</div>
-      <div class="nav-item" data-view="backup">代码备份</div>
-      <div class="nav-item" data-view="update">检查更新</div>
+    <nav class="nav" role="tablist" aria-label="设置分类" aria-orientation="vertical">
+      <div class="nav-group" role="presentation">
+        <div class="nav-group-label">外观</div>
+        <button type="button" class="nav-item active" id="tab-logo" role="tab" aria-selected="true" aria-controls="view-logo" tabindex="0" data-view="logo">图标替换</button>
+        <button type="button" class="nav-item" id="tab-board" role="tab" aria-selected="false" aria-controls="view-board" tabindex="-1" data-view="board">板块美化</button>
+        <button type="button" class="nav-item" id="tab-fontcolor" role="tab" aria-selected="false" aria-controls="view-fontcolor" tabindex="-1" data-view="fontcolor">字体颜色</button>
+        <button type="button" class="nav-item" id="tab-bg" role="tab" aria-selected="false" aria-controls="view-bg" tabindex="-1" data-view="bg">背景替换</button>
+      </div>
+      <div class="nav-group" role="presentation">
+        <div class="nav-group-label">交互</div>
+        <button type="button" class="nav-item" id="tab-ac" role="tab" aria-selected="false" aria-controls="view-ac" tabindex="-1" data-view="ac">AC 动画</button>
+        <button type="button" class="nav-item" id="tab-powermode" role="tab" aria-selected="false" aria-controls="view-powermode" tabindex="-1" data-view="powermode">打字特效</button>
+        <button type="button" class="nav-item" id="tab-mousetrail" role="tab" aria-selected="false" aria-controls="view-mousetrail" tabindex="-1" data-view="mousetrail">鼠标尾迹</button>
+        <button type="button" class="nav-item" id="tab-clickfx" role="tab" aria-selected="false" aria-controls="view-clickfx" tabindex="-1" data-view="clickfx">点击特效</button>
+        <button type="button" class="nav-item" id="tab-pet" role="tab" aria-selected="false" aria-controls="view-pet" tabindex="-1" data-view="pet">网页桌宠</button>
+      </div>
+      <div class="nav-group" role="presentation">
+        <div class="nav-group-label">其他</div>
+        <button type="button" class="nav-item" id="tab-backup" role="tab" aria-selected="false" aria-controls="view-backup" tabindex="-1" data-view="backup">代码备份</button>
+        <button type="button" class="nav-item" id="tab-update" role="tab" aria-selected="false" aria-controls="view-update" tabindex="-1" data-view="update">检查更新</button>
+      </div>
     </nav>
 
     <main class="main">
       <!-- ============ 图标替换 ============ -->
-      <section class="view active" id="view-logo">
-        <h2 class="view-title">图标替换</h2>
-
-        <div class="hide-toggle">
-          <div class="info">隐藏 Logo<small>开启后页面不显示任何图片，关闭后还原</small></div>
-          <label class="switch">
-            <input type="checkbox" id="hideToggle">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="quick-apply">
-          <img src="../assets/builtin-logo.png" alt="内置暗色图标">
-          <div class="info">内置暗色图标<small>适用于 xsdoi.com 暗色模式</small></div>
-          <button class="btn-quick" id="applyBuiltin">应用</button>
-        </div>
-
-        <div class="sub-tabs">
-          <button class="sub-tab active" data-tab="url">URL 链接</button>
-          <button class="sub-tab" data-tab="upload">上传图片</button>
-        </div>
-
-        <div class="sub-panel active" id="panel-url">
-          <label>图片 URL 地址</label>
-          <div class="url-row">
-            <input type="text" id="urlInput" placeholder="https://example.com/logo.png">
+      <section class="view active" id="view-logo" role="tabpanel" aria-labelledby="tab-logo">
+        <header class="view-header">
+          <h2 class="view-title">图标替换</h2>
+          <p class="view-sub">隐藏页面 Logo，或换成自己的图片</p>
+        </header>
+        <div class="view-body">
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">隐藏 Logo</div>
+              <div class="desc">开启后页面不显示任何图片</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="hideToggle" aria-label="隐藏 Logo">
+              <span class="slider"></span>
+            </label>
           </div>
-          <div class="preview-area" id="preview-url"></div>
-          <div class="btn-row">
-            <button class="btn-save" id="saveUrl">保存</button>
+
+          <div class="card card-row card-row-media">
+            <img class="quick-logo" src="../assets/builtin-logo.png" alt="内置暗色图标">
+            <div class="card-label">
+              <div class="name">内置暗色图标</div>
+              <div class="desc">适用于 xsdoi.com 暗色模式</div>
+            </div>
+            <button type="button" class="btn" id="applyBuiltin">应用</button>
+          </div>
+
+          <div class="section-label">图片来源</div>
+          <div class="seg" role="group" aria-label="图片来源">
+            <button type="button" class="sub-tab active" data-tab="url">URL 链接</button>
+            <button type="button" class="sub-tab" data-tab="upload">上传图片</button>
+          </div>
+
+          <div class="sub-panel active" id="panel-url">
+            <div class="card">
+              <div class="card-label">
+                <label class="name" for="urlInput">图片 URL 地址</label>
+              </div>
+              <div class="field-row">
+                <input type="text" id="urlInput" placeholder="https://example.com/logo.png">
+              </div>
+              <div class="preview-area" id="preview-url"></div>
+              <div class="btn-row">
+                <button type="button" class="btn" id="saveUrl">应用</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="sub-panel" id="panel-upload">
+            <div class="card">
+              <div class="upload-zone" id="uploadZone">
+                <div class="icon">📁</div>
+                <p>点击选择图片 或拖拽到此处</p>
+              </div>
+              <input type="file" id="fileInput" accept="image/*">
+              <div class="preview-area" id="preview-upload"></div>
+              <div class="btn-row">
+                <button type="button" class="btn" id="saveUpload" disabled>应用</button>
+                <button type="button" class="btn btn-danger" id="clearUpload" disabled>清除</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="status" id="status"></div>
+          <div class="current-state" id="currentState"></div>
+        </div>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">已自动保存</span></div>
+        </footer>
+      </section>
+
+      <!-- ============ 板块美化 ============ -->
+      <section class="view" id="view-board" role="tabpanel" aria-labelledby="tab-board">
+        <header class="view-header">
+          <h2 class="view-title">板块美化</h2>
+          <p class="view-sub">玻璃外观三选一，亮色/暗色自适应</p>
+        </header>
+        <div class="view-body">
+          <div class="card card-stack">
+            <div class="card-label">
+              <div class="name">玻璃效果</div>
+            </div>
+            <p class="card-desc" id="board-mode-tip"></p>
+            <div class="seg" id="board-mode" role="group" aria-label="玻璃效果">
+              <button type="button" class="bg-fit" data-mode="acrylic">亚克力</button>
+              <button type="button" class="bg-fit" data-mode="liquid">液态玻璃</button>
+              <button type="button" class="bg-fit" data-mode="none">仅透明化</button>
+            </div>
+          </div>
+
+          <div class="card card-slider">
+            <div class="card-label">
+              <div class="name">卡片透明度</div>
+            </div>
+            <input type="range" id="board-alpha" class="alpha-slider" min="0" max="1" step="0.01" value="0.55" aria-label="卡片透明度">
+            <input type="number" id="board-alpha-value" class="num-box" min="0" max="1" step="0.01" value="0.55" aria-label="卡片透明度数值">
+            <div class="ticks"><span>0 全透明</span><span>1 不透明</span></div>
+          </div>
+
+          <div class="card card-slider">
+            <div class="card-label">
+              <div class="name">圆角</div>
+            </div>
+            <input type="range" id="board-round" class="alpha-slider" min="0" max="1" step="0.01" value="0.5" aria-label="圆角">
+            <input type="number" id="board-round-value" class="num-box" min="0" max="1" step="0.01" value="0.5" aria-label="圆角数值">
+            <div class="ticks"><span>0 直角</span><span>40px</span></div>
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">边缘色散（玻璃彩边）</div>
+              <div class="desc wrap" id="ab-desc">只在卡片最外 2–6px 模拟真实玻璃的彩色边缘，关闭后一点痕迹都不留</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="board-aberration" role="switch" aria-checked="false" aria-label="边缘色散">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="card card-slider" id="ab-strength-row">
+            <div class="card-label">
+              <div class="name">色散强度</div>
+            </div>
+            <input type="range" id="board-ab-strength" class="alpha-slider" min="0.25" max="0.70" step="0.01" value="0.50" aria-label="色散强度" aria-valuetext="弱 / 0.50">
+            <input type="number" id="board-ab-strength-value" class="num-box" min="0.25" max="0.70" step="0.01" value="0.50" aria-label="色散强度数值">
+            <div class="ticks"><span>0.25 弱</span><span>0.70 强</span></div>
           </div>
         </div>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">未修改</span></div>
+          <button id="board-save" class="save-btn" type="button">保存并应用</button>
+        </footer>
+      </section>
 
-        <div class="sub-panel" id="panel-upload">
-          <div class="upload-zone" id="uploadZone">
-            <div class="icon">📁</div>
-            <p>点击选择图片 或拖拽到此处</p>
+      <!-- ============ 字体颜色 ============ -->
+      <section class="view" id="view-fontcolor" role="tabpanel" aria-labelledby="tab-fontcolor">
+        <header class="view-header">
+          <h2 class="view-title">字体颜色</h2>
+          <p class="view-sub">自定义全局默认文字颜色，亮色默认黑、暗色默认白</p>
+        </header>
+        <div class="view-body">
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">启用自定义字体颜色</div>
+              <div class="desc">关闭后恢复站点默认文字颜色</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="fc-enabled" aria-label="启用自定义字体颜色">
+              <span class="slider"></span>
+            </label>
           </div>
-          <input type="file" id="fileInput" accept="image/*">
-          <div class="preview-area" id="preview-upload"></div>
-          <div class="btn-row">
-            <button class="btn-save" id="saveUpload" disabled>保存</button>
-            <button class="btn-clear" id="clearUpload" disabled>清除</button>
+
+          <div class="card">
+            <div class="card-label">
+              <label class="name" for="fc-light-input">亮色模式文字颜色</label>
+            </div>
+            <div class="bg-row bg-color-row">
+              <input type="color" id="fc-light-picker" value="#1f2733" title="点击选色" aria-label="亮色模式文字颜色">
+              <input type="text" id="fc-light-input" placeholder="#1f2733 或 rgba(...)">
+            </div>
+            <p class="card-desc">浅色背景下正文 / 标题 / 次要文字的颜色</p>
           </div>
+
+          <div class="card">
+            <div class="card-label">
+              <label class="name" for="fc-dark-input">暗色模式文字颜色</label>
+            </div>
+            <div class="bg-row bg-color-row">
+              <input type="color" id="fc-dark-picker" value="#eef1f8" title="点击选色" aria-label="暗色模式文字颜色">
+              <input type="text" id="fc-dark-input" placeholder="#eef1f8 或 rgba(...)">
+            </div>
+            <p class="card-desc">深色背景下正文 / 标题 / 次要文字的颜色</p>
+          </div>
+
+          <p class="tip">仅作用于全局黑白字体，不影响彩色字体与编辑器（CodeMirror）代码字体。</p>
         </div>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">未修改</span></div>
+          <button id="fc-save" class="save-btn" type="button">保存并应用</button>
+        </footer>
+      </section>
 
-        <div class="status" id="status"></div>
-        <div class="current-state" id="currentState"></div>
+      <!-- ============ 背景替换 ============ -->
+      <section class="view" id="view-bg" role="tabpanel" aria-labelledby="tab-bg">
+        <header class="view-header">
+          <h2 class="view-title">背景替换</h2>
+          <p class="view-sub">把页面背景换成图片 / 动图 / 视频 / 纯色 / 渐变</p>
+        </header>
+        <div class="view-body">
+          <div class="seg" role="group" aria-label="背景类型">
+            <button type="button" class="bg-tab active" data-tab="image">图片 / 音频</button>
+            <button type="button" class="bg-tab" data-tab="video">视频</button>
+            <button type="button" class="bg-tab" data-tab="gradient">渐变壁纸</button>
+          </div>
+
+          <!-- 图片 -->
+          <div class="bg-panel active" id="bg-panel-image">
+            <div class="card">
+              <div class="card-label">
+                <label class="name" for="bg-color-input">纯色壁纸</label>
+              </div>
+              <div class="bg-row bg-color-row">
+                <input type="color" id="bg-color-picker" value="#0e1018" title="点击选色" aria-label="纯色壁纸颜色">
+                <input type="text" id="bg-color-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn" id="bg-color-apply">应用纯色</button>
+                <button type="button" class="btn btn-danger" id="bg-color-clear">清除</button>
+              </div>
+              <p class="card-desc" id="bg-color-status">未设置</p>
+            </div>
+
+            <div class="card">
+              <div class="card-label">
+                <label class="name" for="bg-img-url">图片 URL</label>
+              </div>
+              <div class="field-row">
+                <input type="text" id="bg-img-url" placeholder="https://example.com/bg.gif">
+                <button type="button" class="btn" id="bg-img-apply-url">应用</button>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn" id="bg-img-pick">上传图片</button>
+                <button type="button" class="btn btn-danger" id="bg-clear">清除背景</button>
+              </div>
+              <input type="file" id="bg-img-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+
+              <div class="field-label">显示方式</div>
+              <div class="seg">
+                <button type="button" class="bg-fit active" data-fit="cover">铺满</button>
+                <button type="button" class="bg-fit" data-fit="contain">完整显示</button>
+                <button type="button" class="bg-fit" data-fit="repeat">平铺</button>
+              </div>
+
+              <div class="bg-preview" id="bg-img-preview"><span>还没有背景</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-label">
+                <label class="name" for="bg-audio-url">背景音乐</label>
+                <div class="desc">图片模式下循环播放</div>
+              </div>
+              <div class="field-row">
+                <input type="text" id="bg-audio-url" placeholder="https://example.com/bgm.mp3">
+                <button type="button" class="btn" id="bg-audio-apply-url">应用</button>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn" id="bg-audio-pick">上传音频</button>
+                <button type="button" class="btn btn-danger" id="bg-audio-clear">清除</button>
+              </div>
+              <input type="file" id="bg-audio-file" accept="audio/mpeg,.mp3,audio/mp4,.m4a,audio/wav,.wav" hidden>
+              <p class="card-desc" id="bg-audio-status">未设置背景音乐</p>
+            </div>
+          </div>
+
+          <!-- 视频 -->
+          <div class="bg-panel" id="bg-panel-video">
+            <div class="card">
+              <div class="card-label">
+                <label class="name" for="bg-video-url">视频 URL</label>
+                <div class="desc">mp4 / webm</div>
+              </div>
+              <div class="field-row">
+                <input type="text" id="bg-video-url" placeholder="https://example.com/bg.mp4">
+                <button type="button" class="btn" id="bg-video-apply-url">应用</button>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn" id="bg-video-pick">上传视频</button>
+                <button type="button" class="btn btn-danger" id="bg-clear-video" hidden>清除</button>
+              </div>
+              <input type="file" id="bg-video-file" accept="video/*" hidden>
+
+              <div class="field-label">显示方式</div>
+              <div class="seg">
+                <button type="button" class="bg-fit active" data-fit="cover">铺满</button>
+                <button type="button" class="bg-fit" data-fit="contain">完整显示</button>
+              </div>
+
+              <div class="bg-preview" id="bg-video-preview"><span>还没有背景</span></div>
+            </div>
+          </div>
+
+          <!-- 渐变壁纸 -->
+          <div class="bg-panel" id="bg-panel-gradient">
+            <div class="card">
+              <div class="card-label">
+                <label class="name" for="bg-grad-from-input">起始色</label>
+              </div>
+              <div class="bg-row bg-color-row">
+                <input type="color" id="bg-grad-from-picker" value="#0e1018" title="点击选色" aria-label="渐变起始色">
+                <input type="text" id="bg-grad-from-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+              </div>
+
+              <div class="field-label">结束色</div>
+              <div class="bg-row bg-color-row">
+                <input type="color" id="bg-grad-to-picker" value="#cba6f7" title="点击选色" aria-label="渐变结束色">
+                <input type="text" id="bg-grad-to-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+              </div>
+
+              <div class="field-label">渐变方向</div>
+              <div class="seg" id="bg-gradient-dirs">
+                <button type="button" class="bg-fit active" data-dir="left-right">左-右</button>
+                <button type="button" class="bg-fit" data-dir="top-bottom">上-下</button>
+                <button type="button" class="bg-fit" data-dir="tl-br">左上-右下</button>
+                <button type="button" class="bg-fit" data-dir="tr-bl">右上-左下</button>
+              </div>
+
+              <div class="btn-row">
+                <button type="button" class="btn" id="bg-gradient-apply">应用渐变</button>
+                <button type="button" class="btn btn-danger" id="bg-gradient-clear">清除</button>
+              </div>
+              <p class="card-desc" id="bg-gradient-status">未设置</p>
+            </div>
+
+            <div class="card">
+              <div class="card-label">
+                <label class="name" for="bg-gaudio-url">背景音乐</label>
+                <div class="desc">渐变模式下循环播放</div>
+              </div>
+              <div class="field-row">
+                <input type="text" id="bg-gaudio-url" placeholder="https://example.com/bgm.mp3">
+                <button type="button" class="btn" id="bg-gaudio-apply-url">应用</button>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn" id="bg-gaudio-pick">上传音频</button>
+                <button type="button" class="btn btn-danger" id="bg-gaudio-clear">清除</button>
+              </div>
+              <input type="file" id="bg-gaudio-file" accept="audio/mpeg,.mp3,audio/mp4,.m4a,audio/wav,.wav" hidden>
+              <p class="card-desc" id="bg-gaudio-status">未设置背景音乐</p>
+            </div>
+          </div>
+
+          <div class="status" id="bg-status"></div>
+          <div class="current-state" id="bg-current"></div>
+        </div>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">已自动保存</span></div>
+        </footer>
       </section>
 
       <!-- ============ AC 动画 ============ -->
-      <section class="view" id="view-ac">
-        <h2 class="view-title">AC 动画替换</h2>
-        <p class="view-sub">AC 时显示你的图片 / 视频，默认淡入淡出各 1s</p>
-
-        <div class="block">
-          <div class="label">播放模式</div>
-          <div class="row">
-            <select id="ac-mode" class="ac-select">
+      <section class="view" id="view-ac" role="tabpanel" aria-labelledby="tab-ac">
+        <header class="view-header">
+          <h2 class="view-title">AC 动画替换</h2>
+          <p class="view-sub">AC 时显示你的图片 / 视频，默认淡入淡出各 1s</p>
+        </header>
+        <div class="view-body">
+          <div class="card">
+            <div class="card-label">
+              <label class="name" for="ac-mode">播放模式</label>
+            </div>
+            <select id="ac-mode" class="ac-select" aria-label="播放模式">
               <option value="image">图片</option>
               <option value="video">视频</option>
               <option value="folder">文件夹（随机）</option>
             </select>
+            <p class="card-desc" id="mode-tip">选择图片或视频，或指定一个文件夹随机播放</p>
           </div>
-          <div class="tip" id="mode-tip">选择图片或视频，或指定一个文件夹随机播放</div>
-        </div>
 
-        <div class="block">
-          <div class="label">淡入淡出时长（秒，0 = 不显示）</div>
-          <div class="duration-row">
-            <input type="number" id="ac-fade" min="0" step="0.1" value="1">
-            <span class="unit">秒</span>
-          </div>
-          <div class="tip">淡入、淡出各占该时长；设为 0 则直接显示 / 消失</div>
-        </div>
-
-        <div id="media-blocks">
-          <div class="block">
-            <div class="label">自定义图片（jpg / png / gif，≤ 8MB）</div>
-            <div class="row">
-              <button class="btn primary" id="btn-pick">选择图片</button>
-              <button class="btn danger" id="btn-clear">清除</button>
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">淡入淡出时长</div>
+              <div class="desc">秒，0 = 不显示</div>
             </div>
-            <input type="file" id="file" accept="image/jpeg,image/png,image/gif" hidden>
-
-            <div class="label label-gap">或填云链接</div>
-            <div class="row url-row">
-              <input type="text" id="url" placeholder="https://example.com/x.gif">
-              <button class="btn" id="btn-apply-url">应用</button>
-            </div>
-
-            <div class="preview" id="preview">
-              <span class="placeholder">还没有图片</span>
+            <div class="num-inline">
+              <input type="number" id="ac-fade" class="num-box" min="0" step="0.1" value="1" aria-label="淡入淡出时长（秒）">
+              <span class="unit">秒</span>
             </div>
           </div>
 
-          <div class="block">
-            <div class="label">音频（mp3，可选，本地或云链接）</div>
-            <div class="row">
-              <button class="btn" id="btn-pick-audio">选择音频</button>
-              <button class="btn danger" id="btn-clear-audio">清除</button>
+          <div id="media-blocks">
+            <div class="card">
+              <div class="card-label">
+                <div class="name">自定义图片</div>
+                <div class="desc">jpg / png / gif，≤ 8MB</div>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn" id="btn-pick">选择图片</button>
+                <button type="button" class="btn btn-danger" id="btn-clear">清除</button>
+              </div>
+              <input type="file" id="file" accept="image/jpeg,image/png,image/gif" hidden>
+
+              <div class="field-label">或填云链接</div>
+              <div class="field-row">
+                <input type="text" id="url" placeholder="https://example.com/x.gif">
+                <button type="button" class="btn" id="btn-apply-url">应用</button>
+              </div>
+
+              <div class="preview" id="preview">
+                <span class="placeholder">还没有图片</span>
+              </div>
             </div>
-            <input type="file" id="file-audio" accept="audio/mpeg,.mp3,audio/mp3" hidden>
-            <div class="row url-row">
-              <input type="text" id="audio-url" placeholder="https://example.com/x.mp3">
-              <button class="btn" id="btn-apply-audio-url">应用</button>
+
+            <div class="card">
+              <div class="card-label">
+                <div class="name">音频</div>
+                <div class="desc">mp3，可选，本地或云链接</div>
+              </div>
+              <div class="btn-row">
+                <button type="button" class="btn" id="btn-pick-audio">选择音频</button>
+                <button type="button" class="btn btn-danger" id="btn-clear-audio">清除</button>
+              </div>
+              <input type="file" id="file-audio" accept="audio/mpeg,.mp3,audio/mp3" hidden>
+              <div class="field-row">
+                <input type="text" id="audio-url" placeholder="https://example.com/x.mp3">
+                <button type="button" class="btn" id="btn-apply-audio-url">应用</button>
+              </div>
+              <p class="card-desc" id="audio-status">未设置音频</p>
             </div>
-            <div class="tip" id="audio-status">未设置音频</div>
           </div>
-        </div>
 
-        <div class="block" id="video-block" style="display:none;">
-          <div class="label">视频（mp4 / webm，本地或云链接）</div>
-          <div class="row">
-            <button class="btn" id="btn-pick-video">选择视频</button>
-            <button class="btn danger" id="btn-clear-video">清除</button>
+          <div class="card" id="video-block" style="display:none;">
+            <div class="card-label">
+              <div class="name">视频</div>
+              <div class="desc">mp4 / webm，本地或云链接</div>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn" id="btn-pick-video">选择视频</button>
+              <button type="button" class="btn btn-danger" id="btn-clear-video">清除</button>
+            </div>
+            <input type="file" id="file-video" accept="video/*" hidden>
+            <div class="field-row">
+              <input type="text" id="video-url" placeholder="https://example.com/x.mp4">
+              <button type="button" class="btn" id="btn-apply-video-url">应用</button>
+            </div>
+            <p class="card-desc" id="video-status">未设置视频</p>
           </div>
-          <input type="file" id="file-video" accept="video/*" hidden>
-          <div class="row url-row">
-            <input type="text" id="video-url" placeholder="https://example.com/x.mp4">
-            <button class="btn" id="btn-apply-video-url">应用</button>
-          </div>
-          <div class="tip" id="video-status">未设置视频</div>
-        </div>
 
-        <div class="block" id="folder-block" style="display:none;">
-          <div class="label">选择文件夹（图片 / 视频随机播放）</div>
-          <div class="row">
-            <button class="btn primary" id="btn-pick-folder">选择文件夹</button>
-            <button class="btn danger" id="btn-clear-folder">清除</button>
-          </div>
-          <input type="file" id="file-folder" webkitdirectory directory multiple hidden>
+          <div class="card" id="folder-block" style="display:none;">
+            <div class="card-label">
+              <div class="name">选择文件夹</div>
+              <div class="desc">图片 / 视频随机播放</div>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn" id="btn-pick-folder">选择文件夹</button>
+              <button type="button" class="btn btn-danger" id="btn-clear-folder">清除</button>
+            </div>
+            <input type="file" id="file-folder" webkitdirectory directory multiple hidden>
 
-          <div class="label label-gap">播放类型</div>
-          <div class="row">
-            <select id="folder-filter" class="ac-select">
+            <div class="field-label">播放类型</div>
+            <select id="folder-filter" class="ac-select" aria-label="文件夹播放类型">
               <option value="both">图片 + 视频</option>
               <option value="image">仅图片</option>
               <option value="video">仅视频</option>
             </select>
+            <p class="card-desc" id="folder-status">未选择文件夹</p>
+            <div class="preview" id="folder-preview"><span class="placeholder">还没有选择文件夹</span></div>
           </div>
-          <div class="tip" id="folder-status">未选择文件夹</div>
-          <div class="preview" id="folder-preview"><span class="placeholder">还没有选择文件夹</span></div>
-        </div>
 
-        <div class="block">
-          <button class="btn outline" id="btn-test">测试播放</button>
-          <div class="tip">点一下会在当前页面播放一次淡入淡出（需在 xsdoi.com 页面）</div>
-        </div>
-
-        <div class="block">
-          <div class="label">显示时长</div>
-          <div class="duration-row">
-            <input type="number" id="duration" min="0" max="60" step="0.5" value="3">
-            <span class="unit">秒（停留）</span>
-          </div>
-          <div class="tip">淡入淡出时长见上方设置，改动自动保存</div>
-        </div>
-
-        <div class="toast" id="toast"></div>
-      </section>
-
-      <!-- ============ 板块美化 ============ -->
-      <section class="view" id="view-board">
-        <h2 class="view-title">板块美化</h2>
-        <p class="view-sub">玻璃外观三选一，亮色/暗色自适应</p>
-
-        <div class="label" style="margin-bottom:8px;">玻璃效果</div>
-        <div class="bg-fits" id="board-mode">
-          <button class="bg-fit" data-mode="acrylic">亚克力（毛玻璃）</button>
-          <button class="bg-fit" data-mode="liquid">液态玻璃</button>
-          <button class="bg-fit" data-mode="none">仅透明化</button>
-        </div>
-        <p class="tip" id="board-mode-tip"></p>
-
-        <div class="board-row" style="margin-top:10px;">
-          <div class="board-label">
-            <div class="name">卡片透明度</div>
-            <div class="desc">0 = 全透明，1 = 不透明</div>
-          </div>
-          <div class="alpha-ctl">
-            <input type="range" id="board-alpha" class="alpha-slider" min="0" max="1" step="0.01" value="0.55">
-            <input type="number" id="board-alpha-value" class="alpha-value" min="0" max="1" step="0.01" value="0.55">
-          </div>
-        </div>
-
-        <div class="board-row" style="margin-top:10px;">
-          <div class="board-label">
-            <div class="name">圆角</div>
-            <div class="desc">0 = 直角，1 = 最大 40px（固定像素，不随卡片变大）</div>
-          </div>
-          <div class="alpha-ctl">
-            <input type="range" id="board-round" class="alpha-slider" min="0" max="1" step="0.01" value="0.5">
-            <input type="number" id="board-round-value" class="alpha-value" min="0" max="1" step="0.01" value="0.5">
-          </div>
-        </div>
-
-        <div class="save-row">
-          <button id="board-save" class="save-btn">保存并应用</button>
-        </div>
-        <p class="tip">调整后请点击「保存并应用」才会生效并持久化。</p>
-      </section>
-
-      <!-- ============ 字体颜色 ============ -->
-      <section class="view" id="view-fontcolor">
-        <h2 class="view-title">字体颜色</h2>
-        <p class="view-sub">自定义全局默认文字颜色（黑白字体），亮色默认黑、暗色默认白</p>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">启用自定义字体颜色</div>
-            <div class="desc">关闭后恢复站点默认文字颜色</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="fc-enabled">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="fc-color-block">
-          <div class="label">亮色模式文字颜色</div>
-          <div class="bg-row bg-color-row">
-            <input type="color" id="fc-light-picker" value="#1f2733" title="点击选色">
-            <input type="text" id="fc-light-input" placeholder="#1f2733 或 rgba(...)">
-          </div>
-          <p class="bg-color-tip">浅色背景下正文 / 标题 / 次要文字的颜色，默认黑</p>
-        </div>
-
-        <div class="fc-color-block">
-          <div class="label">暗色模式文字颜色</div>
-          <div class="bg-row bg-color-row">
-            <input type="color" id="fc-dark-picker" value="#eef1f8" title="点击选色">
-            <input type="text" id="fc-dark-input" placeholder="#eef1f8 或 rgba(...)">
-          </div>
-          <p class="bg-color-tip">深色背景下正文 / 标题 / 次要文字的颜色，默认白</p>
-        </div>
-
-        <p class="tip">仅作用于全局黑白字体（正文/标题/次要文字等），不影响彩色字体（品牌色/等级色等）与编辑器（CodeMirror）代码字体。</p>
-
-        <div class="save-row">
-          <button id="fc-save" class="save-btn">保存并应用</button>
-        </div>
-        <p class="tip">调整后请点击「保存并应用」才会生效并持久化。</p>
-      </section>
-
-      <!-- ============ 背景替换 ============ -->
-      <section class="view" id="view-bg">
-        <h2 class="view-title">背景替换</h2>
-        <p class="view-sub">把页面背景换成图片 / 动图(gif) / 视频 / 纯色 / 渐变</p>
-
-        <div class="bg-tabs">
-          <button class="bg-tab active" data-tab="image">图片 / 音频</button>
-          <button class="bg-tab" data-tab="video">视频</button>
-          <button class="bg-tab" data-tab="gradient">渐变壁纸 / 音频</button>
-        </div>
-
-        <!-- 图片 -->
-        <div class="bg-panel active" id="bg-panel-image">
-          <div class="bg-color-block">
-            <label>纯色壁纸</label>
-            <div class="bg-row bg-color-row">
-              <input type="color" id="bg-color-picker" value="#0e1018" title="点击选色">
-              <input type="text" id="bg-color-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+          <div class="card">
+            <div class="btn-row">
+              <button type="button" class="btn" id="btn-test">测试播放</button>
             </div>
-            <div class="bg-btn-pair">
-              <button class="bg-btn primary" id="bg-color-apply">应用纯色</button>
-              <button class="bg-btn danger" id="bg-color-clear">清除</button>
+            <p class="card-desc">点一下会在当前页面播放一次淡入淡出（需在 xsdoi.com 页面）</p>
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">显示时长</div>
+              <div class="desc">停留秒数，改动自动保存</div>
             </div>
-            <div class="bg-color-tip" id="bg-color-status">未设置</div>
-          </div>
-
-          <label class="bg-gap">图片 URL（png / jpg / gif / webp）</label>
-          <div class="bg-row">
-            <input type="text" id="bg-img-url" placeholder="https://example.com/bg.gif">
-            <button class="bg-btn" id="bg-img-apply-url">应用</button>
-          </div>
-
-          <label class="bg-gap">或上传本地图片（≤ 8MB）</label>
-          <div class="bg-btn-pair">
-            <button class="bg-btn primary" id="bg-img-pick">上传图片</button>
-            <button class="bg-btn danger" id="bg-clear">清除背景</button>
-          </div>
-          <input type="file" id="bg-img-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
-
-          <label class="bg-gap">显示方式</label>
-          <div class="bg-fits">
-            <button class="bg-fit active" data-fit="cover">铺满</button>
-            <button class="bg-fit" data-fit="contain">完整显示</button>
-            <button class="bg-fit" data-fit="repeat">平铺</button>
-          </div>
-
-          <div class="bg-preview" id="bg-img-preview"><span>还没有背景</span></div>
-
-          <div class="bg-audio">
-            <label>背景音乐（可选，图片模式下循环播放）</label>
-            <div class="bg-row">
-              <input type="text" id="bg-audio-url" placeholder="https://example.com/bgm.mp3">
-              <button class="bg-btn" id="bg-audio-apply-url">应用</button>
+            <div class="num-inline">
+              <input type="number" id="duration" class="num-box" min="0" max="60" step="0.5" value="3" aria-label="显示时长（秒）">
+              <span class="unit">秒</span>
             </div>
-            <div class="bg-btn-pair">
-              <button class="bg-btn primary" id="bg-audio-pick">上传音频</button>
-              <button class="bg-btn danger" id="bg-audio-clear">清除</button>
-            </div>
-            <input type="file" id="bg-audio-file" accept="audio/mpeg,.mp3,audio/mp4,.m4a,audio/wav,.wav" hidden>
-            <div class="bg-audio-tip" id="bg-audio-status">未设置背景音乐</div>
           </div>
+
+          <div class="toast" id="toast"></div>
         </div>
-
-        <!-- 视频 -->
-        <div class="bg-panel" id="bg-panel-video">
-          <label>视频 URL（mp4 / webm）</label>
-          <div class="bg-row">
-            <input type="text" id="bg-video-url" placeholder="https://example.com/bg.mp4">
-            <button class="bg-btn" id="bg-video-apply-url">应用</button>
-          </div>
-
-          <label class="bg-gap">或上传本地视频（≤ 100MB）</label>
-          <button class="bg-btn primary" id="bg-video-pick">选择视频</button>
-          <input type="file" id="bg-video-file" accept="video/*" hidden>
-
-          <label class="bg-gap">显示方式</label>
-          <div class="bg-fits">
-            <button class="bg-fit active" data-fit="cover">铺满</button>
-            <button class="bg-fit" data-fit="contain">完整显示</button>
-          </div>
-
-          <div class="bg-preview" id="bg-video-preview"><span>还没有背景</span></div>
-        </div>
-
-        <!-- 渐变壁纸 -->
-        <div class="bg-panel" id="bg-panel-gradient">
-          <label>起始色</label>
-          <div class="bg-row bg-color-row">
-            <input type="color" id="bg-grad-from-picker" value="#0e1018" title="点击选色">
-            <input type="text" id="bg-grad-from-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
-          </div>
-
-          <label class="bg-gap">结束色</label>
-          <div class="bg-row bg-color-row">
-            <input type="color" id="bg-grad-to-picker" value="#2d8cf0" title="点击选色">
-            <input type="text" id="bg-grad-to-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
-          </div>
-
-          <label class="bg-gap">渐变方向</label>
-          <div class="bg-fits" id="bg-gradient-dirs">
-            <button class="bg-fit active" data-dir="left-right">左-右</button>
-            <button class="bg-fit" data-dir="top-bottom">上-下</button>
-            <button class="bg-fit" data-dir="tl-br">左上-右下</button>
-            <button class="bg-fit" data-dir="tr-bl">右上-左下</button>
-          </div>
-
-          <div class="bg-btn-pair">
-            <button class="bg-btn primary" id="bg-gradient-apply">应用渐变</button>
-            <button class="bg-btn danger" id="bg-gradient-clear">清除</button>
-          </div>
-          <div class="bg-color-tip" id="bg-gradient-status">未设置</div>
-
-          <div class="bg-audio">
-            <label>背景音乐（可选，渐变模式下循环播放）</label>
-            <div class="bg-row">
-              <input type="text" id="bg-gaudio-url" placeholder="https://example.com/bgm.mp3">
-              <button class="bg-btn" id="bg-gaudio-apply-url">应用</button>
-            </div>
-            <div class="bg-btn-pair">
-              <button class="bg-btn primary" id="bg-gaudio-pick">上传音频</button>
-              <button class="bg-btn danger" id="bg-gaudio-clear">清除</button>
-            </div>
-            <input type="file" id="bg-gaudio-file" accept="audio/mpeg,.mp3,audio/mp4,.m4a,audio/wav,.wav" hidden>
-            <div class="bg-audio-tip" id="bg-gaudio-status">未设置背景音乐</div>
-          </div>
-        </div>
-
-        <div class="status" id="bg-status"></div>
-        <div class="current-state" id="bg-current"></div>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">已自动保存</span></div>
+        </footer>
       </section>
 
       <!-- ============ 打字特效 ============ -->
-      <section class="view" id="view-powermode">
-        <h2 class="view-title">打字特效</h2>
-        <p class="view-sub">在编辑器里打字时显示粒子动画与 combo 计数</p>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">启用特效</div>
-            <div class="desc">总开关，关闭后粒子与 combo 全部失效</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="pm-enabled">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">粒子动画</div>
-            <div class="desc">打字时从光标处撒粒子</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="pm-particles">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">combo 计数</div>
-            <div class="desc">右上角显示连击数，达到阈值抖动屏幕</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="pm-combo">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">粒子数量</div>
-            <div class="desc">每次打字生成的粒子数（1-50）</div>
-          </div>
-          <div class="row">
-            <input type="number" id="pm-particle-count" min="1" max="50" step="1" value="6">
-          </div>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">combo 重置时间</div>
-            <div class="desc">毫秒（500-5000），超时后 combo 归零</div>
-          </div>
-          <div class="row">
-            <input type="number" id="pm-combo-reset-ms" min="500" max="5000" step="100" value="1500">
-          </div>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">combo 达到阈值时抖动屏幕</div>
-            <div class="desc">抖动编辑器区域</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="pm-shake-on-combo">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">combo 阈值（逗号分隔）</div>
-            <div class="desc">例如 10,50,100</div>
-          </div>
-          <div class="row">
-            <input type="text" id="pm-combo-thresholds" value="10,50,100">
-          </div>
-        </div>
-
-        <div class="pm-color-block">
-          <div class="label">粒子颜色</div>
-          <div class="bg-tabs" id="pm-color-tabs">
-            <button class="bg-tab" data-pmtab="solid">单一颜色</button>
-            <button class="bg-tab active" data-pmtab="rainbow">彩虹随机</button>
-          </div>
-
-          <div class="pm-color-panel" id="pm-panel-solid">
-            <div class="bg-row bg-color-row">
-              <input type="color" id="pm-solid-picker" value="#339af0" title="点击选色">
-              <input type="text" id="pm-solid-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+      <section class="view" id="view-powermode" role="tabpanel" aria-labelledby="tab-powermode">
+        <header class="view-header">
+          <h2 class="view-title">打字特效</h2>
+          <p class="view-sub">编辑器打字时显示粒子动画与 combo 计数</p>
+        </header>
+        <div class="view-body">
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">启用特效</div>
+              <div class="desc">总开关，关闭后粒子与 combo 全部失效</div>
             </div>
-            <p class="tip">支持颜色图、十六进制（#hex）、rgba() 三种输入方式</p>
+            <label class="switch">
+              <input type="checkbox" id="pm-enabled" aria-label="启用打字特效">
+              <span class="slider"></span>
+            </label>
           </div>
 
-          <div class="pm-color-panel active" id="pm-panel-rainbow">
-            <p class="tip">每个粒子随机生成彩虹色</p>
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">粒子动画</div>
+              <div class="desc">打字时从光标处撒粒子</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="pm-particles" aria-label="粒子动画">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">combo 计数</div>
+              <div class="desc">右上角显示连击数，达阈值抖动</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="pm-combo" aria-label="combo 计数">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">粒子数量</div>
+              <div class="desc">每次打字生成的粒子数</div>
+            </div>
+            <input type="number" id="pm-particle-count" class="num-box" min="1" max="50" step="1" value="6" aria-label="粒子数量（1-50）">
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">combo 重置时间</div>
+              <div class="desc">毫秒，超时后 combo 归零</div>
+            </div>
+            <input type="number" id="pm-combo-reset-ms" class="num-box" min="500" max="5000" step="100" value="1500" aria-label="combo 重置时间（毫秒）">
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">达阈值抖动屏幕</div>
+              <div class="desc">抖动编辑器区域</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="pm-shake-on-combo" aria-label="达阈值抖动屏幕">
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="card">
+            <div class="card-label">
+              <label class="name" for="pm-combo-thresholds">combo 阈值</label>
+            </div>
+            <input type="text" id="pm-combo-thresholds" value="10,50,100" placeholder="例如 10,50,100">
+            <p class="card-desc">逗号分隔</p>
+          </div>
+
+          <div class="card">
+            <div class="card-label">
+              <div class="name">粒子颜色</div>
+            </div>
+            <div class="seg" id="pm-color-tabs">
+              <button type="button" class="bg-tab" data-pmtab="solid">单一颜色</button>
+              <button type="button" class="bg-tab active" data-pmtab="rainbow">彩虹随机</button>
+            </div>
+
+            <div class="pm-color-panel" id="pm-panel-solid">
+              <div class="bg-row bg-color-row">
+                <input type="color" id="pm-solid-picker" value="#339af0" title="点击选色" aria-label="粒子颜色">
+                <input type="text" id="pm-solid-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+              </div>
+              <p class="card-desc">支持颜色图、十六进制（#hex）、rgba() 三种输入</p>
+            </div>
+
+            <div class="pm-color-panel active" id="pm-panel-rainbow">
+              <p class="card-desc">每个粒子随机生成彩虹色</p>
+            </div>
           </div>
         </div>
-
-        <div class="save-row">
-          <button id="pm-save" class="save-btn">保存配置</button>
-        </div>
-        <p class="tip">调整后请点击「保存配置」才会生效并持久化。</p>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">未修改</span></div>
+          <button id="pm-save" class="save-btn" type="button">保存并应用</button>
+        </footer>
       </section>
 
       <!-- ============ 鼠标尾迹 ============ -->
-      <section class="view" id="view-mousetrail">
-        <h2 class="view-title">鼠标尾迹</h2>
-        <p class="view-sub">跟随光标的彩色拖尾，支持纯色或彩虹渐变</p>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">启用尾迹</div>
-            <div class="desc">总开关，关闭后光标不再产生拖尾</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="mt-enabled">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="pm-color-block">
-          <div class="label">尾迹形态</div>
-          <div class="bg-tabs" id="mt-mode-tabs">
-            <button class="bg-tab active" data-mtmode="dots">圆点</button>
-            <button class="bg-tab" data-mtmode="ribbon">带状</button>
-          </div>
-          <p class="tip">圆点为离散光点；带状为跟随光标的连续彩色带</p>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">尾迹点大小</div>
-            <div class="desc">直径像素（2-40）</div>
-          </div>
-          <div class="row">
-            <input type="number" id="mt-size" min="2" max="40" step="1" value="10">
-          </div>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">存活时长</div>
-            <div class="desc">每个点淡出耗时（毫秒，200-3000）</div>
-          </div>
-          <div class="row">
-            <input type="number" id="mt-life" min="200" max="3000" step="50" value="600">
-          </div>
-        </div>
-
-        <div class="board-row" id="mt-interval-row">
-          <div class="board-label">
-            <div class="name">生成间隔</div>
-            <div class="desc">最小生成间隔（毫秒，8-200），越小越密（仅圆点模式）</div>
-          </div>
-          <div class="row">
-            <input type="number" id="mt-interval" min="8" max="200" step="1" value="16">
-          </div>
-        </div>
-
-        <div class="pm-color-block">
-          <div class="label">尾迹颜色</div>
-          <div class="bg-tabs" id="mt-color-tabs">
-            <button class="bg-tab" data-mttab="solid">单一颜色</button>
-            <button class="bg-tab active" data-mttab="rainbow">彩虹渐变</button>
-          </div>
-
-          <div class="pm-color-panel" id="mt-panel-solid">
-            <div class="bg-row bg-color-row">
-              <input type="color" id="mt-solid-picker" value="#339af0" title="点击选色">
-              <input type="text" id="mt-solid-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+      <section class="view" id="view-mousetrail" role="tabpanel" aria-labelledby="tab-mousetrail">
+        <header class="view-header">
+          <h2 class="view-title">鼠标尾迹</h2>
+          <p class="view-sub">跟随光标的彩色拖尾，支持纯色或彩虹渐变</p>
+        </header>
+        <div class="view-body">
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">启用尾迹</div>
+              <div class="desc">总开关，关闭后光标不再产生拖尾</div>
             </div>
-            <p class="tip">支持颜色图、十六进制（#hex）、rgba() 三种输入方式</p>
+            <label class="switch">
+              <input type="checkbox" id="mt-enabled" aria-label="启用鼠标尾迹">
+              <span class="slider"></span>
+            </label>
           </div>
 
-          <div class="pm-color-panel active" id="mt-panel-rainbow">
-            <p class="tip">尾迹按色相递增呈现顺滑彩虹渐变</p>
+          <div class="card">
+            <div class="card-label">
+              <div class="name">尾迹形态</div>
+            </div>
+            <div class="seg" id="mt-mode-tabs">
+              <button type="button" class="bg-tab active" data-mtmode="dots">圆点</button>
+              <button type="button" class="bg-tab" data-mtmode="ribbon">带状</button>
+            </div>
+            <p class="card-desc">圆点为离散光点；带状为连续彩色带</p>
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">尾迹点大小</div>
+              <div class="desc">直径像素（2-40）</div>
+            </div>
+            <input type="number" id="mt-size" class="num-box" min="2" max="40" step="1" value="10" aria-label="尾迹点大小（2-40）">
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">存活时长</div>
+              <div class="desc">毫秒（200-3000）</div>
+            </div>
+            <input type="number" id="mt-life" class="num-box" min="200" max="3000" step="50" value="600" aria-label="存活时长（毫秒）">
+          </div>
+
+          <div class="card card-row" id="mt-interval-row">
+            <div class="card-label">
+              <div class="name">生成间隔</div>
+              <div class="desc">毫秒（8-200），仅圆点模式</div>
+            </div>
+            <input type="number" id="mt-interval" class="num-box" min="8" max="200" step="1" value="16" aria-label="生成间隔（毫秒）">
+          </div>
+
+          <div class="card">
+            <div class="card-label">
+              <div class="name">尾迹颜色</div>
+            </div>
+            <div class="seg" id="mt-color-tabs">
+              <button type="button" class="bg-tab" data-mttab="solid">单一颜色</button>
+              <button type="button" class="bg-tab active" data-mttab="rainbow">彩虹渐变</button>
+            </div>
+
+            <div class="pm-color-panel" id="mt-panel-solid">
+              <div class="bg-row bg-color-row">
+                <input type="color" id="mt-solid-picker" value="#339af0" title="点击选色" aria-label="尾迹颜色">
+                <input type="text" id="mt-solid-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+              </div>
+              <p class="card-desc">支持颜色图、十六进制（#hex）、rgba() 三种输入</p>
+            </div>
+
+            <div class="pm-color-panel active" id="mt-panel-rainbow">
+              <p class="card-desc">尾迹按色相递增呈现顺滑彩虹渐变</p>
+            </div>
           </div>
         </div>
-
-        <div class="save-row">
-          <button id="mt-save" class="save-btn">保存配置</button>
-        </div>
-        <p class="tip">调整后请点击「保存配置」才会生效并持久化。</p>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">未修改</span></div>
+          <button id="mt-save" class="save-btn" type="button">保存并应用</button>
+        </footer>
       </section>
 
       <!-- ============ 点击特效 ============ -->
-      <section class="view" id="view-clickfx">
-        <h2 class="view-title">点击特效</h2>
-        <p class="view-sub">鼠标左键点击时爆发粒子效果</p>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">启用特效</div>
-            <div class="desc">总开关，关闭后点击不再产生粒子</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="cfx-enabled">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">特效类型</div>
-            <div class="desc">点击爆发的内容：圆球粒子 或 自定义图片</div>
-          </div>
-          <div class="bg-tabs" id="cfx-type-tabs">
-            <button class="bg-tab active" data-cfxtype="particles">圆球粒子</button>
-            <button class="bg-tab" data-cfxtype="image">自定义图片</button>
-          </div>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name" id="cfx-count-name">粒子数量</div>
-            <div class="desc" id="cfx-count-desc">每次点击爆发的粒子数（1-50）</div>
-          </div>
-          <div class="row">
-            <input type="number" id="cfx-particle-count" min="1" max="50" step="1" value="12">
-          </div>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name" id="cfx-size-name">粒子大小</div>
-            <div class="desc" id="cfx-size-desc">直径像素（2-30）</div>
-          </div>
-          <div class="row">
-            <input type="number" id="cfx-particle-size" min="2" max="30" step="1" value="8">
-          </div>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">扩散范围</div>
-            <div class="desc">向外飞散的最大半径（像素，20-200）</div>
-          </div>
-          <div class="row">
-            <input type="number" id="cfx-spread" min="20" max="200" step="1" value="70">
-          </div>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">存活时长</div>
-            <div class="desc">淡出耗时（毫秒，200-2000）</div>
-          </div>
-          <div class="row">
-            <input type="number" id="cfx-life" min="200" max="2000" step="50" value="600">
-          </div>
-        </div>
-
-        <div class="pm-color-block" id="cfx-color-block">
-          <div class="label">粒子颜色</div>
-          <div class="bg-tabs" id="cfx-color-tabs">
-            <button class="bg-tab" data-cfxtab="solid">单一颜色</button>
-            <button class="bg-tab active" data-cfxtab="rainbow">彩虹随机</button>
-          </div>
-
-          <div class="pm-color-panel" id="cfx-panel-solid">
-            <div class="bg-row bg-color-row">
-              <input type="color" id="cfx-solid-picker" value="#339af0" title="点击选色">
-              <input type="text" id="cfx-solid-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+      <section class="view" id="view-clickfx" role="tabpanel" aria-labelledby="tab-clickfx">
+        <header class="view-header">
+          <h2 class="view-title">点击特效</h2>
+          <p class="view-sub">鼠标左键点击时爆发粒子效果</p>
+        </header>
+        <div class="view-body">
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">启用特效</div>
+              <div class="desc">总开关，关闭后点击不再产生粒子</div>
             </div>
-            <p class="tip">支持颜色图、十六进制（#hex）、rgba() 三种输入方式</p>
+            <label class="switch">
+              <input type="checkbox" id="cfx-enabled" aria-label="启用点击特效">
+              <span class="slider"></span>
+            </label>
           </div>
 
-          <div class="pm-color-panel active" id="cfx-panel-rainbow">
-            <p class="tip">每个粒子随机生成彩虹色</p>
+          <div class="card">
+            <div class="card-label">
+              <div class="name">特效类型</div>
+            </div>
+            <div class="seg" id="cfx-type-tabs">
+              <button type="button" class="bg-tab active" data-cfxtype="particles">圆球粒子</button>
+              <button type="button" class="bg-tab" data-cfxtype="image">自定义图片</button>
+            </div>
+            <p class="card-desc">点击爆发的内容</p>
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name" id="cfx-count-name">粒子数量</div>
+              <div class="desc" id="cfx-count-desc">每次点击爆发的粒子数</div>
+            </div>
+            <input type="number" id="cfx-particle-count" class="num-box" min="1" max="50" step="1" value="12" aria-label="粒子数量">
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name" id="cfx-size-name">粒子大小</div>
+              <div class="desc" id="cfx-size-desc">直径像素</div>
+            </div>
+            <input type="number" id="cfx-particle-size" class="num-box" min="2" max="30" step="1" value="8" aria-label="粒子大小">
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">扩散范围</div>
+              <div class="desc">最大半径（像素，20-200）</div>
+            </div>
+            <input type="number" id="cfx-spread" class="num-box" min="20" max="200" step="1" value="70" aria-label="扩散范围（像素）">
+          </div>
+
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">存活时长</div>
+              <div class="desc">毫秒（200-2000）</div>
+            </div>
+            <input type="number" id="cfx-life" class="num-box" min="200" max="2000" step="50" value="600" aria-label="存活时长（毫秒）">
+          </div>
+
+          <div class="card" id="cfx-color-block">
+            <div class="card-label">
+              <div class="name">粒子颜色</div>
+            </div>
+            <div class="seg" id="cfx-color-tabs">
+              <button type="button" class="bg-tab" data-cfxtab="solid">单一颜色</button>
+              <button type="button" class="bg-tab active" data-cfxtab="rainbow">彩虹随机</button>
+            </div>
+
+            <div class="pm-color-panel" id="cfx-panel-solid">
+              <div class="bg-row bg-color-row">
+                <input type="color" id="cfx-solid-picker" value="#339af0" title="点击选色" aria-label="粒子颜色">
+                <input type="text" id="cfx-solid-input" placeholder="#00AAFF 或 rgba(0,170,255,1)">
+              </div>
+              <p class="card-desc">支持颜色图、十六进制（#hex）、rgba() 三种输入</p>
+            </div>
+
+            <div class="pm-color-panel active" id="cfx-panel-rainbow">
+              <p class="card-desc">每个粒子随机生成彩虹色</p>
+            </div>
+          </div>
+
+          <div class="card" id="cfx-image-block" style="display:none;">
+            <div class="card-label">
+              <div class="name">自定义图片</div>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn" id="cfx-image-pick">选择图片</button>
+              <button type="button" class="btn btn-danger" id="cfx-image-clear">清除图片</button>
+            </div>
+            <input type="file" id="cfx-image-file" accept="image/*" hidden>
+            <img id="cfx-image-preview" class="cfx-img-preview" alt="图片预览" style="display:none;">
+            <p class="card-desc">图片以 base64 存于本地，上限 2MB；数量、大小（2-200px）、扩散、存活沿用上方设置。</p>
           </div>
         </div>
-
-        <div class="pm-color-block" id="cfx-image-block" style="display:none;">
-          <div class="label">自定义图片</div>
-          <div class="bg-btn-pair">
-            <button class="bg-btn primary" id="cfx-image-pick">选择图片</button>
-            <button class="bg-btn" id="cfx-image-clear">清除图片</button>
-          </div>
-          <input type="file" id="cfx-image-file" accept="image/*" hidden>
-          <img id="cfx-image-preview" class="cfx-img-preview" alt="图片预览" style="display:none;">
-          <p class="tip">图片以 base64 存于本地，上限 2MB；图片数量、大小（2-200px）、扩散、存活沿用上方设置，图片大小已单独放宽。</p>
-        </div>
-
-        <div class="save-row">
-          <button id="cfx-save" class="save-btn">保存配置</button>
-        </div>
-        <p class="tip">调整后请点击「保存配置」才会生效并持久化。</p>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">未修改</span></div>
+          <button id="cfx-save" class="save-btn" type="button">保存并应用</button>
+        </footer>
       </section>
 
       <!-- ============ 网页桌宠 ============ -->
-      <section class="view" id="view-pet">
-        <h2 class="view-title">网页桌宠</h2>
-        <p class="view-sub">页面上的圆球小宠物：可拖动、贴底散步、可放入自定义图片</p>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">显示桌宠</div>
-            <div class="desc">关闭后桌宠在页面上隐藏</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="pet-enabled">
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">弹性系数</div>
-            <div class="desc">撞到鼠标尾迹后的回弹强度，越小越快停</div>
-          </div>
-          <div class="alpha-ctl">
-            <input type="range" id="pet-bounce" class="alpha-slider" min="0.2" max="1" step="0.05" value="0.5">
-            <input type="number" id="pet-bounce-value" class="alpha-value" min="0.2" max="1" step="0.05" value="0.5">
-          </div>
-        </div>
-
-        <div class="board-row">
-          <div class="board-label">
-            <div class="name">抛掷力度</div>
-            <div class="desc">拖动后松手的初速度倍率，1 = 原始手感</div>
-          </div>
-          <div class="alpha-ctl">
-            <input type="range" id="pet-throw" class="alpha-slider" min="0.3" max="2" step="0.1" value="1">
-            <input type="number" id="pet-throw-value" class="alpha-value" min="0.3" max="2" step="0.1" value="1">
-          </div>
-        </div>
-
-        <div class="pm-color-block">
-          <div class="label">自定义图片</div>
-          <div class="bg-btn-pair">
-            <button class="bg-btn primary" id="pet-img-pick">选择图片</button>
-            <button class="bg-btn" id="pet-img-clear">清除图片</button>
-          </div>
-          <input type="file" id="pet-img-file" accept="image/*" hidden>
-          <div class="label label-gap">圆形裁剪</div>
-          <div class="pet-cropper" id="pet-cropper" style="display:none;">
-            <img id="pet-crop-img" alt="裁剪预览">
-            <div class="pet-crop-mask" id="pet-crop-mask"></div>
-            <div class="pet-crop-circle" id="pet-crop-circle">
-              <div class="pet-crop-handle" id="pet-crop-handle"></div>
+      <section class="view" id="view-pet" role="tabpanel" aria-labelledby="tab-pet">
+        <header class="view-header">
+          <h2 class="view-title">网页桌宠</h2>
+          <p class="view-sub">页面上的圆球小宠物：可拖动、贴底散步</p>
+        </header>
+        <div class="view-body">
+          <div class="card card-row">
+            <div class="card-label">
+              <div class="name">显示桌宠</div>
+              <div class="desc">关闭后桌宠在页面上隐藏</div>
             </div>
+            <label class="switch">
+              <input type="checkbox" id="pet-enabled" aria-label="显示桌宠">
+              <span class="slider"></span>
+            </label>
           </div>
-          <p class="tip">拖动圆调整裁剪位置，拖右下角小点缩放圆的大小（未设置图片时不显示）</p>
-        </div>
 
-        <div class="save-row">
-          <button id="pet-save" class="save-btn">保存配置</button>
-        </div>
-        <p class="tip">开关与裁剪调整好后，点击「保存配置」立即生效并持久化；选择 / 清除图片则立即生效。</p>
+          <div class="card card-slider">
+            <div class="card-label">
+              <div class="name">弹性系数</div>
+            </div>
+            <input type="range" id="pet-bounce" class="alpha-slider" min="0.2" max="1" step="0.05" value="0.5" aria-label="弹性系数">
+            <input type="number" id="pet-bounce-value" class="num-box" min="0.2" max="1" step="0.05" value="0.5" aria-label="弹性系数数值">
+            <div class="ticks"><span>0.2 软</span><span>1 硬</span></div>
+          </div>
 
+          <div class="card card-slider">
+            <div class="card-label">
+              <div class="name">抛掷力度</div>
+            </div>
+            <input type="range" id="pet-throw" class="alpha-slider" min="0.3" max="2" step="0.1" value="1" aria-label="抛掷力度">
+            <input type="number" id="pet-throw-value" class="num-box" min="0.3" max="2" step="0.1" value="1" aria-label="抛掷力度数值">
+            <div class="ticks"><span>0.3</span><span>2.0</span></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">
+              <div class="name">自定义图片</div>
+              <div class="desc">可选，默认圆球</div>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn" id="pet-img-pick">选择图片</button>
+              <button type="button" class="btn btn-danger" id="pet-img-clear">清除图片</button>
+            </div>
+            <input type="file" id="pet-img-file" accept="image/*" hidden>
+
+            <div class="field-label">圆形裁剪</div>
+            <div class="pet-cropper" id="pet-cropper" style="display:none;">
+              <img id="pet-crop-img" alt="裁剪预览">
+              <div class="pet-crop-mask" id="pet-crop-mask"></div>
+              <div class="pet-crop-circle" id="pet-crop-circle">
+                <div class="pet-crop-handle" id="pet-crop-handle"></div>
+              </div>
+            </div>
+            <p class="card-desc">拖动圆调整裁剪位置，拖右下角小点缩放（未设置图片时不显示）</p>
+          </div>
+        </div>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">未修改</span></div>
+          <button id="pet-save" class="save-btn" type="button">保存并应用</button>
+        </footer>
       </section>
 
       <!-- ============ 代码备份 ============ -->
-      <section class="view" id="view-backup">
-        <h2 class="view-title">代码备份</h2>
-        <p class="view-sub">查看、导出、导入或清空代码自动备份</p>
-
-        <div class="as-row">
-          <button class="as-btn as-primary" id="backup-export">导出全部</button>
-          <button class="as-btn" id="backup-import">导入</button>
+      <section class="view" id="view-backup" role="tabpanel" aria-labelledby="tab-backup">
+        <header class="view-header">
+          <h2 class="view-title">代码备份</h2>
+          <p class="view-sub">查看、导出、导入或清空代码自动备份</p>
+        </header>
+        <div class="view-body">
+          <div class="card">
+            <div class="btn-row">
+              <button type="button" class="btn" id="backup-export">导出全部</button>
+              <button type="button" class="btn" id="backup-import">导入</button>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn btn-danger" id="backup-clear">全部清空</button>
+            </div>
+            <input type="file" id="backup-file-input" accept=".json,application/json,text/plain" hidden>
+          </div>
+          <div class="as-summary" id="backup-summary"></div>
+          <div class="as-status" id="backup-status"></div>
         </div>
-        <div class="as-row">
-          <button class="as-btn as-danger" id="backup-clear">全部清空</button>
-        </div>
-        <div class="as-summary" id="backup-summary"></div>
-        <div class="as-status" id="backup-status"></div>
-        <input type="file" id="backup-file-input" accept=".json,application/json,text/plain" style="display:none;">
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">操作即时生效</span></div>
+        </footer>
       </section>
 
       <!-- ============ 检查更新 ============ -->
-      <section class="view" id="view-update">
-        <h2 class="view-title">检查更新</h2>
-        <p class="view-sub">对比 GitHub Release 上的最新版本</p>
-
-        <div class="as-summary" id="update-current">当前版本：读取中…</div>
-        <div class="as-row">
-          <button class="as-btn as-primary" id="update-check">检测更新</button>
-          <button class="as-btn" id="update-open-release">打开发布页</button>
-          <button class="as-btn" id="update-open-ext">打开扩展管理页</button>
+      <section class="view" id="view-update" role="tabpanel" aria-labelledby="tab-update">
+        <header class="view-header">
+          <h2 class="view-title">检查更新</h2>
+          <p class="view-sub">对比 GitHub Release 上的最新版本</p>
+        </header>
+        <div class="view-body">
+          <div class="as-summary" id="update-current">当前版本：读取中…</div>
+          <div class="card">
+            <div class="btn-row">
+              <button type="button" class="btn" id="update-check">检测更新</button>
+            </div>
+            <div class="btn-row">
+              <button type="button" class="btn" id="update-open-release">打开发布页</button>
+              <button type="button" class="btn" id="update-open-ext">打开扩展管理页</button>
+            </div>
+          </div>
+          <div class="as-status" id="update-status"></div>
+          <p class="tip">本扩展通过 GitHub Release 分发，Chrome 不会自动更新自托管的 crx。检测到新版后需自行下载并替换。</p>
         </div>
-        <div class="as-status" id="update-status"></div>
-        <p class="tip">本扩展通过 GitHub Release 分发，Chrome 不会自动更新自托管的 crx。检测到新版后需自行下载并替换。</p>
+        <footer class="view-footer">
+          <div class="footer-status"><span class="dot"></span><span class="footer-text">操作即时生效</span></div>
+        </footer>
       </section>
 
     </main>

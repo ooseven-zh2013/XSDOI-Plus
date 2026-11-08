@@ -489,7 +489,7 @@
         gradFromInput.value = '';
         gradFromPicker.value = '#0e1018';
         gradToInput.value = '';
-        gradToPicker.value = '#2d8cf0';
+        gradToPicker.value = '#cba6f7';
         gradientStatus.textContent = '未设置';
         setStatus('已清除渐变', 'info');
         loadCurrent();

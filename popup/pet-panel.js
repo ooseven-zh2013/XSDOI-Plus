@@ -3,7 +3,7 @@
 // 控制 storage.sync 的 webPetEnabled（显隐）、webPetCrop（裁剪参数）、
 // webPetBounce（弹性系数）、webPetThrow（抛掷力度），
 // storage.local 的 webPetImg（自定义图片 dataURL），供 content/web-pet.js 读取。
-// 开关 / 裁剪 / 两个系数为草稿模式：界面调整不写 storage，点「保存配置」立即应用并持久化；
+// 开关 / 裁剪 / 两个系数为草稿模式：界面调整不写 storage，点「保存并应用」立即应用并持久化；
 // 选择 / 清除图片仍立即生效。
 // ============================================================
 
@@ -255,7 +255,7 @@
     clearTimeout(flashTimer);
     flashTimer = setTimeout(function () {
       saveBtn.classList.remove('saved', 'save-error');
-      saveBtn.textContent = '保存配置';
+      saveBtn.textContent = '保存并应用';
     }, 1200);
   }
 

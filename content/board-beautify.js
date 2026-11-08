@@ -16,11 +16,71 @@
      实现为 border-radius: calc(round * 50%) —— 百分比在两个轴分别解析，
      故非正方形元素在 1 处得到「最大内切椭圆圆角」，这是 CSS 能做到的极限。 */
   var DEFAULT_ROUND = 0.5;
+  /* 色差（chromatic aberration）强度 0~1，0 = 关闭（默认）。
+     v3 = 绝对像素锚定 + 偏心三通道：
+       真实色散短波折射率更高 ⇒ 蓝位移最大、红最小。
+       k 是 B 与 R 在位移峰值的分离量（CSS px）：
+         k = max((亮 ? 2.4 : 1.6) * a, 1.6)      ← 1.6px 绝对下限，暗色不再打折
+         S_B = S + 0.70k   S_G = S   S_R = S - 0.30k
+       冷暖比 0.70 : 0.30 = 2.33:1（黄带不再抢正文）。
+     ⚠️ 关闭时滤镜链与 V4.8.0 完全一致（单通道 2 原语），逐像素回归红线。 */
+  var DEFAULT_ABERRATION = 0;
 
-  var state = { mode: DEFAULT_MODE, alpha: DEFAULT_ALPHA, round: DEFAULT_ROUND };
+  /* 色差系数（规范 B2 / B4，勿改） */
+  var AB_K_LIGHT = 2.4;
+  var AB_K_DARK = 1.6;
+  var AB_K_FLOOR = 1.6;      // k 绝对下限（CSS px）
+  var AB_K_CAP_DOWN = 1.0;   // 80~200px 降档时 k 硬顶
+  var AB_DOWN_FACTOR = 0.65; // 降档 a 折扣
+  var AB_MIN_STRENGTH = 0.25;// UI 可调下限
+  var AB_MAX_STRENGTH = 0.72;// 代码 clamp 上限
+  var AB_COLD = 0.70;        // B 通道位移系数（冷带）
+  var AB_WARM = 0.30;        // R 通道位移系数（暖带）
+
+  /* B6 黑名单（22 条）：交互控件 + 语义色边 / 状态色，一律不参与色差。
+     ⚠️ 只排除**色差**，保留 V4.8.0 的普通折射 —— 否则关闭色差时
+        这些元素的观感会变，破坏「默认关闭逐像素一致」的回归红线。 */
+  var AB_BLACKLIST = [
+    '.contest-rank-search', '.hero-input-wrap', '.contest-rank-config', '.contest-config',
+    '.checkin-btn', '.el-tabs__item.is-active', '.hub-tab', '.help-nav-item', '.type-chip',
+    '.ann-pin-chip', '.el-backtop', '.el-input__count', '.el-input__count-inner',
+    '.auto-backup-dropdown', '.topic-row',
+    '.countdown-card', '.rank-chip', '.reco-diff', '.sprint-badge', '.checked-done',
+    '.streak-chip', '.el-message'
+  ];
+  var _abBlackCache = new WeakMap();
+
+  /* 同屏色差边缘总周长上限（B11.6），超出按面积降序截断 */
+  var AB_PERIMETER_BUDGET = 8000;
+
+  function isDarkTheme() {
+    return document.documentElement.classList.contains('theme-dark');
+  }
+
+  function abBlacklisted(el) {
+    var hit = _abBlackCache.get(el);
+    if (hit !== undefined) return hit;
+    hit = false;
+    for (var i = 0; i < AB_BLACKLIST.length; i++) {
+      try {
+        if (el.matches(AB_BLACKLIST[i])) { hit = true; break; }
+      } catch (e) { /* 老浏览器不支持某选择器就跳过 */ }
+    }
+    _abBlackCache.set(el, hit);
+    return hit;
+  }
+
+  var state = { mode: DEFAULT_MODE, alpha: DEFAULT_ALPHA, round: DEFAULT_ROUND,
+                aberration: DEFAULT_ABERRATION };
 
   function sanitizeMode(v) {
     return MODES.indexOf(v) >= 0 ? v : DEFAULT_MODE;
+  }
+
+  function sanitizeAberration(v) {
+    var a = parseFloat(v);
+    if (isNaN(a)) return DEFAULT_ABERRATION;
+    return Math.min(AB_MAX_STRENGTH, Math.max(0, a));
   }
 
   function sanitizeRound(v) {
@@ -101,7 +161,6 @@
      不该随卡片面积放大。 */
   var MAX_RADIUS = 40;
   var REFRACT_PREFIX = 'xsdoi-lg-f-';
-  var _refractIds = new WeakMap();   // el -> filter id，避免反复写 DOM
   var _refractSig = '';              // 尺寸签名；未变则不重建滤镜宿主
   var _refractSels = [];            // buildCSS 算出的折射选择器列表，供 apply 使用
   var _roundSels = [];               // 圆角作用的选择器列表（比折射列表宽，见 buildCSS）
@@ -146,9 +205,19 @@
      - 采样网格固定 256×256，但 SDF 用**元素真实像素**算 ⇒ 圆角不被拉伸变形
      - 位移方向 = 该点指向中心，幅度随「离边界距离」在 bezel 内衰减到 0
      - 通道归一到 [0,255] 全区间，scale = 2×ampMax ⇒ 位移量恰好等于设计的 dx
-     - 按 (w,h,radius) 缓存，同参数元素共用一张图 */
-  function buildMap(w, h, radiusPx) {
-    var key = w + 'x' + h + '@' + radiusPx;
+     - 按 (w,h,radius,逐边掩膜) 缓存，同参数元素共用一张图
+     - edgeMask（B7）：每边 0 / 0.5 / 1，直接乘进 amp。
+       m=0 ⇒ 该边位移为 0，色差（位移的函数）同时消失；m=0.5 ⇒ 降档折射减半。
+       零额外开销：只是像素循环里多一个乘法。 */
+  function maskCode(m) {
+    return m >= 1 ? '1' : (m > 0 ? 'h' : '0');
+  }
+
+  function buildMap(w, h, radiusPx, edgeMask) {
+    var m4 = edgeMask
+      ? maskCode(edgeMask.t) + maskCode(edgeMask.r) + maskCode(edgeMask.b) + maskCode(edgeMask.l)
+      : '1111';
+    var key = w + 'x' + h + '@' + radiusPx + '#' + m4;
     if (_mapCache[key]) return _mapCache[key];
 
     var S = 256;
@@ -171,7 +240,16 @@
         var ex = px * sx - hw;
         var sdf = roundedRectSDF(ex, ey, hw, hh, r);
         var t = lgSmoothStep(-bezel, 0, sdf);   // 0=平静区, 1=边界
-        var amp = ampMax * t;
+        var m = 1;
+        if (edgeMask) {
+          var dl = ex + hw, dr = hw - ex, dt = ey + hh, db = hh - ey;
+          var dmin = Math.min(dl, dr, dt, db);
+          m = dmin === dl ? edgeMask.l
+            : dmin === dr ? edgeMask.r
+            : dmin === dt ? edgeMask.t
+            : edgeMask.b;
+        }
+        var amp = ampMax * t * m;
         var len = Math.sqrt(ex * ex + ey * ey) || 1;
         var dx = -ex / len * amp;               // 朝中心收缩 ⇒ 放大
         var dy = -ey / len * amp;
@@ -189,25 +267,174 @@
       uri: cv.toDataURL('image/png'),
       scale: Math.round(2 * ampMax)
     };
-    /* 简单上限：反复拖圆角滑块会生成不同 key 的图，攒多了吃内存。
-       超过 64 张就整体清空（下一轮会按需重建）。 */
+    /* 简单上限：反复拖滑块会生成不同 key 的图，攒多了吃内存。
+       超过 96 张就整体清空（下一轮会按需重建）。 */
     var ks = Object.keys(_mapCache);
-    if (ks.length > 64) _mapCache = {};
+    if (ks.length > 96) _mapCache = {};
     _mapCache[key] = out;
     return out;
   }
 
+  function round2px(v) {
+    return Math.round(v * 100) / 100;
+  }
+
   /* 单个滤镜：feImage 子区域 = 元素像素尺寸（必须 userSpaceOnUse，
-     否则回到「按固有尺寸平铺」的万花筒）。 */
-  function makeFilterSVG(id, w, h, map) {
-    return '<filter id="' + id + '" x="0" y="0" width="1" height="1" ' +
+     否则回到「按固有尺寸平铺」的万花筒）。
+     abK = 0 ⇒ V4.8.0 原本的单通道 2 原语路径，逐像素一致（回归红线）。
+     abK > 0 ⇒ v3 偏心三通道（9 原语 + 末尾 composite）：
+       三个 feDisplacementMap **共用同一个 feImage 结果**；
+       三个 feColorMatrix 严格单选通道（alpha 行 0 0 0 1 0）；
+       末尾 feComposite in2=SourceAlpha operator=in 不可省，否则最外 1px 过冲出亮边。 */
+  function makeFilterSVG(id, w, h, map, abK) {
+    var head = '<filter id="' + id + '" x="0" y="0" width="1" height="1" ' +
       'filterUnits="objectBoundingBox" primitiveUnits="userSpaceOnUse" ' +
       'color-interpolation-filters="sRGB">' +
       '<feImage result="map" preserveAspectRatio="none" x="0" y="0" ' +
-        'width="' + w + '" height="' + h + '" href="' + map.uri + '"/>' +
-      '<feDisplacementMap in="SourceGraphic" in2="map" scale="' + map.scale + '" ' +
-        'xChannelSelector="R" yChannelSelector="G"/>' +
+        'width="' + w + '" height="' + h + '" href="' + map.uri + '"/>';
+
+    if (!abK) {
+      return head +
+        '<feDisplacementMap in="SourceGraphic" in2="map" scale="' + map.scale + '" ' +
+          'xChannelSelector="R" yChannelSelector="G"/>' +
+        '</filter>';
+    }
+
+    var S = map.scale;
+    var sR = round2px(S - AB_WARM * abK);   // 暖带：位移最小
+    var sG = round2px(S);
+    var sB = round2px(S + AB_COLD * abK);   // 冷带：位移最大
+
+    function disp(sc, name) {
+      return '<feDisplacementMap in="SourceGraphic" in2="map" scale="' + sc + '" ' +
+        'xChannelSelector="R" yChannelSelector="G" result="' + name + '_D"/>';
+    }
+    // 4x5 颜色矩阵：严格只保留一个通道，alpha 保持（第 4 行 0 0 0 1 0）
+    function keep(name, ch) {
+      var m = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+      m[ch * 5 + ch] = 1;
+      m[19] = 1;
+      return '<feColorMatrix in="' + name + '_D" type="matrix" values="' +
+        m.join(' ') + '" result="' + name + '_C"/>';
+    }
+    return head +
+      disp(sR, 'R') + keep('R', 0) +
+      disp(sG, 'G') + keep('G', 1) +
+      disp(sB, 'B') + keep('B', 2) +
+      '<feBlend in="G_C" in2="B_C" mode="screen" result="GB"/>' +
+      '<feBlend in="R_C" in2="GB" mode="screen"/>' +
+      '<feComposite in2="SourceAlpha" operator="in"/>' +
       '</filter>';
+  }
+
+  /* B5 尺寸门槛：关 / 降档 / 全强度 */
+  function sizeTier(w, h) {
+    var short = Math.min(w, h);
+    var area = w * h;
+    if (short < 80 || area < 24000) return 'off';
+    if (short < 200 || area < 60000) return 'down';
+    return 'full';
+  }
+
+  /* B7 逐边判据：gap = 该边最近字形 ink box 到内缘距离，S = 该边最大字号。
+       S ≥ 16      → gap ≥ 16
+       14~15.99    → gap ≥ 15
+       12~13.99    → gap ≥ 1.25em
+       < 12        → 该边禁用
+     含 pre/code/textarea/CodeMirror/monaco 的容器：左右边一律禁用。
+     结果缓存（尺寸不变就不重测），只在色差开启时才会被调用。 */
+  var _edgeMaskCache = new WeakMap();
+
+  function edgeOk(gap, fontSize) {
+    if (fontSize >= 16) return gap >= 16;
+    if (fontSize >= 14) return gap >= 15;
+    if (fontSize >= 12) return gap >= 1.25 * fontSize;
+    return false;
+  }
+
+  function computeEdgeMask(el, w, h) {
+    var cached = _edgeMaskCache.get(el);
+    if (cached && cached.w === w && cached.h === h) return cached;
+
+    var mask = { t: 1, r: 1, b: 1, l: 1 };
+
+    // 代码/预格式化容器：左右边一律禁用（上下可留）
+    try {
+      if (el.matches('pre, code, textarea, .CodeMirror, .cm-editor, .monaco-editor') ||
+          el.querySelector('pre, code, textarea, .CodeMirror, .cm-editor, .monaco-editor')) {
+        mask.l = 0; mask.r = 0;
+      }
+    } catch (e) { /* 忽略 */ }
+
+    var base = el.getBoundingClientRect();
+    if (base.width < 2 || base.height < 2) return { w: w, h: h, mask: mask };
+
+    var gaps = { t: Infinity, r: Infinity, b: Infinity, l: Infinity };
+    var maxFont = 0;
+    var budget = 160;   // 文本节点预算：超过就按已测到的算，避免大卡片拖慢主线程
+
+    (function walk(node, depth) {
+      if (depth > 3 || budget <= 0) return;
+      for (var c = node.firstChild; c && budget > 0; c = c.nextSibling) {
+        if (c.nodeType === 3) {
+          if (!c.nodeValue || !c.nodeValue.trim()) continue;
+          budget--;
+          var fs = 0;
+          try { fs = parseFloat(getComputedStyle(node).fontSize) || 0; } catch (e) { fs = 0; }
+          if (fs > maxFont) maxFont = fs;
+          var rng = document.createRange();
+          rng.selectNodeContents(c);
+          var rects = rng.getClientRects();
+          for (var i = 0; i < rects.length; i++) {
+            var r = rects[i];
+            if (r.width < 1 || r.height < 1) continue;
+            gaps.l = Math.min(gaps.l, r.left - base.left);
+            gaps.r = Math.min(gaps.r, base.right - r.right);
+            gaps.t = Math.min(gaps.t, r.top - base.top);
+            gaps.b = Math.min(gaps.b, base.bottom - r.bottom);
+          }
+        } else if (c.nodeType === 1) {
+          var cs;
+          try { cs = getComputedStyle(c); } catch (e) { continue; }
+          if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+          walk(c, depth + 1);
+        }
+      }
+    })(el, 0);
+
+    if (maxFont > 0) {
+      if (gaps.t !== Infinity && !edgeOk(gaps.t, maxFont)) mask.t = 0;
+      if (gaps.r !== Infinity && !edgeOk(gaps.r, maxFont)) mask.r = 0;
+      if (gaps.b !== Infinity && !edgeOk(gaps.b, maxFont)) mask.b = 0;
+      if (gaps.l !== Infinity && !edgeOk(gaps.l, maxFont)) mask.l = 0;
+    }
+
+    _edgeMaskCache.set(el, { w: w, h: h, mask: mask });
+    return { w: w, h: h, mask: mask };
+  }
+
+  /* 系统偏好 / 强制颜色：命中任一项就整体关色差（B11）。
+     ⚠️ 实时读 matchMedia（缓存 MQL 对象），不只信 change 事件的缓存值：
+        用 CDP / 系统设置切换模拟媒体特性时，change 的到达时机并不可靠。 */
+  var _pref = { forced: false, contrast: false, reduced: false };
+  var _mql = {};
+
+  function mqMatch(q) {
+    try {
+      if (!_mql[q]) _mql[q] = window.matchMedia(q);
+      return !!_mql[q].matches;
+    } catch (e) { return false; }
+  }
+
+  function forcedColorsActive() {
+    return mqMatch('(forced-colors: active)');
+  }
+
+  function effectiveAberration() {
+    if (forcedColorsActive() ||
+        mqMatch('(prefers-contrast: more)') ||
+        mqMatch('(prefers-reduced-transparency: reduce)')) return 0;
+    return state.aberration;
   }
 
   function ensureHost() {
@@ -222,6 +449,19 @@
     return host;
   }
 
+  var _abEls = [];          // [{el, ab, plain}] 当前启用色差的元素（滚动降级用）
+  var _filteredEls = [];    // 上一轮挂过 --xsdoi-lg-f 的元素（切模式后要清）
+  var _abUrl = new WeakMap();
+
+  function setFilterUrl(el, url) {
+    el.style.setProperty('--xsdoi-lg-f', url + ' blur(0.25px) saturate(1.1)');
+  }
+
+  function clearFilterVar(el) {
+    el.style.removeProperty('--xsdoi-lg-f');
+    _abUrl.delete(el);
+  }
+
   /* 为每个玻璃元素下发两个 CSS 变量（都依赖元素自身尺寸，故必须 per-element）：
        --xsdoi-lg-f      折射滤镜 id（仅 liquid 模式）
        --xsdoi-lg-radius 圆角半径（**像素**，非百分比）
@@ -232,44 +472,138 @@
         在长方形上会得到椭圆（沿长边被拉长）。要「正方形时那样的各向同性圆」，
         半径必须是长度单位 = min(w,h)/2 * round —— 而 CSS 拿不到元素尺寸，
         只能由 JS 测出来写成 px。 */
-  function syncRefract(sels) {
-    if (!sels || !sels.length) { removeFilter(); return; }
-    var els;
-    try { els = document.querySelectorAll(sels.join(',')); } catch (e) { return; }
-    var i, el, w, h, key, radius, sig = [], defs = [], seen = {};
+  function syncRefract(refractSels, roundSels) {
+    /* B11.2 强制颜色：全量移除 —— 不生成 SVG filter host，也不留 --xsdoi-lg-f */
+    if (forcedColorsActive()) {
+      for (var fi = 0; fi < _filteredEls.length; fi++) clearFilterVar(_filteredEls[fi]);
+      _filteredEls = [];
+      _abEls = [];
+      removeFilter();
+      return;
+    }
     var liquid = state.mode === 'liquid';
-    var round = state.round;
-    for (i = 0; i < els.length; i++) {
-      el = els[i];
+    var abBase = liquid ? effectiveAberration() : 0;
+    var isDark = isDarkTheme();
+    var abKey = Math.round(abBase * 100);
+    var i, el, w, h, radius, key;
+
+    var rounds = [];
+    try { rounds = document.querySelectorAll((roundSels || []).join(',')); } catch (e) { rounds = []; }
+
+    var refractAll = (refractSels && refractSels.length) ? refractSels.join(', ') : '';
+    var roundSet = typeof Set === 'function' ? new Set() : null;
+
+    /* ---- ① 圆角变量（三模式共有）+ 收集尺寸 ---- */
+    var info = [];
+    for (i = 0; i < rounds.length; i++) {
+      el = rounds[i];
       w = Math.ceil(el.offsetWidth / 4) * 4;
       h = Math.ceil(el.offsetHeight / 4) * 4;
       if (w < 8 || h < 8) continue;
-      // 绝对像素语义：round*40，且不超过元素半高（小元素不能圆成半圆以上）
-      radius = Math.round(Math.min(round * MAX_RADIUS, Math.min(w, h) / 2));
-      /* 滤镜 id 必须含 radius：同尺寸不同圆角要各自一张位移图（SDF 里圆角参与计算），
-         否则后建的元素会复用前一张图，圆角处的折射带对不上。 */
-      key = w + 'x' + h + 'r' + radius;
-      sig.push(key);
-      var prev = _refractIds.get(el);
-      if (!prev || prev.key !== key) {
-        _refractIds.set(el, { key: key, radius: radius });
-        if (liquid) {
-          /* 附加滤镜并入变量值：CSS 侧只有 var(--x, none) 一个槽位，
-             若写成 var(--x, none) blur(...) 会拼出 `none blur(...)`，整条声明作废。
-             0.25px 微模糊 + 轻微提饱和，来自 shuding/liquid-glass 的配方。 */
-          el.style.setProperty('--xsdoi-lg-f',
-            'url(#' + REFRACT_PREFIX + key + ') blur(0.25px) saturate(1.1)');
-        } else {
-          el.style.removeProperty('--xsdoi-lg-f');
-        }
-        el.style.setProperty('--xsdoi-lg-radius', radius + 'px');
+      radius = Math.round(Math.min(state.round * MAX_RADIUS, Math.min(w, h) / 2));
+      el.style.setProperty('--xsdoi-lg-radius', radius + 'px');
+      var inRefract = false;
+      if (liquid && refractAll) {
+        try { inRefract = el.matches(refractAll); } catch (e) { inRefract = false; }
       }
-      if (!liquid || seen[key]) continue;
-      seen[key] = 1;
-      defs.push(makeFilterSVG(REFRACT_PREFIX + key, w, h, buildMap(w, h, radius)));
+      if (roundSet) roundSet.add(el);
+      info.push({ el: el, w: w, h: h, radius: radius, refract: inRefract });
     }
-    sig = sig.join(',') + '|' + (liquid ? 'L' : 'N');
-    if (sig === _refractSig) return;   // 尺寸/圆角没变，不重建
+
+    /* ---- ② 色差资格：黑名单 / 嵌套 / 尺寸门槛 / 同屏周长预算 ---- */
+    var cand = [];
+    if (abBase > 0) {
+      for (i = 0; i < info.length; i++) {
+        var it = info[i];
+        if (!it.refract) continue;
+        if (sizeTier(it.w, it.h) === 'off') continue;
+        if (abBlacklisted(it.el)) continue;
+        // 嵌套深度 ≤1：祖先里已有玻璃元素就跳过
+        var nested = false;
+        for (var p = it.el.parentElement, depth = 0; p && depth < 24; p = p.parentElement, depth++) {
+          if (roundSet && roundSet.has(p)) { nested = true; break; }
+        }
+        if (nested) continue;
+        // 「同屏」= 与视口相交，屏幕外的元素不占预算
+        var rc;
+        try { rc = it.el.getBoundingClientRect(); } catch (e) { rc = null; }
+        if (rc && (rc.bottom < 0 || rc.right < 0 ||
+                   rc.top > (window.innerHeight || 0) || rc.left > (window.innerWidth || 0))) continue;
+        cand.push(it);
+      }
+      cand.sort(function (a, b) { return (b.w * b.h) - (a.w * a.h); });
+      var perim = 0;
+      for (i = 0; i < cand.length; i++) {
+        perim += 2 * (cand[i].w + cand[i].h);
+        cand[i].abOk = perim <= AB_PERIMETER_BUDGET;
+      }
+    }
+    var abOkMap = new WeakMap();
+    for (i = 0; i < cand.length; i++) abOkMap.set(cand[i].el, cand[i].abOk);
+
+    /* ---- ③ 下发变量 + 生成滤镜 ---- */
+    var sig = [], defs = [], seen = {}, abEls = [], filtered = [];
+    for (i = 0; i < info.length; i++) {
+      el = info[i].el;
+      if (!info[i].refract) {
+        clearFilterVar(el);
+        continue;
+      }
+      w = info[i].w; h = info[i].h; radius = info[i].radius;
+
+      var tier = sizeTier(w, h);
+      var k = 0;
+      if (abBase > 0 && abOkMap.get(el)) {
+        var a = (tier === 'down') ? abBase * AB_DOWN_FACTOR : abBase;
+        k = Math.max((isDark ? AB_K_DARK : AB_K_LIGHT) * a, AB_K_FLOOR);
+        if (tier === 'down') k = Math.min(k, AB_K_CAP_DOWN);
+      }
+
+      var maskObj = null, m4 = '1111';
+      if (k > 0) {
+        var em = computeEdgeMask(el, w, h).mask;
+        var mult = (tier === 'down') ? 0.5 : 1;   // B7：降档折射减半
+        maskObj = {
+          t: em.t * mult, r: em.r * mult, b: em.b * mult, l: em.l * mult
+        };
+        m4 = maskCode(maskObj.t) + maskCode(maskObj.r) + maskCode(maskObj.b) + maskCode(maskObj.l);
+        // 四边全关 ⇒ 位移恒为 0，与关闭色差等价，直接走普通滤镜
+        if (maskObj.t === 0 && maskObj.r === 0 && maskObj.b === 0 && maskObj.l === 0) {
+          k = 0; maskObj = null; m4 = '1111';
+        }
+      }
+
+      /* key 含圆角、色差强度、逐边掩膜与主题：任一变化都要重建位移图/滤镜 */
+      key = w + 'x' + h + 'r' + radius + 'a' + Math.round(k * 100) + 'm' + m4 + (isDark ? 'D' : 'L');
+      sig.push(key);
+      filtered.push(el);
+
+      var id = REFRACT_PREFIX + key;
+      var url = 'url(#' + id + ')';
+      if (!_abUrl.get(el) || _abUrl.get(el) !== url) {
+        setFilterUrl(el, url);
+        _abUrl.set(el, url);
+      }
+
+      if (!seen[key]) {
+        seen[key] = 1;
+        var map = buildMap(w, h, radius, maskObj);
+        defs.push(makeFilterSVG(id, w, h, map, k));
+        if (k > 0) {
+          // 滚动降级用：同一张位移图的 2 原语版本（k→0，折射不变）
+          defs.push(makeFilterSVG(id + 'p', w, h, map, 0));
+          abEls.push({ el: el, ab: url, plain: 'url(#' + id + 'p)' });
+        }
+      } else if (k > 0) {
+        abEls.push({ el: el, ab: url, plain: 'url(#' + id + 'p)' });
+      }
+    }
+
+    _abEls = abEls;
+    _filteredEls = filtered;
+
+    sig = sig.join(',') + '|' + (liquid ? 'L' : 'N') + '|' + abKey + '|' + (isDark ? 'D' : 'L');
+    if (sig === _refractSig) return;   // 尺寸/圆角/色差都没变，不重建
     _refractSig = sig;
     if (!defs.length) { removeFilter(); return; }
     ensureHost().innerHTML =
@@ -282,9 +616,59 @@
     var host = document.getElementById(FILTER_HOST_ID);
     if (host && host.parentNode) host.parentNode.removeChild(host);
     _refractSig = '';
+    _abEls = [];
   }
 
-  function buildCSS(alpha, mode, round) {
+  /* B12 滚动降级：滚动中 k → 0（换成 2 原语版本），静止 120ms 后恢复。
+     换的是变量值而不是滤镜内容 —— 只写 style，不重建 SVG。 */
+  var _scrolling = false;
+  var _scrollTimer = 0;
+
+  function applyAbUrl(usePlain) {
+    for (var i = 0; i < _abEls.length; i++) {
+      setFilterUrl(_abEls[i].el, usePlain ? _abEls[i].plain : _abEls[i].ab);
+    }
+  }
+
+  try {
+    window.addEventListener('scroll', function () {
+      if (!_abEls.length) return;
+      if (!_scrolling) { _scrolling = true; applyAbUrl(true); }
+      clearTimeout(_scrollTimer);
+      _scrollTimer = setTimeout(function () {
+        _scrolling = false;
+        if (_abEls.length) applyAbUrl(false);
+      }, 120);
+    }, { passive: true, capture: true });
+  } catch (e) { /* 忽略 */ }
+
+  /* B11 系统偏好：强制颜色 / 高对比度 / 减弱透明 —— 任一项命中就整体关色差
+     （玻璃底色不动，只去掉色差本身）。 */
+  (function watchPrefs() {
+    if (typeof window.matchMedia !== 'function') return;
+    var defs = [
+      ['(forced-colors: active)', 'forced'],
+      ['(prefers-contrast: more)', 'contrast'],
+      ['(prefers-reduced-transparency: reduce)', 'reduced']
+    ];
+    for (var i = 0; i < defs.length; i++) {
+      var mq, key = defs[i][1];
+      try { mq = window.matchMedia(defs[i][0]); } catch (e) { continue; }
+      _pref[key] = !!mq.matches;
+      (function (m, k) {
+        var onChange = function () {
+          _pref[k] = !!m.matches;
+          if (k === 'forced' && m.matches) removeFilter();
+          _refractSig = '';    // 强制重建滤镜宿主
+          apply();
+        };
+        if (m.addEventListener) m.addEventListener('change', onChange);
+        else if (m.addListener) m.addListener(onChange);
+      })(mq, key);
+    }
+  })();
+
+  function buildCSS(alpha, mode, round, ab) {
     var a = alpha.toFixed(2);
     var liquid = mode === 'liquid';
     _refractSels = [];
@@ -2106,6 +2490,29 @@
       /* 需要 isolation 收容的：#nav 自身已是 fixed+z-index:5 的层叠上下文，排除掉不动它。 */
       var needIsolation = acrylicOnly.filter(function (s) { return s !== '#nav'; });
 
+      /* B10：色差开启时镜面线降到 0.5px —— 1px 的 inset 镜面线正好压在最外 1px，
+         会把 2~6px 的色带整条覆盖掉（暗色 k 只有 1.0~1.6px 时尤其明显）。
+         关闭色差时保持 V4.8.0 的 5 层高光，逐像素回归。 */
+      var abOn = ab > 0;
+      var hlLight = abOn
+        ? ['    inset 0 0 0 0.5px rgba(255, 255, 255, 0.45),',
+           '    inset 0 0.5px 0 rgba(255, 255, 255, 0.30),',
+           '    inset 0 0 18px -10px rgba(255, 255, 255, 0.12) !important;']
+        : ['    inset 0 0 0 1px rgba(255, 255, 255, 0.55),',
+           '    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),',
+           '    inset 0 -1px 0 0 rgba(255, 255, 255, 0.35),',
+           '    inset 0 0 14px 2px rgba(255, 255, 255, 0.28),',
+           '    inset 0 0 30px 6px rgba(120, 170, 255, 0.14) !important;'];
+      var hlDark = abOn
+        ? ['    inset 0 0 0 0.5px rgba(255, 255, 255, 0.18),',
+           '    inset 0 0.5px 0 rgba(255, 255, 255, 0.14),',
+           '    inset 0 0 18px -10px rgba(255, 255, 255, 0.05) !important;']
+        : ['    inset 0 0 0 1px rgba(255, 255, 255, 0.16),',
+           '    inset 0 1px 0 0 rgba(255, 255, 255, 0.26),',
+           '    inset 0 -1px 0 0 rgba(255, 255, 255, 0.10),',
+           '    inset 0 0 14px 2px rgba(255, 255, 255, 0.10),',
+           '    inset 0 0 30px 6px rgba(120, 170, 255, 0.08) !important;'];
+
       /* ① 折射层（::before）+ ② 高光层（::after） */
       rules.push(
         /* ⚠️ 绝不能给「站点已定位」的元素覆盖 position！
@@ -2299,11 +2706,7 @@
         '  -webkit-backdrop-filter: var(--xsdoi-lg-f, none) !important;',
         '  backdrop-filter: var(--xsdoi-lg-f, none) !important;',
         '  box-shadow:',
-        '    inset 0 0 0 1px rgba(255, 255, 255, 0.55),',
-        '    inset 0 1px 0 0 rgba(255, 255, 255, 0.85),',
-        '    inset 0 -1px 0 0 rgba(255, 255, 255, 0.35),',
-        '    inset 0 0 14px 2px rgba(255, 255, 255, 0.28),',
-        '    inset 0 0 30px 6px rgba(120, 170, 255, 0.14) !important;',
+        hlLight.join('\n'),
         '}',
         fxDark,
         '  border-radius: inherit !important;',
@@ -2311,11 +2714,7 @@
         '  -webkit-backdrop-filter: var(--xsdoi-lg-f, none) !important;',
         '  backdrop-filter: var(--xsdoi-lg-f, none) !important;',
         '  box-shadow:',
-        '    inset 0 0 0 1px rgba(255, 255, 255, 0.16),',
-        '    inset 0 1px 0 0 rgba(255, 255, 255, 0.26),',
-        '    inset 0 -1px 0 0 rgba(255, 255, 255, 0.10),',
-        '    inset 0 0 14px 2px rgba(255, 255, 255, 0.10),',
-        '    inset 0 0 30px 6px rgba(120, 170, 255, 0.08) !important;',
+        hlDark.join('\n'),
         '}',
         /* 元素自身底色让位给 ::before —— 否则两层半透明底色叠加
            （不透明度变成 1-(1-a)^2，a=0.55 时 0.80，玻璃会糊成一片），
@@ -2325,6 +2724,45 @@
         '}',
         darkSelLine(refractSels),
         '  background-color: transparent !important;',
+        '}'
+      );
+
+      /* B11.1 聚焦时该元素色差归零：直接换成没有 SVG 的极轻滤镜，
+         保证键盘操作 / 输入时边缘不出现彩边。只在色差开启时生成。 */
+      if (abOn) {
+        rules.push(
+          refractSels.map(function (s) {
+            return s + ':focus-within, ' + s + ':focus-visible';
+          }).join(', ') + ' {',
+          '  -webkit-backdrop-filter: blur(0.25px) saturate(1.1) !important;',
+          '  backdrop-filter: blur(0.25px) saturate(1.1) !important;',
+          '}'
+        );
+      }
+    }
+
+    /* B11.2 强制颜色模式：全量移除玻璃滤镜与两个伪元素。
+       不依赖 JS 是否跑到，样式层就兜住。 */
+    if (acrylicList.length) {
+      rules.push(
+        '@media (forced-colors: active) {',
+        selLine(acrylicList),
+        '  -webkit-backdrop-filter: none !important;',
+        '  backdrop-filter: none !important;',
+        '  box-shadow: none !important;',
+        '}',
+        pseudo(acrylicList, '::before'),
+        '  display: none !important;',
+        '}',
+        pseudo(acrylicList, '::after'),
+        '  display: none !important;',
+        '}',
+        '}',
+        /* B11.3 高对比度偏好：镜面线加到 2px 且对比 ≥3:1 */
+        '@media (prefers-contrast: more) {',
+        pseudo(acrylicList, '::before'),
+        '  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9) !important;',
+        '}',
         '}'
       );
     }
@@ -2349,7 +2787,7 @@
       return;
     }
 
-    var css = buildCSS(state.alpha, state.mode, state.round);
+    var css = buildCSS(state.alpha, state.mode, state.round, effectiveAberration());
     if (el) {
       el.textContent = css;
     } else {
@@ -2358,14 +2796,18 @@
       s.textContent = css;
       (document.head || document.documentElement).appendChild(s);
     }
-    // 按元素尺寸下发圆角变量（三模式共有）+ liquid 模式生成专属折射滤镜
-    syncRefract(_roundSels.length ? _roundSels : _refractSels);
+    /* 按元素尺寸下发圆角变量（三模式共有）+ liquid 模式生成专属折射滤镜。
+       ⚠️ 折射/色差只作用于 _refractSels（已剔除 noRefract 与黑名单外的元素），
+          圆角变量作用于更宽的 _roundSels —— 两者不能混用：
+          之前把 _roundSels 传进 syncRefract，导致 noRefract 元素也被挂上
+          --xsdoi-lg-f（生成了用不到的滤镜，且黑名单元素也会带上色差变体）。 */
+    syncRefract(_refractSels, _roundSels.length ? _roundSels : _refractSels);
     applyLvBg(state.alpha);
   }
 
   function loadAndApply() {
     try {
-      chrome.storage.sync.get(['mode', 'enabled', 'alpha', 'round'], function (data) {
+      chrome.storage.sync.get(['mode', 'enabled', 'alpha', 'round', 'aberration'], function (data) {
         var mode = data.mode;
         if (!mode) {
           // 迁移老配置：旧版只有 enabled（布尔），映射为 acrylic / none
@@ -2376,12 +2818,14 @@
         state.mode = sanitizeMode(mode);
         state.alpha = sanitizeAlpha(data.alpha);
         state.round = sanitizeRound(data.round);
+        state.aberration = sanitizeAberration(data.aberration);
         apply();
       });
     } catch (e) {
       state.mode = DEFAULT_MODE;
       state.alpha = DEFAULT_ALPHA;
       state.round = DEFAULT_ROUND;
+      state.aberration = DEFAULT_ABERRATION;
       apply();
     }
   }
@@ -2397,6 +2841,7 @@
       }
       if (changes.alpha) state.alpha = sanitizeAlpha(changes.alpha.newValue);
       if (changes.round) state.round = sanitizeRound(changes.round.newValue);
+      if (changes.aberration) state.aberration = sanitizeAberration(changes.aberration.newValue);
       apply();
     });
   } catch (e) { /* 忽略 */ }
@@ -2411,7 +2856,7 @@
     if (_rsTimer) clearTimeout(_rsTimer);
     _rsTimer = setTimeout(function () {
       _rsTimer = 0;
-      if (state.mode === 'liquid') syncRefract(_refractSels);
+      if (state.mode === 'liquid') syncRefract(_refractSels, _roundSels);
     }, delay);
   }
   try {
@@ -2421,6 +2866,19 @@
   try {
     var _mo = new MutationObserver(function () { resyncRefract(500); });
     _mo.observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) { /* 忽略 */ }
+
+  /* 亮/暗主题切换：色差 k 的系数不同（2.4 / 1.6），滤镜 id 里带 D/L，
+     切主题必须重建一次（否则会继续用旧系数那张位移图）。 */
+  try {
+    var _lastDark = isDarkTheme();
+    new MutationObserver(function () {
+      var d = isDarkTheme();
+      if (d === _lastDark) return;
+      _lastDark = d;
+      _refractSig = '';
+      resyncRefract(120);
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   } catch (e) { /* 忽略 */ }
 
   // document_start 时立即按存储状态应用，减少首屏闪烁

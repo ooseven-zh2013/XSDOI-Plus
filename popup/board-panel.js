@@ -2,6 +2,7 @@
 // 板块美化面板逻辑
 // 玻璃效果三选一（互斥）：acrylic 亚克力(毛玻璃) / liquid 液态玻璃 / none 仅透明化
 // + 透明度滑块、圆角滑块（三模式共有）
+// + 边缘色散（chromatic aberration，仅液态玻璃可用，默认关）
 // 兼容迁移：旧版只有 enabled 布尔 → true 映射 acrylic、false 映射 none
 // ============================================================
 (function () {
@@ -10,6 +11,10 @@
   var DEFAULT_MODE = 'none';
   var DEFAULT_ALPHA = 0.55;
   var DEFAULT_ROUND = 0.5;
+  var DEFAULT_AB_ON = false;
+  var DEFAULT_AB = 0.50;
+  var AB_MIN = 0.25;
+  var AB_MAX = 0.70;
   var MODES = ['none', 'acrylic', 'liquid'];
 
   var MODE_TIPS = {
@@ -18,9 +23,14 @@
     liquid: '液态玻璃：背景保持清晰、不模糊，边缘高光 + 真实折射营造玻璃质感。'
   };
 
+  var AB_DESC_ON = '只在卡片最外 2–6px 模拟真实玻璃的彩色边缘，关闭后一点痕迹都不留';
+  var AB_DESC_LOCKED = '仅液态玻璃可用';
+
   // saved = 已持久化到 storage 的值；draft = 当前界面正在编辑的值
-  var saved = { mode: DEFAULT_MODE, alpha: DEFAULT_ALPHA, round: DEFAULT_ROUND };
-  var draft = { mode: DEFAULT_MODE, alpha: DEFAULT_ALPHA, round: DEFAULT_ROUND };
+  var saved = { mode: DEFAULT_MODE, alpha: DEFAULT_ALPHA, round: DEFAULT_ROUND,
+                abOn: DEFAULT_AB_ON, ab: DEFAULT_AB };
+  var draft = { mode: DEFAULT_MODE, alpha: DEFAULT_ALPHA, round: DEFAULT_ROUND,
+                abOn: DEFAULT_AB_ON, ab: DEFAULT_AB };
 
   function clamp(v) {
     v = parseFloat(v);
@@ -34,6 +44,12 @@
     return Math.min(1, Math.max(0, v));
   }
 
+  function clampAb(v) {
+    v = parseFloat(v);
+    if (isNaN(v)) return DEFAULT_AB;
+    return Math.min(AB_MAX, Math.max(AB_MIN, v));
+  }
+
   function sanitizeMode(v) {
     return MODES.indexOf(v) >= 0 ? v : DEFAULT_MODE;
   }
@@ -44,7 +60,17 @@
   var alphaValue = document.getElementById('board-alpha-value');
   var roundEl = document.getElementById('board-round');
   var roundValue = document.getElementById('board-round-value');
+  var abSwitch = document.getElementById('board-aberration');
+  var abDesc = document.getElementById('ab-desc');
+  var abRow = document.getElementById('ab-strength-row');
+  var abRange = document.getElementById('board-ab-strength');
+  var abValue = document.getElementById('board-ab-strength-value');
   var saveBtn = document.getElementById('board-save');
+
+  // 当前模式下色散是否可用（仅液态玻璃）
+  function abAvailable() {
+    return draft.mode === 'liquid';
+  }
 
   // 把 draft 同步到界面控件
   function syncUI() {
@@ -59,6 +85,24 @@
     if (alphaValue) alphaValue.value = draft.alpha.toFixed(2);
     if (roundEl) roundEl.value = draft.round;
     if (roundValue) roundValue.value = draft.round.toFixed(2);
+
+    var usable = abAvailable();
+    if (abSwitch) {
+      abSwitch.checked = draft.abOn;
+      abSwitch.setAttribute('aria-checked', draft.abOn ? 'true' : 'false');
+      /* 视觉/读屏都按不可用处理，但**不用 disabled 属性** ——
+         保留可聚焦性，读屏才会念到「仅液态玻璃可用」的说明。 */
+      abSwitch.setAttribute('aria-disabled', usable ? 'false' : 'true');
+    }
+    if (abDesc) abDesc.textContent = usable ? AB_DESC_ON : AB_DESC_LOCKED;
+    if (abRow) abRow.classList.toggle('is-disabled', !usable || !draft.abOn);
+    if (abRange) {
+      abRange.value = draft.ab;
+      abRange.setAttribute('aria-valuetext', '弱 / ' + draft.ab.toFixed(2));
+    }
+    if (abValue) abValue.value = draft.ab.toFixed(2);
+
+    if (typeof window.__xsdoiRefreshSliders === 'function') window.__xsdoiRefreshSliders();
   }
 
   // 判断 draft 与 saved 是否有差异，据此高亮「保存」按钮
@@ -66,7 +110,9 @@
     if (!saveBtn) return;
     var dirty = (draft.mode !== saved.mode) ||
                 (Math.abs(draft.alpha - saved.alpha) > 0.0001) ||
-                (Math.abs(draft.round - saved.round) > 0.0001);
+                (Math.abs(draft.round - saved.round) > 0.0001) ||
+                (draft.abOn !== saved.abOn) ||
+                (draft.abOn && Math.abs(draft.ab - saved.ab) > 0.0001);
 
     saveBtn.classList.toggle('dirty', dirty);
     saveBtn.classList.remove('saved');
@@ -86,12 +132,20 @@
   // 读取已保存配置，填充草稿与界面（含旧版 enabled 迁移）
   function load() {
     try {
-      chrome.storage.sync.get(['mode', 'enabled', 'alpha', 'round'], function (data) {
+      chrome.storage.sync.get(['mode', 'enabled', 'alpha', 'round', 'aberration'], function (data) {
         var mode = data.mode;
         if (!mode) {
           mode = (typeof data.enabled === 'boolean')
             ? (data.enabled ? 'acrylic' : 'none')
             : DEFAULT_MODE;
+        }
+        var ab = parseFloat(data.aberration);
+        if (isNaN(ab) || ab <= 0) {
+          saved.abOn = false;
+          saved.ab = DEFAULT_AB;
+        } else {
+          saved.abOn = true;
+          saved.ab = clampAb(ab);
         }
         saved.mode = sanitizeMode(mode);
         saved.alpha = clamp(data.alpha);
@@ -99,6 +153,8 @@
         draft.mode = saved.mode;
         draft.alpha = saved.alpha;
         draft.round = saved.round;
+        draft.abOn = saved.abOn;
+        draft.ab = saved.ab;
         syncUI();
         updateSaveState();
       });
@@ -111,7 +167,12 @@
   // 保存并应用：一次性写入 storage（content script 监听 onChanged 自动应用）
   function save() {
     try {
-      chrome.storage.sync.set({ mode: draft.mode, alpha: draft.alpha, round: draft.round }, function () {
+      chrome.storage.sync.set({
+        mode: draft.mode,
+        alpha: draft.alpha,
+        round: draft.round,
+        aberration: draft.abOn ? draft.ab : 0
+      }, function () {
         if (chrome.runtime.lastError) {
           if (saveBtn) {
             saveBtn.classList.remove('dirty');
@@ -128,6 +189,8 @@
         saved.mode = draft.mode;
         saved.alpha = draft.alpha;
         saved.round = draft.round;
+        saved.abOn = draft.abOn;
+        saved.ab = draft.ab;
         flashSaved();
       });
     } catch (e) { /* 忽略 */ }
@@ -192,6 +255,48 @@
       draft.round = v;
       roundEl.value = v;
       roundValue.value = v.toFixed(2);
+      updateSaveState();
+    });
+  }
+
+  // ===== 边缘色散开关：仅液态玻璃可用 =====
+  if (abSwitch) {
+    abSwitch.addEventListener('change', function () {
+      if (!abAvailable()) {
+        // aria-disabled 状态下点开关不生效，状态回弹
+        abSwitch.checked = draft.abOn;
+        abSwitch.setAttribute('aria-checked', draft.abOn ? 'true' : 'false');
+        return;
+      }
+      draft.abOn = abSwitch.checked;
+      abSwitch.setAttribute('aria-checked', draft.abOn ? 'true' : 'false');
+      if (abRow) abRow.classList.toggle('is-disabled', !abAvailable() || !draft.abOn);
+      updateSaveState();
+    });
+  }
+
+  // ===== 色散强度滑块 =====
+  if (abRange && abValue) {
+    abRange.addEventListener('input', function () {
+      draft.ab = clampAb(abRange.value);
+      abValue.value = draft.ab.toFixed(2);
+      abRange.setAttribute('aria-valuetext', '弱 / ' + draft.ab.toFixed(2));
+      updateSaveState();
+    });
+
+    abValue.addEventListener('input', function () {
+      var raw = parseFloat(abValue.value);
+      if (isNaN(raw)) return;
+      draft.ab = clampAb(raw);
+      abRange.setAttribute('aria-valuetext', '弱 / ' + draft.ab.toFixed(2));
+      updateSaveState();
+    });
+    abValue.addEventListener('change', function () {
+      var v = Math.round(clampAb(abValue.value) * 100) / 100;
+      draft.ab = v;
+      abRange.value = v;
+      abValue.value = v.toFixed(2);
+      abRange.setAttribute('aria-valuetext', '弱 / ' + v.toFixed(2));
       updateSaveState();
     });
   }

@@ -49,7 +49,7 @@
     clearTimeout(flashTimer);
     flashTimer = setTimeout(function () {
       saveBtn.classList.remove('saved', 'save-error');
-      saveBtn.textContent = '保存配置';
+      saveBtn.textContent = '保存并应用';
     }, 1200);
   }
 
