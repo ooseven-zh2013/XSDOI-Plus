@@ -118,6 +118,21 @@
     port.postMessage({ type: BG.MSG.load, key: key });
   }
 
+  /* 视频背景是否静音。默认 false = 保持历史行为（首次交互后出声）。
+     true 时：视频始终 muted，且 unlockVideoAudio 的解锁逻辑直接放弃。 */
+  var videoMuted = false;
+
+  // 就地切换现有视频的静音（不重建图层，避免视频从头播放）
+  function setVideoMuted(mute) {
+    videoMuted = !!mute;
+    var l = document.getElementById(LAYER_ID);
+    if (!l) return;
+    var vs = l.getElementsByTagName('video');
+    for (var i = 0; i < vs.length; i++) {
+      vs[i].muted = videoMuted;
+    }
+  }
+
   // ---- 视频 ----
   function applyVideo(l, src, fit) {
     l.innerHTML = '';
@@ -133,8 +148,8 @@
       'object-fit:' + (fit === 'contain' ? 'contain' : 'cover') + ';';
     l.appendChild(video);
 
-    // 用户首次交互后取消静音，恢复视频声音
-    unlockVideoAudio(video);
+    // 用户首次交互后取消静音，恢复视频声音；静音开关打开时不做
+    if (!videoMuted) unlockVideoAudio(video);
 
     if (src && src.__indexed) {
       // 本地大文件从 IndexedDB 分片读取
@@ -155,6 +170,7 @@
     }
     function unlock() {
       cleanup();
+      if (videoMuted) return;            // 静音开关已打开：保持静音
       if (!video || !video.parentNode) return;
       // 仅在有效用户手势下取消静音，避免浏览器打出 "Unmuting failed" 警告
       if (navigator.userActivation && !navigator.userActivation.isActive) return;
@@ -240,6 +256,7 @@
 
   // ---- 应用配置 ----
   function apply(config) {
+    videoMuted = !!config.bgMuteVideo;
     var type = config.bgType;
     var src = config.bgSrc;
     var fit = config.bgFit || 'cover';
@@ -286,6 +303,7 @@
         bgColor: res.bgColor,
         bgColor2: res.bgColor2,
         bgDirection: res.bgDirection,
+        bgMuteVideo: res.bgMuteVideo,
       });
     });
   }
@@ -314,8 +332,14 @@
   // ---- 配置实时更新 ----
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
+    // 只改了静音开关：就地切 muted，不重建图层（否则视频会从头播）
+    if (changes.bgMuteVideo && !changes.bgType && !changes.bgSrc) {
+      setVideoMuted(changes.bgMuteVideo.newValue);
+      return;
+    }
     if (changes.bgType || changes.bgSrc || changes.bgFit || changes.bgAudio ||
-        changes.bgColor || changes.bgColor2 || changes.bgDirection) {
+        changes.bgColor || changes.bgColor2 || changes.bgDirection ||
+        changes.bgMuteVideo) {
       load();
     }
   });

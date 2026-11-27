@@ -266,6 +266,15 @@ body {
   margin-bottom: 10px;
 }
 
+/* card 内部的一行「标签 + 开关」：与 .card-row 同构，但用于卡片内部而非整卡 */
+.row-switch {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 12px;
+  align-items: center;
+  margin-top: 10px;
+}
+
 .card-row {
   display: grid;
   grid-template-columns: 1fr auto;

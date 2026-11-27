@@ -76,6 +76,7 @@
       bgColor: null,  // 纯色 / 渐变起始色，'#RRGGBB' / '#RRGGBBAA' / 'rgba(...)'
       bgColor2: null, // 渐变结束色，'#RRGGBB' / '#RRGGBBAA' / 'rgba(...)'
       bgDirection: 'left-right', // 渐变方向：left-right / top-bottom / tl-br / tr-bl
+      bgMuteVideo: false,         // 视频背景静音（true = 保持静音，不随用户交互自动出声）
     },
     // 消息类型（content script / popup 与 background 通信）
     MSG: {

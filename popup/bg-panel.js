@@ -27,6 +27,7 @@
   var videoPick = document.getElementById('bg-video-pick');
   var videoFile = document.getElementById('bg-video-file');
   var videoPreview = document.getElementById('bg-video-preview');
+  var muteVideo = document.getElementById('bg-mute-video');
 
   var colorPicker = document.getElementById('bg-color-picker');
   var colorInput = document.getElementById('bg-color-input');
@@ -590,6 +591,21 @@
           imgUrl.value = src;
         }
       }
+    });
+  }
+
+  // ---- 视频背景静音开关（即时生效，写 storage.local，content/bg.js 监听）----
+  if (muteVideo) {
+    chrome.storage.local.get(['bgMuteVideo'], function (res) {
+      var on = !!res.bgMuteVideo;
+      muteVideo.checked = on;
+      muteVideo.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+
+    muteVideo.addEventListener('change', function () {
+      var on = muteVideo.checked;
+      muteVideo.setAttribute('aria-checked', on ? 'true' : 'false');
+      chrome.storage.local.set({ bgMuteVideo: on });
     });
   }
 
